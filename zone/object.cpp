@@ -179,9 +179,6 @@ Object::Object(const EQ::ItemInstance *inst, float x, float y, float z, float he
 		m_character_id = 0;
 		m_ssf_ruleset = false;
 	}
-	else{
-		m_character_id = 0;
-	}
 	user = 0;
 	last_user = 0;
 
