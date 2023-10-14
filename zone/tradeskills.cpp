@@ -213,8 +213,8 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 	std::vector< std::pair<uint32,uint8> >::iterator itr;
 
 	// Calculate success chance
-	// For trivials over 68 the chance is (skill - 0.75*trivial) +51.5
-	// For trivial up to 68 the chance is (skill - trivial) + 66
+	// For trivials 68 and higher the chance is (skill - 0.75 * trivial) + 51.5
+	// For trivials 67 and lower the chance is (skill - trivial) + 66
 	// This is accurate.  See http://mboards.eqtraders.com/eq/showthread.php?11-What-sort-of-success-rate-should-I-expect
 	// Verified correct here: http://mboards.eqtraders.com/eq/showthread.php?22246-Fan-Faire-June-2005-Write-up-(Plus-Tanker-handout
 	// Sony uses an internal 'difficulty' value for recipes instead of basing them off trivials however
