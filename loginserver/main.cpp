@@ -52,93 +52,46 @@ int main()
 	LogSys.log_settings[Logs::Error].log_to_console = Logs::General;
 
 
-	/* Parse out login.ini */
-	server.config = new Config();
+	server.config = EQ::JsonConfigFile::Load("login.json");
 	LogInfo("Config System Init.");
-	server.config->Parse("login.ini");
 
-	if (server.config->GetVariable("options", "unregistered_allowed").compare("FALSE") == 0) {
-		server.options.AllowUnregistered(false);
-	}
+	server.options.AutoCreateAccounts(server.config.GetVariableBool("account", "auto_create_accounts", true));
 
-	if (server.config->GetVariable("options", "dump_packets_in").compare("TRUE") == 0) {
-		server.options.DumpInPackets(true);
-	}
+	server.options.RejectDuplicateServers(server.config.GetVariableBool("worldservers", "reject_duplicate_servers", false));
 
-	if (server.config->GetVariable("options", "dump_packets_out").compare("TRUE") == 0) {
-		server.options.DumpOutPackets(true);
-	}
+	server.options.Trace(server.config.GetVariableBool("logging", "trace", false));
+	server.options.WorldTrace(server.config.GetVariableBool("logging", "world_trace", false));
+	server.options.DumpInPackets(server.config.GetVariableBool("logging", "dump_packets_in", false));
+	server.options.DumpOutPackets(server.config.GetVariableBool("logging", "dump_packets_out", false));
 
-	if (server.config->GetVariable("security", "allow_token_login").compare("TRUE") == 0) //
-		server.options.AllowTokenLogin(true);
+	server.options.AllowUnregistered(server.config.GetVariableBool("security", "unregistered_allowed", true));
+	server.options.AllowTokenLogin(server.config.GetVariableBool("security", "allow_token_login", false));
+	server.options.AllowPasswordLogin(server.config.GetVariableBool("security", "allow_password_login", true));
+	server.options.EncryptionMode(server.config.GetVariableInt("security", "mode", 5));
 
-	if (server.config->GetVariable("security", "allow_password_login").compare("FALSE") == 0) //
-		server.options.AllowPasswordLogin(false);
+	server.options.LocalNetwork(server.config.GetVariableString("client_configuration", "local_network", "127.0.0.1"));
+	server.options.NetworkIP(server.config.GetVariableString("client_configuration", "network_ip", "127.0.0.1"));
 
-	if (server.config->GetVariable("options", "auto_create_accounts").compare("TRUE") == 0)  //
-		server.options.AutoCreateAccounts(true);
-
-	std::string mode = server.config->GetVariable("security", "mode");
-	if (mode.size() > 0) {
-		server.options.EncryptionMode(atoi(mode.c_str()));
-	}
-
-	std::string local_network = server.config->GetVariable("options", "local_network");
-	if (local_network.size() > 0) {
-		server.options.LocalNetwork(local_network);
-	}
-
-	//Parse local network option.
-	std::string mip = server.config->GetVariable("options", "network_ip");
-	if (mip.size() > 0)
-	{
-		server.options.NetworkIP(mip);
-	}
-
-	if (server.config->GetVariable("options", "reject_duplicate_servers").compare("TRUE") == 0) {
-		server.options.RejectDuplicateServers(true);
-	}
-
-	local_network = server.config->GetVariable("schema", "account_table");
-	if (local_network.size() > 0) {
-		server.options.AccountTable(local_network);
-	}
-
-	local_network = server.config->GetVariable("schema", "world_registration_table");
-	if (local_network.size() > 0) {
-		server.options.WorldRegistrationTable(local_network);
-	}
-
-	local_network = server.config->GetVariable("schema", "world_admin_registration_table");
-	if (local_network.size() > 0) {
-		server.options.WorldAdminRegistrationTable(local_network);
-	}
-
-	local_network = server.config->GetVariable("schema", "world_server_type_table");
-	if (local_network.size() > 0) {
-		server.options.WorldServerTypeTable(local_network);
-	}
-
-	local_network = server.config->GetVariable("schema", "loginserver_setting_table");
-	if (local_network.size() > 0)
-		server.options.LoginSettingTable(local_network);
+	server.options.AccountTable(server.config.GetVariableString("schema", "account_table", "tblLoginServerAccounts"));
+	server.options.WorldRegistrationTable(server.config.GetVariableString("schema", "world_registration_table", "tblWorldServerRegistration"));
+	server.options.WorldAdminRegistrationTable(server.config.GetVariableString("schema", "world_admin_registration_table", "tblServerAdminRegistration"));
+	server.options.WorldServerTypeTable(server.config.GetVariableString("schema", "world_server_type_table", "tblServerListType"));
+	server.options.LoginSettingTable(server.config.GetVariableString("schema", "loginserver_setting_table", "tblloginserversettings"));
 
 	/* Create database connection */
-	if (server.config->GetVariable("database", "subsystem").compare("MySQL") == 0) {
+	if (server.config.GetVariableString("database", "subsystem", "MySQL").compare("MySQL") == 0) {
 		LogInfo("MySQL Database Init.");
 		server.db = (Database*)new Database(
-			server.config->GetVariable("database", "user"),
-			server.config->GetVariable("database", "password"),
-			server.config->GetVariable("database", "host"),
-			server.config->GetVariable("database", "port"),
-			server.config->GetVariable("database", "db"));
+			server.config.GetVariableString("database", "user", "user"),
+			server.config.GetVariableString("database", "password", "password"),
+			server.config.GetVariableString("database", "host", "127.0.0.1"),
+			server.config.GetVariableString("database", "port", "3306"),
+			server.config.GetVariableString("database", "db", "eqemu"));
 	}
 
 	/* Make sure our database got created okay, otherwise cleanup and exit. */
 	if (!server.db) {
 		LogError("Database Initialization Failure.");
-		LogInfo("Config System Shutdown.");
-		delete server.config;
 		LogInfo("Log System Shutdown.");
 		return 1;
 	}
@@ -152,8 +105,6 @@ int main()
 
 		LogInfo("Database System Shutdown.");
 		delete server.db;
-		LogInfo("Config System Shutdown.");
-		delete server.config;
 		return 1;
 	}
 
@@ -168,8 +119,6 @@ int main()
 
 		LogInfo("Database System Shutdown.");
 		delete server.db;
-		LogInfo("Config System Shutdown.");
-		delete server.config;
 		return 1;
 	}
 
@@ -212,10 +161,7 @@ int main()
 	LogInfo("Database System Shutdown.");
 	delete server.db;
 
-	LogInfo("Config System Shutdown.");
-	delete server.config;
 	LogSys.CloseFileLogs();
-
 	return 0;
 }
 

@@ -103,6 +103,7 @@ void EQEmuConfig::parse_config() {
 	PatchDir = _root["server"]["directories"].get("patches", "./").asString();
 	SharedMemDir = _root["server"]["directories"].get("shared_memory", "shared/").asString();
 	LogDir = _root["server"]["directories"].get("logs", "logs/").asString();
+	OpcodesDir = _root["server"]["directories"].get("opcodes", "./").asString();
 
 	LogPrefix = _root["server"]["launcher"].get("logprefix", "logs/zone-").asString();
 	LogSuffix = _root["server"]["launcher"].get("logsuffix", ".log").asString();

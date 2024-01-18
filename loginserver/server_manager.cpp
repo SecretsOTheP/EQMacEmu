@@ -30,7 +30,7 @@ ServerManager::ServerManager()
 {
 	char error_buffer[TCPConnection_ErrorBufferSize];
 
-	int listen_port = atoi(server.config->GetVariable("options", "listen_port").c_str());
+	int listen_port = server.config.GetVariableInt("client_configuration", "listen_port", 5998);
 	tcps = new EmuTCPServer(listen_port, true);
 	if(tcps->Open(listen_port, error_buffer)) {
 		LogInfo("ServerManager listening on port {} ", listen_port);

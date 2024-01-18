@@ -24,23 +24,10 @@
     },
     "world": {
       "loginserver1": {
-        "account": "",
-        "password": "",
-        "legacy": "1",
-        "host": "login.eqemulator.net",
-        "port": "5998"
-      },
-      "loginserver2": {
         "port": "5998",
         "account": "",
         "password": "",
         "host": "127.0.0.1"
-      },
-      "loginserver3": {
-        "port": "5998",
-        "account": "",
-        "password": "",
-        "host": "login.projecteq.net"
       },
       "tcp": {
         "ip": "127.0.0.1",

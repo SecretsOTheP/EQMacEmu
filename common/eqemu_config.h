@@ -84,6 +84,7 @@ class EQEmuConfig
 		std::string PatchDir;
 		std::string SharedMemDir;
 		std::string LogDir;
+		std::string OpcodesDir;
 
 		// From <launcher/>
 		std::string LogPrefix;

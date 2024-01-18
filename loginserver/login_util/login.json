@@ -1,0 +1,53 @@
+{
+    "database": {
+      "host": "127.0.0.1",
+      "port": "3306",
+      "db": "eqemu",
+      "user": "user",
+      "password": "password",
+      "subsystem": "MySQL"
+    },
+    "account": {
+      "auto_create_accounts": false,
+      "auto_account_activate": false
+    },
+    "worldservers": {
+      "unregistered_allowed": true,
+      "show_player_count": false,
+      "dev_test_servers_list_bottom": false,
+      "special_character_start_list_bottom": false,
+      "reject_duplicate_servers": false
+    },
+    "security": {
+      "plugin": "EQEmuAuthCrypto",
+      "mode": 5,
+      "allow_password_login": true,
+      "allow_token_login": true
+    },
+    "logging": {
+      "trace": false,
+      "world_trace": false,
+      "dump_packets_in": false,
+      "dump_packets_out": false,
+      "failed_login_log": false,
+      "good_loginIP_log": false
+    },
+    "client_configuration": {
+      "listen_port": 5998,
+      "local_network": "127.0.0.1",
+      "network_ip": "127.0.0.1",
+      "salt": "randomstring"
+    },
+    "Old": {
+      "port": 6000,
+      "opcodes": "login_opcodes_oldver.conf"
+    },
+    "schema": {
+      "access_log_table": "tblaccountaccesslog",
+      "account_table": "tblloginserveraccounts",
+      "world_registration_table": "tblworldserverregistration",
+      "world_admin_registration_table": "tblserveradminregistration",
+      "world_server_type_table": "tblserverlisttype",
+      "loginserver_setting_table": "tblloginserversettings"
+    }
+  }

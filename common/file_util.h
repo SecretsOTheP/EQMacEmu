@@ -24,7 +24,7 @@
 
 class FileUtil {
 public:
-	static bool exists(const std::string &name);
+	static bool exists(const std::string& name);
 	static void mkdir(const std::string& directory_name);
 };
 

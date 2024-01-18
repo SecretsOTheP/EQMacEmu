@@ -30,6 +30,8 @@ public:
 	*/
 	Options() :
 		allow_unregistered(true),
+		trace(false),
+		world_trace(false),
 		dump_in_packets(false),
 		dump_out_packets(false),
 		encryption_mode(5),
@@ -49,6 +51,26 @@ public:
 	* Returns the value of allow_unregistered.
 	*/
 	inline bool IsUnregisteredAllowed() const { return allow_unregistered; }
+
+	/**
+	* Sets trace.
+	*/
+	inline void Trace(bool b) { trace = b; }
+
+	/**
+	* Returns the value of trace.
+	*/
+	inline bool IsTraceOn() const { return trace; }
+
+	/**
+	* Sets trace.
+	*/
+	inline void WorldTrace(bool b) { world_trace = b; }
+
+	/**
+	* Returns the value of trace.
+	*/
+	inline bool IsWorldTraceOn() const { return world_trace; }
 
 	/**
 	* Sets dump_in_packets.
@@ -171,6 +193,8 @@ public:
 
 private:
 	bool allow_unregistered;
+	bool trace;
+	bool world_trace;
 	bool dump_in_packets;
 	bool dump_out_packets;
 	bool reject_duplicate_servers;

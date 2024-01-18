@@ -97,7 +97,7 @@ RULE_CATEGORY_END()
 RULE_CATEGORY( World )
 RULE_INT ( World, ZoneAutobootTimeoutMS, 60000 )
 RULE_INT ( World, ClientKeepaliveTimeoutMS, 65000 )
-RULE_BOOL ( World, UseBannedIPsTable, false ) // Toggle whether or not to check incoming client connections against the Banned_IPs table. Set this value to false to disable this feature.
+RULE_BOOL ( World, UseBannedIPsTable, false ) // Toggle whether or not to check incoming client connections against the banned_ips table. Set this value to false to disable this feature.
 RULE_INT ( World, MaxClientsPerIP, -1 ) // Maximum number of clients allowed to connect per IP address if account status is < AddMaxClientsStatus. Default value: -1 (feature disabled)
 RULE_INT( World, MaxClientsPerForumName, -1 ) // Maximum number of clients allowed to connect per forum name if account status is < AddMaxClientsStatus. Default value: -1 (feature disabled)
 RULE_INT ( World, ExemptMaxClientsStatus, -1 ) // Exempt accounts from the MaxClientsPerIP and AddMaxClientsStatus rules, if their status is >= this value. Default value: -1 (feature disabled)

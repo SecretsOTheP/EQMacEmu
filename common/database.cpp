@@ -130,7 +130,7 @@ uint32 Database::CheckLogin(const char* name, const char* password, int16* oStat
 bool Database::CheckBannedIPs(std::string login_ip)
 {
 	auto query = fmt::format(
-		"SELECT ip_address FROM Banned_IPs WHERE ip_address= '{}'", 
+		"SELECT ip_address FROM banned_ips WHERE ip_address= '{}'", 
 		login_ip
 	);
 
@@ -146,7 +146,7 @@ bool Database::CheckBannedIPs(std::string login_ip)
 
 bool Database::AddBannedIP(std::string banned_ip, std::string notes) {
 	auto query = fmt::format(
-		"INSERT into Banned_IPs SET ip_address= '{}', notes = '{}'", 
+		"INSERT into banned_ips SET ip_address= '{}', notes = '{}'", 
 		Strings::Escape(banned_ip),
 		Strings::Escape(notes)
 	);

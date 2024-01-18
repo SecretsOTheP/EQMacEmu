@@ -18,32 +18,27 @@
  *
 */
 
-#include <fstream>
-#include "file_util.h"
+
+#include <string>
+#include <sys/stat.h>
 
 #ifdef _WINDOWS
 #include <direct.h>
-#include <conio.h>
-#include <iostream>
-#include <dos.h>
-#include <windows.h>
-#include <process.h>
-#else
-
-#include <unistd.h>
-#include <sys/stat.h>
-
 #endif
+
+#include "file_util.h"
 
 /**
  * @param name
  * @return
  */
-bool FileUtil::exists(const std::string &name)
+bool FileUtil::exists(const std::string& name)
 {
-	std::ifstream f(name.c_str());
-
-	return f.good();
+	struct stat st {};
+	if (stat(name.c_str(), &st) == 0) { // exists
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -51,15 +46,13 @@ bool FileUtil::exists(const std::string &name)
  */
 void FileUtil::mkdir(const std::string& directory_name)
 {
-
+	bool dir_exists = exists(directory_name);
 #ifdef _WINDOWS
-	struct _stat st;
-	if (_stat(directory_name.c_str(), &st) == 0) // exists
+	if (dir_exists)
 		return;
 	_mkdir(directory_name.c_str());
 #else
-	struct stat st{};
-	if (stat(directory_name.c_str(), &st) == 0) { // exists
+	if (dir_exists) {
 		return;
 	}
 	::mkdir(directory_name.c_str(), 0755);

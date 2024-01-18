@@ -26,12 +26,13 @@ extern EQEmuLogSys Log;
 
 ClientManager::ClientManager()
 {
-	int old_port = atoi(server.config->GetVariable("Old", "port").c_str());
+	int old_port = server.config.GetVariableInt("Old", "port", 6000);
 	old_stream = new EQStreamFactory(OldStream, old_port);
 	old_ops = new RegularOpcodeManager;
-	if (!old_ops->LoadOpcodes(server.config->GetVariable("Old", "opcodes").c_str()))
+	if (!old_ops->LoadOpcodes(server.config.GetVariableString("Old", "opcodes", "login_opcodes_oldver.conf").c_str()))
 	{
-		LogError("ClientManager fatal error: couldn't load opcodes for Old file %s.", server.config->GetVariable("Old", "opcodes").c_str());
+		LogError("ClientManager fatal error: couldn't load opcodes for Old file %s.",
+			server.config.GetVariableString("Old", "opcodes", "login_opcodes_oldver.conf").c_str());
 		run_server = false;
 	}
 	else if (old_stream->Open())

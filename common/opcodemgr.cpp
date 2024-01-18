@@ -19,6 +19,7 @@
 #include "eqemu_logsys.h"
 #include "emu_opcodes.h"
 #include "opcodemgr.h"
+#include "eqemu_config.h"
 
 #include <cstring>
 #include <map>
@@ -32,8 +33,13 @@ OpcodeManager::OpcodeManager() {
 bool OpcodeManager::LoadOpcodesFile(const char *filename, OpcodeSetStrategy *s, bool report_errors) {
 	FILE *opf = fopen(filename, "r");
 	if(opf == nullptr) {
-		LogError("Unable to open opcodes file [{}]", filename);
-		return(false);
+		// retry with OpcodesDir
+		auto config = EQEmuConfig::get();
+		opf = fopen((config->OpcodesDir + filename).c_str(), "r");
+		if (opf == nullptr) {
+			LogError("Unable to open opcodes file [{}]", filename);
+			return(false);
+		}
 	}
 
 	std::map<std::string, uint16> eq;
