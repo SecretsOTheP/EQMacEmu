@@ -5119,7 +5119,17 @@ float Client::GetQuiverHaste()
 
 uint8 Client::Disarm(float chance)
 {
-	EQ::ItemInstance* weapon = m_inv.GetItem(EQ::invslot::slotPrimary);
+	int16 slot = EQ::invslot::SlotPrimary
+	EQ::ItemInstance* weapon = m_inv.GetItem(slot);
+	uint8 texture = EQ::textures::weaponPrimary
+
+	if(!weapon)
+	{
+		slot = EQ::invslot::slotSecondary
+		weapon = m_inv.GetItem(slot)
+		texture = EQ::textures::weaponSecondary
+	}
+  // TODO <Lynch>: maybe change this to align more with npcs? (drop non magical)
 	if(weapon)
 	{
 		if (zone->random.Roll(chance))
@@ -5128,9 +5138,9 @@ uint8 Client::Disarm(float chance)
 			uint16 freeslotid = m_inv.FindFreeSlot(false, true, weapon->GetItem()->Size);
 			if(freeslotid != INVALID_INDEX)
 			{
-				DeleteItemInInventory(EQ::invslot::slotPrimary,0,true);
+				DeleteItemInInventory(slot,0,true);
 				SummonItem(weapon->GetID(),charges,freeslotid);
-				WearChange(EQ::textures::weaponPrimary,0,0);
+				WearChange(texture,0,0);
 
 				return 2;
 			}

@@ -2605,7 +2605,17 @@ uint8 NPC::Disarm(float chance)
 		return 0;
 	}
 
-	ServerLootItem_Struct* weapon = GetItem(EQ::invslot::slotPrimary);
+	int16 slot = EQ::invslot::SlotPrimary
+	ServerLootItem_Struct* weapon = GetItem(slot);
+	uint8 texture = EQ::textures::weaponPrimary
+
+	if(!weapon)
+	{
+		slot = EQ::invslot::slotSecondary
+		weapon = GetItem(slot)
+		texture = EQ::textures::weaponSecondary
+	}
+
 	if (weapon)
 	{
 		if (zone->random.Roll(chance))
@@ -2615,11 +2625,14 @@ uint8 NPC::Disarm(float chance)
 
 			if (inst)
 			{
-				// No drop weapons not disarmable
-				if (inst->GetItem()->Magic)
-					return 0;
-
-				if (inst->GetItem()->NoDrop == 0)
+				// Redid this so that maybe some raid encounters could be spicy?
+				// otherwise no reason most solo/group mobs should have double dps randomly
+				// without a way to disable it (eg haste/slow)
+				if (inst->GetItem()->Magic && (inst->GetItem()->NoDrop == 0))
+				{
+					return 0
+				}
+				else if(inst->GetItem()->Magic || (inst->GetItem()->NoDrop == 0))
 				{
 					MoveItemToGeneralInventory(weapon);
 				}
@@ -2629,7 +2642,7 @@ uint8 NPC::Disarm(float chance)
 					entity_list.CreateGroundObject(weaponid, glm::vec4(GetX(), GetY(), GetZ(), 0), RuleI(Groundspawns, DisarmDecayTime));
 				}
 
-				WearChange(EQ::textures::weaponPrimary, 0, 0);
+				WearChange(texture, 0, 0);
 				CalcBonuses();
 				SetPrimSkill(EQ::skills::SkillHandtoHand);
 
