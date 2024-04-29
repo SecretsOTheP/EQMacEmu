@@ -240,11 +240,28 @@ void Mob::MakePoweredPet(uint16 spell_id, const char* pettype, int16 petpower,
 			if (spell_id == 1623)		// Emissary of Thule; Live has +4 for this pet with book
 				maxDmg += 2;
 		case PET_FOCUS_STAFF_WATER:
+			lvl = 1;
+			maxDmg = 2;
+			hpPct = 3;
+			ac = 5;
+			atk = 8;
+			break;
 		case PET_FOCUS_STAFF_EARTH:
+			lvl = 1;
+			maxDmg = 3;
+			ac = 10;
+			atk = 10;
+			break;
 		case PET_FOCUS_STAFF_FIRE:
+			lvl = 1;
+			maxDmg = 1;
+			hpPct = 10;
+			ac = 5;
+			atk = 4;
+			break;			
 		case PET_FOCUS_STAFF_AIR:
 			lvl = 1;
-			maxDmg += 2;
+			maxDmg = 2;
 			hpPct = 6;
 			ac = 5;
 			atk = 5;
