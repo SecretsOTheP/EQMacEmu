@@ -898,7 +898,7 @@ bool Mob::AssignBuffSlot(Mob *caster, uint16 spell_id, int &buffslot, int &caste
 	// now add buff at emptyslot
 	assert(buffs[emptyslot].spellid == SPELL_UNKNOWN || buffs[emptyslot].spellid == spell_id);	// sanity check
 
-	int extraTick = 1;  // all buffs get an extra tick
+	int extraTick = (IsSplurtFormulaSpell(spell_id)) ? 0 : 1;  // all buffs get an extra tick, except splurts
 	buffs[emptyslot].spellid = spell_id;
 	buffs[emptyslot].casterlevel = caster_level;
 	buffs[emptyslot].realcasterlevel = caster ? caster->GetLevel() : caster_level;
