@@ -1,0 +1,2 @@
+/* Change chance of ashenbone drakes in hate to drop SHD epic component 'Decrepit Hide' from 19% to 38% (item_id:14371, loottable_id:1958, lootdrop_id:3732) */
+update lootdrop_entries set chance = 38 where lootdrop_id = 3732 and item_id = 14371 and chance = 19;

@@ -1,0 +1,2 @@
+/* Change chance of male revenants in hate to drop ENC epic component 'Essence of a Vampire' from 1% to 9% (item_id:10624, loottable_id:168, lootdrop_id:385) */
+update lootdrop_entries set chance = 9 where lootdrop_id = 385 and item_id = 10624 and chance = 1;

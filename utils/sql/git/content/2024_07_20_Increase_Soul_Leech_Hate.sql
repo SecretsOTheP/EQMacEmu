@@ -1,0 +1,2 @@
+/* Change chance of Cazic Thule in fear to drop SHD epic component 'Soul Leech' from 50% to 100% (item_id:4200012, loottable_id:2200034, lootdrop_id:11609) */
+update lootdrop_entries set chance = 100 where lootdrop_id = 2200034 and item_id = 11609;
