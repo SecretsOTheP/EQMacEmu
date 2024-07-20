@@ -6912,6 +6912,34 @@ bool Client::IsMarried()
 	return m_epp.married_character_id != 0;
 }
 
+void Client::SetCharExportFlag(uint8 flag)
+{
+	if (flag == 0) {
+		m_epp.char_export_flag = 0;
+		Save(1);
+		Message(CC_Default, "Character export disabled.");
+		return;
+	}
+	else if (flag == 1) {
+		m_epp.char_export_flag = 1;
+		Save(1);
+		Message(CC_Default, "Character \"worn\" export enabled.");
+		return;
+	}
+	else if (flag == 2) {
+		m_epp.char_export_flag = 2;
+		Save(1);
+		Message(CC_Default, "Character \"inventory\" export enabled.");
+		return;
+	}
+	else if (flag == 3) {
+		m_epp.char_export_flag = 3;
+		Save(1);
+		Message(CC_Default, "Character \"bank\" export enabled.");
+		return;
+	}
+}
+
 bool Client::HasTemporaryLastName()
 {
 	return m_epp.temp_last_name[0] != 0;

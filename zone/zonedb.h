@@ -260,6 +260,8 @@ public:
 	bool LoadCharacterLootLockouts(std::map<uint32, LootLockout>& loot_lockout_list, uint32 character_id);
 	bool SaveCharacterLootLockout(uint32 character_id, uint32 expiry, uint32 npctype_id, const char* npc_name);
 
+	bool LoadCharacterReimbursements(std::list<TempMerchantList>& item_reimbursements, uint32 character_id);
+
 	/* Corpses  */
 	bool		DeleteItemOffCharacterCorpse(uint32 db_id, uint32 equip_slot, uint32 item_id);
 	uint32		GetCharacterCorpseItemCount(uint32 corpse_id);
@@ -386,6 +388,8 @@ public:
 
 	/* Merchants  */
 	void	SaveMerchantTemp(uint32 npcid, uint32 slot, uint32 item, uint32 charges, uint32 quantity);
+	void	DeleteReimbursementItem(uint32 charid, uint32 slot);
+	void	SaveReimbursementItem(uint32 charid, uint32 slot, uint32 item, uint32 charges, uint32 quantity);
 	void	DeleteMerchantTemp(uint32 npcid, uint32 slot);
 	void	DeleteMerchantTempList(uint32 npcid);
 

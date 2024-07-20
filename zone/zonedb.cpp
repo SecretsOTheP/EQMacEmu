@@ -816,7 +816,8 @@ bool ZoneDatabase::LoadCharacterData(uint32 character_id, PlayerProfile_Struct* 
 		"`e_betabuff_gear_flag`,    "
 		"`e_zone_guild_id`,		    "
 		"`e_temp_last_name`,		"
-		"`e_married_character_id`	"
+		"`e_married_character_id`,	"
+		"`e_char_export_flag`			"
 		"FROM                       "
 		"character_data             "
 		"WHERE `id` = %i         ", character_id);
@@ -882,9 +883,10 @@ bool ZoneDatabase::LoadCharacterData(uint32 character_id, PlayerProfile_Struct* 
 		m_epp->hardcore = atoi(row[r]); r++;									 // "`e_hardcore`,				"
 		m_epp->hardcore_death_time = atoll(row[r]); r++;						 // "`e_hardcore_death_time",	"
 		m_epp->betabuff_gear_flag = atoi(row[r]); r++;							 // "`e_betabuff_gear_flag"		"
-		m_epp->zone_guild_id = atoi(row[r]); r++;									// "`e_zone_guild_id"		"
-		strcpy(m_epp->temp_last_name, row[r]); r++;									// "e_temp_last_name,                 "
-		m_epp->married_character_id = atoi(row[r]); r++;							 // "`e_married_character_id"		"
+		m_epp->zone_guild_id = atoi(row[r]); r++;								 // "`e_zone_guild_id"			"
+		strcpy(m_epp->temp_last_name, row[r]); r++;								 // "e_temp_last_name,          "
+		m_epp->married_character_id = atoi(row[r]); r++;						 // "`e_married_character_id"	"
+		m_epp->char_export_flag = atoi(row[r]); r++;									 // "`e_char_export_flag`			"
 	}
 	return true;
 }
@@ -1009,6 +1011,32 @@ bool ZoneDatabase::LoadCharacterLootLockouts(std::map<uint32, LootLockout>& loot
 		lootLockout.npctype_id = npctype_id;
 		strncpy(lootLockout.npc_name, row[3], 64);
 		loot_lockout_list[npctype_id] = lootLockout;
+	}
+
+	return true;
+}
+
+bool ZoneDatabase::LoadCharacterReimbursements(std::list<TempMerchantList>& reimbursement_list, uint32 character_id)
+{
+	std::string query = StringFormat(
+		"SELECT                   "
+		"slot,                    "
+		"itemid,                  "
+		"charges,                 "
+		"quantity                 "
+		"FROM `character_reimbursements` WHERE (charid = %u)", character_id);
+	auto results = database.QueryDatabase(query);
+	for (auto row = results.begin(); row != results.end(); ++row) {
+
+		TempMerchantList tmpReimbursement = TempMerchantList();
+		uint32 charid_id = atoi(row[2]);
+		tmpReimbursement.slot = atoi(row[0]);
+		tmpReimbursement.item = atoi(row[1]);
+		tmpReimbursement.charges = atoi(row[2]);
+		tmpReimbursement.origslot = tmpReimbursement.slot;
+		tmpReimbursement.quantity = atoi(row[3]);
+		tmpReimbursement.npcid = character_id;
+		reimbursement_list.emplace_back(tmpReimbursement);
 	}
 
 	return true;
@@ -1221,7 +1249,8 @@ bool ZoneDatabase::SaveCharacterData(uint32 character_id, uint32 account_id, Pla
 		" e_betabuff_gear_flag,		 "
 		" e_zone_guild_id,			 "
 		" e_temp_last_name,			 "
-		" e_married_character_id	 "
+		" e_married_character_id,	 "
+		" e_char_export_flag				 "
 		")							 "
 		"VALUES ("
 		"%u,"  // id																" id,                        "
@@ -1286,9 +1315,10 @@ bool ZoneDatabase::SaveCharacterData(uint32 character_id, uint32 account_id, Pla
 		"%u,"  // e_hardcore
 		"%lld," // e_hardcore_death_time
 		"%u,"   // e_betabuff_gear_flag
-		"%lu, "   // e_zone_guild_id
-		"'%s', "  // e_temp_last_name
-		"%u "  // e_married_character_id
+		"%lu,"   // e_zone_guild_id
+		"'%s',"  // e_temp_last_name
+		"%u,"  // e_married_character_id
+		"%u"  // e_char_export_flag
 		")",
 		character_id,					  // " id,                        "
 		account_id,						  // " account_id,                "
@@ -1354,7 +1384,8 @@ bool ZoneDatabase::SaveCharacterData(uint32 character_id, uint32 account_id, Pla
 		m_epp->betabuff_gear_flag,
 		(unsigned long)m_epp->zone_guild_id,
 		Strings::Escape(m_epp->temp_last_name).c_str(),
-		m_epp->married_character_id
+		m_epp->married_character_id,
+		m_epp->char_export_flag
 	);
 	auto results = database.QueryDatabase(query);
 	Log(Logs::General, Logs::Character, "ZoneDatabase::SaveCharacterData %i, done... Took %f seconds", character_id, ((float)(std::clock() - t)) / CLOCKS_PER_SEC);
@@ -1785,10 +1816,24 @@ void ZoneDatabase::SaveMerchantTemp(uint32 npcid, uint32 slot, uint32 item, uint
     QueryDatabase(query);
 }
 
-void ZoneDatabase::DeleteMerchantTemp(uint32 npcid, uint32 slot){
-	std::string query = StringFormat("DELETE FROM merchantlist_temp WHERE npcid=%d AND slot=%d", npcid, slot);
+void ZoneDatabase::DeleteReimbursementItem(uint32 charid, uint32 slot){
+	std::string query = StringFormat("DELETE FROM character_reimbursements WHERE charid=%d AND slot=%d", charid, slot);
 	QueryDatabase(query);
 }
+
+void ZoneDatabase::SaveReimbursementItem(uint32 charid, uint32 slot, uint32 item, uint32 charges, uint32 quantity) 
+{
+	std::string query = StringFormat("REPLACE INTO character_reimbursements (charid, slot, itemid, charges, quantity) "
+		"VALUES(%d, %d, %d, %d, %d)", charid, slot, item, charges, quantity);
+	QueryDatabase(query);
+}
+
+void ZoneDatabase::DeleteMerchantTemp(uint32 npcid, uint32 slot)
+{
+	std::string query = StringFormat("DELETE FROM character_reimbursement WHERE charid=%d AND slot=%d", npcid, slot);
+	QueryDatabase(query);
+}
+
 
 void ZoneDatabase::DeleteMerchantTempList(uint32 npcid) {
 	std::string query = StringFormat("DELETE FROM merchantlist_temp WHERE npcid=%d", npcid);

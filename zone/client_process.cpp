@@ -934,94 +934,136 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 	uint32 i=0;
 	std::list<MerchantList> orig_merlist = zone->merchanttable[merchant_id];
 	merlist.clear();
+	
+	if (merchant_id != 1)
+	{
+		for (itr = orig_merlist.begin(); itr != orig_merlist.end(); ++itr) {
+			MerchantList ml = *itr;
+			ml.slot = i;
 
-	for (itr = orig_merlist.begin(); itr != orig_merlist.end(); ++itr) {
-		MerchantList ml = *itr;
-		ml.slot = i;
+			bool expansion_enabled = RuleR(World, CurrentExpansion) >= ml.min_expansion && RuleR(World, CurrentExpansion) < ml.max_expansion;
+			bool expansion_all = ml.min_expansion == 0.0f && ml.max_expansion == 0.0f;
 
-		bool expansion_enabled = RuleR(World, CurrentExpansion) >= ml.min_expansion && RuleR(World, CurrentExpansion) < ml.max_expansion;
-		bool expansion_all = ml.min_expansion == 0.0f && ml.max_expansion == 0.0f;
-
-		if (!expansion_enabled && !expansion_all)
-		{
-			continue;
-		}
-
-		if (GetLevel() < ml.level_required)
-			continue;
-
-		if (!(ml.classes_required & (1 << (GetClass() - 1))) && GetClass() != 0)
-			continue;
-
-		item = database.GetItem(ml.item);
-		if (!item)
-			continue;
-
-		int32 fac = merch ? merch->GetPrimaryFaction() : 0;
-		int32 facmod = GetModCharacterFactionLevel(fac);
-		if(IsInvisible(merch))
-			facmod = 0;
-		if (fac != 0 && facmod < ml.faction_required && zone->CanDoCombat())
-		{
-			Log(Logs::General, Logs::Trading, "Item %d is being skipped due to bad faction. Faction: %d Required: %d", ml.item, facmod, ml.faction_required);
-			continue;
-		}
-
-		if(ml.quantity > 0)
-		{
-			if(ml.qty_left <= 0)
+			if (!expansion_enabled && !expansion_all)
 			{
-				Log(Logs::General, Logs::Trading, "Merchant is skipping item %d that has %d left.", ml.item, ml.qty_left);
 				continue;
 			}
-			else
+
+			if (GetLevel() < ml.level_required)
+				continue;
+
+			if (!(ml.classes_required & (1 << (GetClass() - 1))) && GetClass() != 0)
+				continue;
+
+			item = database.GetItem(ml.item);
+			if (!item)
+				continue;
+
+			int32 fac = merch ? merch->GetPrimaryFaction() : 0;
+			int32 facmod = GetModCharacterFactionLevel(fac);
+			if (IsInvisible(merch))
+				facmod = 0;
+			if (fac != 0 && facmod < ml.faction_required && zone->CanDoCombat())
 			{
-				Log(Logs::General, Logs::Trading, "Merchant is sending item %d that has %d left in slot %d.", ml.item, ml.qty_left, ml.slot);
+				Log(Logs::General, Logs::Trading, "Item %d is being skipped due to bad faction. Faction: %d Required: %d", ml.item, facmod, ml.faction_required);
+				continue;
 			}
-		}
 
-		item = database.GetItem(ml.item);
-		if (item) {
-			int charges = 1;
-			if (item->ItemClass == EQ::item::ItemClassCommon)
-				charges = item->MaxCharges;
-			EQ::ItemInstance* inst = database.CreateItem(item, charges);
-			if (inst) {
-				inst->SetPrice(item->Price * item->SellRate);
-				inst->SetMerchantSlot(ml.slot);
-				inst->SetMerchantCount(-1);		//unlimited
-				if (charges > 0)
-					inst->SetCharges(charges);
-				else
-					inst->SetCharges(1);
-
-				if(inst) 
+			if (ml.quantity > 0)
+			{
+				if (ml.qty_left <= 0)
 				{
-					std::string packet(inst->Serialize(ml.slot-1));
-					Log(Logs::Moderate, Logs::Trading, "PERM (%d): %s was added to merchant in slot %d with price %d", i, item->Name, ml.slot, inst->GetPrice());
-					ser_items[m] = packet;
-					size += packet.length();
-					m++;
+					Log(Logs::General, Logs::Trading, "Merchant is skipping item %d that has %d left.", ml.item, ml.qty_left);
+					continue;
+				}
+				else
+				{
+					Log(Logs::General, Logs::Trading, "Merchant is sending item %d that has %d left in slot %d.", ml.item, ml.qty_left, ml.slot);
+				}
+			}
+
+			item = database.GetItem(ml.item);
+			if (item) {
+				int charges = 1;
+				if (item->ItemClass == EQ::item::ItemClassCommon)
+					charges = item->MaxCharges;
+				EQ::ItemInstance* inst = database.CreateItem(item, charges);
+				if (inst) {
+					inst->SetPrice(item->Price * item->SellRate);
+					inst->SetMerchantSlot(ml.slot);
+					inst->SetMerchantCount(-1);		//unlimited
+					if (charges > 0)
+						inst->SetCharges(charges);
+					else
+						inst->SetCharges(1);
+
+					if (inst)
+					{
+						std::string packet(inst->Serialize(ml.slot - 1));
+						Log(Logs::Moderate, Logs::Trading, "PERM (%d): %s was added to merchant in slot %d with price %d", i, item->Name, ml.slot, inst->GetPrice());
+						ser_items[m] = packet;
+						size += packet.length();
+						m++;
+					}
+				}
+			}
+			merlist.push_back(ml);
+			++i;
+		}
+		if (!IsSoloOnly() && !IsSelfFound())
+		{
+			std::list<TempMerchantList> origtmp_merlist = zone->tmpmerchanttable[npcid];
+			tmp_merlist.clear();
+			for (tmp_itr = origtmp_merlist.begin(); tmp_itr != origtmp_merlist.end(); ++tmp_itr) {
+				TempMerchantList ml = *tmp_itr;
+				item = database.GetItem(ml.item);
+				ml.slot = i;
+				if (item) {
+					int charges = 1;
+					if (database.ItemQuantityType(item->ID) == EQ::item::Quantity_Charges)
+					{
+						charges = zone->GetTempMerchantQtyNoSlot(npcid, item->ID);
+					}
+					EQ::ItemInstance* inst = database.CreateItem(item, charges);
+					if (inst) {
+						uint32 capped_charges = ml.charges > MERCHANT_CHARGE_CAP ? MERCHANT_CHARGE_CAP : ml.charges;
+						inst->SetPrice(item->Price * item->SellRate);
+						inst->SetMerchantSlot(ml.slot);
+						inst->SetMerchantCount(capped_charges);
+						inst->SetCharges(charges);
+
+						if (inst)
+						{
+							std::string packet = inst->Serialize(ml.slot - 1);
+							ser_items[m] = packet;
+							size += packet.length();
+							m++;
+						}
+						Log(Logs::Moderate, Logs::Trading, "TEMP (%d): %s was added to merchant in slot %d with %d count and %d charges and price %d", i, item->Name, ml.slot, capped_charges, charges, inst->GetPrice());
+					}
+				}
+				tmp_merlist.push_back(ml);
+				++i;
+
+				// 80 inventory slots + 10 "hidden" items.
+				if (i > 89)
+				{
+					Log(Logs::Moderate, Logs::Trading, "Item at position %d is not being added.", i);
+					break;
 				}
 			}
 		}
-		merlist.push_back(ml);
-		++i;
 	}
-	if (!IsSoloOnly() && !IsSelfFound())
+	else
 	{
-		std::list<TempMerchantList> origtmp_merlist = zone->tmpmerchanttable[npcid];
+		std::list<TempMerchantList> origtmp_merlist = item_reimbursement_list;
 		tmp_merlist.clear();
 		for (tmp_itr = origtmp_merlist.begin(); tmp_itr != origtmp_merlist.end(); ++tmp_itr) {
 			TempMerchantList ml = *tmp_itr;
 			item = database.GetItem(ml.item);
 			ml.slot = i;
 			if (item) {
-				int charges = 1;
-				if (database.ItemQuantityType(item->ID) == EQ::item::Quantity_Charges)
-				{
-					charges = zone->GetTempMerchantQtyNoSlot(npcid, item->ID);
-				}
+				int charges = ml.charges;
 				EQ::ItemInstance* inst = database.CreateItem(item, charges);
 				if (inst) {
 					uint32 capped_charges = ml.charges > MERCHANT_CHARGE_CAP ? MERCHANT_CHARGE_CAP : ml.charges;
@@ -1044,7 +1086,7 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 			++i;
 
 			// 80 inventory slots + 10 "hidden" items.
-			if (i > 89)
+			if (i > 80)
 			{
 				Log(Logs::Moderate, Logs::Trading, "Item at position %d is not being added.", i);
 				break;
@@ -1070,8 +1112,10 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 
 	//this resets the slot
 	zone->merchanttable[merchant_id] = merlist;
-	zone->tmpmerchanttable[npcid] = tmp_merlist;
-
+	if (merchant_id != 1)
+		zone->tmpmerchanttable[npcid] = tmp_merlist;
+	else
+		item_reimbursement_list = tmp_merlist;
 	int8 count = 0;
 	auto outapp = new EQApplicationPacket(OP_ShopInventoryPacket, size);
 	uchar* ptr = outapp->pBuffer;

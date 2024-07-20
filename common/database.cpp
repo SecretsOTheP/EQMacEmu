@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../common/guilds.h"
 
 // Disgrace: for windows compile
 #ifdef _WINDOWS
@@ -1526,7 +1525,7 @@ bool Database::MoveCharacterToZone(const char* charname, const char* zonename, u
 
 	float safe_x = 0, safe_y = 0, safe_z = 0;
 	GetSafePoints(zoneid, &safe_x, &safe_y, &safe_z);
-	std::string query = StringFormat("UPDATE `character_data` SET `zone_id` = %i, `x` = %0.2f, `y` = %0.2f, `z` = %0.2f, `e_zone_guild_id` = %d WHERE `name` = '%s'", zoneid, safe_x, safe_y, safe_z, GUILD_NONE, charname);
+	std::string query = StringFormat("UPDATE `character_data` SET `zone_id` = %i, `x` = %0.2f, `y` = %0.2f, `z` = %0.2f WHERE `name` = '%s'", zoneid, safe_x, safe_y, safe_z, charname);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success()) {
@@ -1548,7 +1547,7 @@ bool Database::MoveCharacterToZone(uint32 iCharID, const char* iZonename)
 { 
 	float safe_x = 0, safe_y = 0, safe_z = 0;
 	GetSafePoints(iZonename, &safe_x, &safe_y, &safe_z);
-	std::string query = StringFormat("UPDATE `character_data` SET `zone_id` = %i, `x` = %0.2f, `y` = %0.2f, `z` = %0.2f, `e_zone_guild_id` = %d WHERE `id` = %i", GetZoneID(iZonename), safe_x, safe_y, safe_z, GUILD_NONE, iCharID);
+	std::string query = StringFormat("UPDATE `character_data` SET `zone_id` = %i, `x` = %0.2f, `y` = %0.2f, `z` = %0.2f WHERE `id` = %i", GetZoneID(iZonename), safe_x, safe_y, safe_z, iCharID);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success()) {
@@ -1581,8 +1580,8 @@ uint16 Database::MoveCharacterToBind(uint32 CharID)
 		heading = atof(row[4]);
 	}
 
-	query = StringFormat("UPDATE character_data SET zone_id = '%d', x = '%f', y = '%f', z = '%f', heading = '%f', e_zone_guild_id = '%d' WHERE id = %u", 
-						 zone_id, x, y, z, heading, GUILD_NONE, CharID);
+	query = StringFormat("UPDATE character_data SET zone_id = '%d', x = '%f', y = '%f', z = '%f', heading = '%f' WHERE id = %u", 
+						 zone_id, x, y, z, heading, CharID);
 
 	results = QueryDatabase(query);
 	if(!results.Success()) {

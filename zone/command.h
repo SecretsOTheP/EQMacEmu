@@ -55,6 +55,7 @@ void command_appearance(Client *c, const Seperator *sep);
 void command_apply_shared_memory(Client *c, const Seperator *sep);
 void command_attack(Client *c, const Seperator *sep);
 void command_attackentity(Client *c, const Seperator *sep);
+void command_allowexport(Client* c, const Seperator* sep);
 void command_altactivate(Client *c, const Seperator *sep);
 void command_ban(Client *c, const Seperator *sep);
 void command_betabuff(Client* c, const Seperator *sep);

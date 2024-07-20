@@ -25,7 +25,6 @@
 #include <cstdlib>
 #include <vector>
 #include "char_create_data.h"
-#include "../common/guilds.h"
 
 WorldDatabase database;
 extern std::vector<RaceClassAllocation> character_create_allocations;
@@ -275,8 +274,8 @@ int WorldDatabase::MoveCharacterToBind(int CharID, uint8 bindnum) {
 		heading = atof(row[4]);
 	}
 
-	query = StringFormat("UPDATE character_data SET zone_id = '%d', x = '%f', y = '%f', z = '%f', heading = '%f', e_zone_guild_id = '%d' WHERE id = %u", 
-						 zone_id, x, y, z, heading, GUILD_NONE, CharID);
+	query = StringFormat("UPDATE character_data SET zone_id = '%d', x = '%f', y = '%f', z = '%f', heading = '%f' WHERE id = %u", 
+						 zone_id, x, y, z, heading, CharID);
 
 	results = database.QueryDatabase(query);
 	if(!results.Success()) {

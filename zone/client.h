@@ -382,6 +382,10 @@ public:
 	void SetMarried(const char* playerName);
 	bool IsMarried();
 
+	inline uint8 GetCharExportFlag() { return m_epp.char_export_flag; };
+
+	void SetCharExportFlag(uint8 flag);
+
 	inline float ProximityX() const { return m_Proximity.x; }
 	inline float ProximityY() const { return m_Proximity.y; }
 	inline float ProximityZ() const { return m_Proximity.z; }
@@ -390,6 +394,13 @@ public:
 	/*
 			Begin client modifiers
 	*/
+
+
+
+
+
+
+
 
 	virtual void CalcBonuses();
 	inline virtual int32 GetAC() const { return AC; }			// this returns the value displayed in the client and is not used in calcs
@@ -764,7 +775,7 @@ public:
 
 
 	std::map<uint32, LootLockout> loot_lockouts;
-	std::map<uint16, LootItemLockout>	looted_legacy_items;
+	std::map<uint16, LootItemLockout> looted_legacy_items;
 	bool IsLootLockedOutOfNPC(uint32 npctype_id);
 
 
@@ -1163,6 +1174,7 @@ private:
 	uint16				duel_target;
 	bool				duelaccepted;
 	std::list<uint32>	keyring;
+	std::list<TempMerchantList> item_reimbursement_list;
 
 	bool				tellsoff;	// GM /toggle
 	bool				gmhideme;

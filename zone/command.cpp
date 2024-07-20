@@ -152,7 +152,8 @@ int command_init(void)
 		command_add("advnpcspawn", "[maketype|makegroup|addgroupentry|addgroupspawn][removegroupspawn|movespawn|editgroupbox|cleargroupbox].", AccountStatus::GMImpossible, command_advnpcspawn) ||
 		command_add("aggro", "(range) [-v] - Display aggro information for all mobs 'range' distance from your target. -v is verbose faction info.", AccountStatus::GMStaff, command_aggro) ||
 		command_add("aggrozone", "[aggro] [0/1: Enforce ignore distance. If 0 or not set, all will come] - Aggro every mob in the zone with X aggro. Default is 0. Not recommend if you're not invulnerable.", AccountStatus::GMImpossible, command_aggrozone) ||
-		command_add("ai", "[factionid/spellslist/con/guard/roambox/stop/start] - Modify AI on NPC target.", AccountStatus::GMImpossible, command_ai) ||
+		command_add("ai", "[factionid/spellslist/con/guard/roambox/stop/start] - Modify AI on NPC target.", AccountStatus::GMImpossible, command_ai) || 
+		command_add("allowexport", "[off, worn, inventory, bank] - Authorize export of this character to be included in nightly, open sourced database dumps.", AccountStatus::Player, command_allowexport) ||
 		command_add("altactivate", "[argument] - activates alternate advancement abilities, use altactivate help for more information.", AccountStatus::GMAreas, command_altactivate) ||
 		command_add("appearance", "[type] [value] - Send an appearance packet for you or your target.", AccountStatus::GMImpossible, command_appearance) ||
 		command_add("apply_shared_memory", "[shared_memory_name] - Tells every zone and world to apply a specific shared memory segment by name.", AccountStatus::GMImpossible, command_apply_shared_memory) ||
@@ -9014,6 +9015,56 @@ void command_reloadtitles(Client *c, const Seperator *sep){
 	safe_delete(pack);
 	c->Message(CC_Yellow, "Player Titles Reloaded.");
 
+}
+
+void command_allowexport(Client* c, const Seperator* sep) {
+	int arguments = sep->argnum;
+
+	if (!strcasecmp(sep->arg[1], "status")) {
+		uint8 flagval = c->GetCharExportFlag();
+		if (flagval == 0)
+			c->Message(CC_Default, "Export is currently off.");
+		else if (flagval == 1)
+			c->Message(CC_Default, "Export is currently set to include character info and worn items.");
+		else if (flagval == 2)
+			c->Message(CC_Default, "Export is currently set to include character info, worn items and inventory.");
+		else if (flagval == 3)
+			c->Message(CC_Default, "Export is currently set to include character info, worn items, inventory, and bank.");
+		return;
+	}
+	if (!strcasecmp(sep->arg[1], "off")) {
+		c->SetCharExportFlag(0);
+		return;
+	}
+	else if (!strcasecmp(sep->arg[1], "worn")) {
+		c->SetCharExportFlag(1);
+		return;
+	}
+	else if (!strcasecmp(sep->arg[1], "inventory")) {
+		c->SetCharExportFlag(2);
+		return;
+	}
+	else if (!strcasecmp(sep->arg[1], "bank")) {
+		c->SetCharExportFlag(3);
+		return;
+	}
+
+	if (arguments) 
+	{ 
+		c->Message(CC_Default, "Invalid argument"); 
+	}
+	else 
+	{ 
+		c->Message(CC_Default, "All export options will include character name, level, guild, stats, skills, factions, and keyrings.");
+	}
+
+	c->Message(CC_Default, "Usage:");
+	c->Message(CC_Default, "#allowexport status - shows your current setting.");
+	c->Message(CC_Default, "#allowexport worn - include character name, level, guild, stats, skills, factions, and keyrings.");
+	c->Message(CC_Default, "#allowexport inventory - Includes worn, and the character's inventory.");
+	c->Message(CC_Default, "#allowexport bank - In addition to worn and inventory, include bank.");
+	c->Message(CC_Default, "#allowexport off - turns off future exports.");
+	return;
 }
 
 void command_altactivate(Client *c, const Seperator *sep){

@@ -1218,7 +1218,8 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	database.LoadCharacterSpellBook(cid, &m_pp); /* Load Character Spell Book */
 	database.LoadCharacterMemmedSpells(cid, &m_pp);  /* Load Character Memorized Spells */
 	database.LoadCharacterLanguages(cid, &m_pp); /* Load Character Languages */
-	database.LoadCharacterLootLockouts(loot_lockouts, cid); /* Load CharacterTribute */
+	database.LoadCharacterLootLockouts(loot_lockouts, cid); /* Load Loot Lockouts */
+	database.LoadCharacterReimbursements(item_reimbursement_list, cid); /* Load Items for Reimbursement */
 	bool deletenorent = database.NoRentExpired(GetName());
 	if (loaditems && deletenorent) {
 		// client was offline for more than 30 minutes, delete no rent items
@@ -7981,6 +7982,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	int merchantid;
 	bool tmpmer_used = false;
+	bool reimbursement_used = false;
+
 	Mob* tmp = entity_list.GetMob(mp->npcid);
 	if (!tmp)
 	{
@@ -8009,7 +8012,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	mss->IsSold=1;
 	mss->quantity=0;
 
-	if (tmp == 0 || !tmp->IsNPC() || tmp->GetClass() != MERCHANT)
+	if (tmp == nullptr || !tmp->IsNPC() || tmp->GetClass() != MERCHANT)
 	{
 		QueuePacket(returnapp);
 		safe_delete(returnapp);
@@ -8019,7 +8022,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	++tmp->CastToNPC()->shop_count;
 
-	if (mp->quantity < 1) return;
+	if (mp->quantity < 1)
+		return;
 
 	//you have to be somewhat close to them to be properly using them
 	if (DistanceSquared(m_Position, tmp->GetPosition()) > USE_NPC_RANGE2)
@@ -8031,65 +8035,87 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	}
 
 	merchantid = tmp->CastToNPC()->MerchantType;
-
 	uint32 item_id = 0;
+	uint32 prevcharges = 0;
 	uint8 quantity_left = 0;
-	std::list<MerchantList> merlist = zone->merchanttable[merchantid];
-	std::list<MerchantList>::const_iterator itr;
-	for (itr = merlist.begin(); itr != merlist.end(); ++itr){
-		MerchantList ml = *itr;
-		if (GetLevel() < ml.level_required) {
-			continue;
-		}
+	const EQ::ItemData* item = nullptr;
 
-		bool expansion_enabled = RuleR(World, CurrentExpansion) >= ml.min_expansion && RuleR(World, CurrentExpansion) < ml.max_expansion;
-		bool expansion_all = ml.min_expansion == 0.0f && ml.max_expansion == 0.0f;
-
-		if (!expansion_enabled && !expansion_all)
-		{
-			continue;
-		}
-
-		const EQ::ItemData* item = database.GetItem(ml.item);
-		if (!item)
-			continue;
-
-		int32 fac = tmp ? tmp->GetPrimaryFaction() : 0;
-		int32 facmod = GetModCharacterFactionLevel(fac);
-		if(IsInvisible(tmp))
-			facmod = 0;
-		if (fac != 0 && facmod < ml.faction_required && zone->CanDoCombat()) {
-			continue;
-		}
-
-		if(ml.quantity > 0 && ml.qty_left <= 0)
-		{
-			continue;
-		}
-
-		if (mp->itemslot == ml.slot){
-			item_id = ml.item;
-			if(ml.quantity > 0 && ml.qty_left > 0)
-			{
-				quantity_left = ml.qty_left;
+	if (merchantid != 1)
+	{
+		std::list<MerchantList> merlist = zone->merchanttable[merchantid];
+		std::list<MerchantList>::const_iterator itr;
+		for (itr = merlist.begin(); itr != merlist.end(); ++itr) {
+			MerchantList ml = *itr;
+			if (GetLevel() < ml.level_required) {
+				continue;
 			}
-			break;
+
+			bool expansion_enabled = RuleR(World, CurrentExpansion) >= ml.min_expansion && RuleR(World, CurrentExpansion) < ml.max_expansion;
+			bool expansion_all = ml.min_expansion == 0.0f && ml.max_expansion == 0.0f;
+
+			if (!expansion_enabled && !expansion_all)
+			{
+				continue;
+			}
+
+			const EQ::ItemData* item = database.GetItem(ml.item);
+			if (!item)
+				continue;
+
+			int32 fac = tmp ? tmp->GetPrimaryFaction() : 0;
+			int32 facmod = GetModCharacterFactionLevel(fac);
+			if (IsInvisible(tmp))
+				facmod = 0;
+			if (fac != 0 && facmod < ml.faction_required && zone->CanDoCombat()) {
+				continue;
+			}
+
+			if (ml.quantity > 0 && ml.qty_left <= 0)
+			{
+				continue;
+			}
+
+			if (mp->itemslot == ml.slot) {
+				item_id = ml.item;
+				if (ml.quantity > 0 && ml.qty_left > 0)
+				{
+					quantity_left = ml.qty_left;
+				}
+				break;
+			}
+		}
+
+		if (!IsSoloOnly() && !IsSelfFound())
+		{
+			if (item_id == 0)
+			{
+				//check to see if its on the temporary table
+				std::list<TempMerchantList> tmp_merlist = zone->tmpmerchanttable[tmp->GetNPCTypeID()];
+				std::list<TempMerchantList>::const_iterator tmp_itr;
+				TempMerchantList ml;
+				for (tmp_itr = tmp_merlist.begin(); tmp_itr != tmp_merlist.end(); ++tmp_itr) {
+					ml = *tmp_itr;
+					if (mp->itemslot == ml.slot) {
+						item_id = ml.item;
+						tmpmer_used = true;
+						prevcharges = ml.charges;
+						break;
+					}
+				}
+			}
 		}
 	}
-	const EQ::ItemData* item = nullptr;
-	uint32 prevcharges = 0;
-	if (!IsSoloOnly() && !IsSelfFound())
+	else if (merchantid == 1 && item_id == 0)
 	{
-		if (item_id == 0) { //check to see if its on the temporary table
-			std::list<TempMerchantList> tmp_merlist = zone->tmpmerchanttable[tmp->GetNPCTypeID()];
-			std::list<TempMerchantList>::const_iterator tmp_itr;
-			TempMerchantList ml;
-			for (tmp_itr = tmp_merlist.begin(); tmp_itr != tmp_merlist.end(); ++tmp_itr) {
-				ml = *tmp_itr;
-				if (mp->itemslot == ml.slot) {
-					item_id = ml.item;
+		for (auto item : item_reimbursement_list)
+		{
+			if (item.slot == mp->itemslot)
+			{
+				if (mp->itemslot == item.slot) {
+					item_id = item.item;
 					tmpmer_used = true;
-					prevcharges = ml.charges;
+					reimbursement_used = true;
+					prevcharges = item.charges;
 					break;
 				}
 			}
@@ -8132,22 +8158,31 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	// This makes sure the vendor deletes charged items from their lists properly.
 	uint8 tmp_qty = 0;
-	// Temp merchantlist
-	if(tmpmer_used)
+	// Temp / reimbursement merchantlist
+	if (reimbursement_used)
+		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
+	else if(tmpmer_used)
 		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
 	// Regular merchantlist with limited supplies
 	else if(quantity_left > 0)
 		tmp_qty = quantity_left;
 
-	if ((tmpmer_used || quantity_left > 0) && (mp->quantity > tmp_qty || database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges))
+	if ((reimbursement_used) && (mp->quantity > tmp_qty || database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges))
 	{
-		if (database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges && tmpmer_used) {
+		mp->quantity = tmp_qty;
+	}
+	else if ((tmpmer_used || quantity_left > 0) && (mp->quantity > tmp_qty || database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges))
+	{
+		if (database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges && tmpmer_used && !reimbursement_used) 
+		{
 			int32 temp_val = zone->GetTempMerchantQtyNoSlot(tmp->GetNPCTypeID(), item_id);
 			if (temp_val > 240 && temp_val != -1)
 				mp->quantity = 240;
 			else
 				mp->quantity = temp_val;
-		} else {
+		} 
+		else 
+		{
 			mp->quantity = tmp_qty;
 		}
 	}
@@ -8265,7 +8300,13 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	if (inst && (tmpmer_used || quantity_left > 0))
 	{
 		int32 new_charges = 0;
-		if(tmpmer_used)
+
+		if (reimbursement_used)
+		{
+			new_charges = prevcharges - mp->quantity;
+			zone->SaveReimbursementItem(item_reimbursement_list, character_id, item_id, new_charges);
+		}
+		else if(tmpmer_used)
 		{
 			new_charges = prevcharges - mp->quantity;
 			zone->SaveTempItem(merchantid, tmp->GetNPCTypeID(), item_id, new_charges);
@@ -8277,6 +8318,10 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 		}
 
 		int32 new_quantity = zone->GetTempMerchantQtyNoSlot(tmp->GetNPCTypeID(), item_id);
+
+		if (reimbursement_used)
+			new_quantity = 0;
+
 		if ((database.ItemQuantityType(item_id) == EQ::item::Quantity_Charges && new_quantity < 0) ||
 			(database.ItemQuantityType(item_id) != EQ::item::Quantity_Charges && new_charges <= 0))
 		{
@@ -8356,6 +8401,22 @@ void Client::Handle_OP_ShopPlayerSell(const EQApplicationPacket *app)
 	uint32 itemid = GetItemIDAt(mp->itemslot);
 	if (itemid == 0)
 		return;
+
+	if (vendor->CastToNPC()->MerchantType == 1)
+	{
+		Message(CC_Red, "This merchant can only be bought from.");
+		auto outapp = new EQApplicationPacket(OP_ShopPlayerSell, sizeof(OldMerchant_Purchase_Struct));
+		OldMerchant_Purchase_Struct* mco = (OldMerchant_Purchase_Struct*)outapp->pBuffer;
+
+		mco->itemslot = 0;
+		mco->npcid = vendor->GetID();
+		mco->quantity = 0;
+		mco->price = 0;
+		mco->playerid = this->GetID();
+		QueuePacket(outapp);
+		safe_delete(outapp);
+		return;
+	}
 
 	if (Admin() > 0)
 	{

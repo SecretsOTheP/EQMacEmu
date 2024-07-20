@@ -62,6 +62,7 @@ struct ExtendedProfile_Struct {
 	uint32				zone_guild_id;
 	char				temp_last_name[64]; /* Erollsi Holiday Event Related */
 	uint32				married_character_id;
+	uint8				char_export_flag;
 };
 
 #pragma pack()
