@@ -1,0 +1,2 @@
+/* Fix aggressive skeleton by using spawn with no faction on boat where players port in from using Worker Sledgemallet (Overthere proc) */
+update spawn2 set x = 3382.000000, y = 2587.000000, z = -126.599998, spawngroupID = 222823 where id = 343728;
