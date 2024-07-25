@@ -1,5 +1,5 @@
 /* Create new recipe row */
-INSERT INTO tradeskill_recipe (name, tradeskill, nofail, replace_container) VALUES ('Larrikan\'s Mask', 75, 1, 1);
+INSERT INTO tradeskill_recipe (name, tradeskill, nofail, replace_container) VALUES ('Larrikan\'s Mask', 75, 1, 0);
 
 SET @recipe_id = LAST_INSERT_ID();
 
