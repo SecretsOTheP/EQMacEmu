@@ -422,6 +422,9 @@ void NPC::AddLootDrop(const EQ::ItemData *item2, ItemList* itemlist, int8 charge
 	if (equipment[EQ::invslot::slotPrimary] > 0)
 		mainHand = database.GetItem(equipment[EQ::invslot::slotPrimary]);
 
+	if (item2->ID == 11543 && IsPet()) // Sony hardcoded pets to not equip A Weighted Axe
+		equipit = false;
+
 	bool mainhandIs1h = mainHand && (mainHand->ItemType == EQ::item::ItemType1HSlash || mainHand->ItemType == EQ::item::ItemType1HBlunt || mainHand->ItemType == EQ::item::ItemType1HPiercing);
 	bool itemIs2h = item2->ItemType == EQ::item::ItemType2HBlunt || item2->ItemType == EQ::item::ItemType2HPiercing || item2->ItemType == EQ::item::ItemType2HSlash;
 	bool itemIs1h = item2->ItemType == EQ::item::ItemType1HBlunt || item2->ItemType == EQ::item::ItemType1HPiercing || item2->ItemType == EQ::item::ItemType1HSlash;
