@@ -48,6 +48,7 @@ Object::Object(uint32 id, uint32 type, uint32 icon, const Object_Struct& object,
 	user = 0;
 	last_user = 0;
 	m_character_id = 0;
+	m_character_level = 0;
 	m_ssf_ruleset = false;
    
 	// Initialize members
@@ -82,6 +83,7 @@ Object::Object(const EQ::ItemInstance* inst, char* name,float max_x,float min_x,
 	user = 0;
 	last_user = 0;
 	m_character_id = 0;
+	m_character_level = 0;
 	m_ssf_ruleset = false;
 	m_max_x=max_x;
 	m_max_y=max_y;
@@ -119,6 +121,7 @@ Object::Object(Client* client, const EQ::ItemInstance* inst)
 	user = 0;
 	last_user = 0;
 	m_character_id = 0;
+	m_character_level = 0;
 	m_ssf_ruleset = false;
 
 	// Initialize members
@@ -175,9 +178,11 @@ Object::Object(const EQ::ItemInstance *inst, float x, float y, float z, float he
 {
 	if (is_player_drop && client) {
 		m_character_id = client->CharacterID();
+		m_character_level = client->GetLevel2();
 		m_ssf_ruleset = client->IsSoloOnly() || client->IsSelfFound();
 	} else {
 		m_character_id = 0;
+		m_character_level = 0;
 		m_ssf_ruleset = false;
 	}
 	user = 0;
@@ -248,6 +253,7 @@ Object::Object(const char *model, float x, float y, float z, float heading, uint
 	user = 0;
 	last_user = 0;
 	m_character_id = 0;
+	m_character_level = 0;
    
 	m_ssf_ruleset = false;
 	EQ::ItemInstance* inst = new EQ::ItemInstance(ItemInstWorldContainer);
@@ -1081,7 +1087,131 @@ void Object::SetEntityVariable(const char *id, const char *m_var)
 	o_EntityVariables[id] = n_m_var;
 }
 
-const char* Object::GetEntityVariable(const char *id)
+namespace
+{
+	bool IsItemIdSelfFoundTradeable(uint16 id)
+	{
+		static const std::unordered_set<int> whitelist ({
+			1348, // Summoned: Muzzle of Mardu
+			2441, // Brells Blessed Stout
+			3405, // Phantom Leather Skullcap
+			3406, // Phantom Leather Tunic
+			3407, // Phantom Leather Sleeves
+			3408, // Phantom Leather Bracer
+			3409, // Phantom Leather Gloves
+			3410, // Phantom Leather Leggings
+			3411, // Phantom Leather Boots
+			3412, // Phantom Chain Coif
+			3413, // Phantom Chain Coat
+			3414, // Phantom Chain Sleeves
+			3415, // Phantom Chain Bracer
+			3416, // Phantom Chain Gloves
+			3417, // Phantom Chain Greaves
+			3418, // Phantom Chain Boots
+			3419, // Phantom Plate Helm
+			3420, // Phantom Breastplate
+			3421, // Phantom Plate Vambraces
+			3422, // Phantom Plate Bracers
+			3423, // Phantom Plate Gauntlets
+			3424, // Phantom Plate Greaves
+			3425, // Phantom Plate Boots
+			3426, // Rod of Mystical Transvergance
+			3427, // Elemental Defender
+			5319, // Summoned: Sword of Runes
+			6330, // Summoned: Staff of Tracing
+			6331, // Summoned: Staff of Warding
+			6332, // Summoned: Staff of Runes
+			6333, // Summoned: Staff of Symbols
+			6346, // Summoned: Modulating Rod
+			7305, // Summoned: Dagger
+			7309, // Summoned: Spear of Warding
+			7310, // Summoned: Dagger of Symbols
+			7313, // Summoned: Snake Fang
+			8316, // Summoned: Arrow
+			8317, // Summoned: Throwing Dagger
+			8318, // Summoned: Arrow of Marr
+			8319, // Summoned: Knife of Luclin
+			8333, // Summoned: Shuriken of Quellious
+			8334, // Summoned: Arrow of Marr
+			8335, // Summoned: Arrow of Marr
+			8336, // Summoned: Knife of Luclin
+			8337, // Summoned: Knife of Luclin
+			8338, // Summoned: Shuriken of Quellious
+			8339, // Summoned: Shuriken of Quellious
+			8990, // Summoned: A Firework
+			8991, // Summoned: Ale
+			8992, // Summoned: Cake
+			8993, // Summoned: Spinning Bottle
+			10294, // Summoned: Wisp Stone
+			10310, // Summoned: Heatstone
+			10323, // Summoned: Coldstone
+			10342, // Summoned: Waterstone
+			10405, // Summoned: Ring of Levitation
+			13078, // Summoned: Black Bread
+			13079, // Summoned: Globe of Water
+			13081, // Summoned: Bandages
+			17304, // Dimensional Pocket
+			17305, // Dimensional Hole
+			17306, // Glowing Backpack
+			17307, // Quiver of Marr
+			17308, // Bandoleer of Luclin
+			17309, // Pouch of Quellious
+			17310, // Phantom Satchel
+			20075, // Elemental Blanket
+			23500, // Jedahs Brass Choker
+			23501, // Jedahs Silver Choker
+			23502, // Jedahs Golden Choker
+			23503, // Tavees Linen Mantle
+			23504, // Tavees Leather Mantle
+			23505, // Tavees Silken Mantle
+			23506, // Gallenites Jade Bracelet
+			23507, // Gallenites Opal Bracelet
+			23508, // Gallenites Ruby Bracelet
+			23509, // Naki's Tiny Ring
+			23510, // Naki's Twisted Ring
+			23511, // Naki's Studded Ring
+			23512, // Jolums Tarnished Bauble
+			23513, // Jolums Shiny Bauble
+			23514, // Jolums Brilliant Bauble
+			28594, // Summoned: Belt of Magi`Kot
+			28595, // Summoned: Blade of Walnan
+			28596, // Summoned: Hand of Ixiblat
+			28597, // Summoned: Blade of the Kedge
+			28598, // Summoned: Girdle of Magi`Kot
+			28599, // Summoned: Talisman of Return
+			29796, // Jedahs Platinum Choker
+			29797, // Tavees Runed Mantle
+			29798, // Gallenites Sapphire Bracelet
+			29799, // Naki's Spiked Ring
+			29800, // Jolums Glowing Bauble
+			30275, // Summoned: Shard of the Core
+		});
+		
+		return whitelist.count(id);
+	}
+}
+
+bool Object::IsSelfFoundTradeable()
+{
+	if (!IsItemIdSelfFoundTradeable(GetItemID()))
+	{
+		return false;
+	}
+	else if (m_inst->IsClassBag())
+	{
+		for (int i = EQ::invbag::SLOT_BEGIN; i <= EQ::invbag::SLOT_END; ++i) {
+			const auto item = m_inst->GetItem(i);
+			if (item && !IsItemIdSelfFoundTradeable(item->GetID()))
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+const char *Object::GetEntityVariable(const char *id)
 {
 	if(!id)
 		return nullptr;

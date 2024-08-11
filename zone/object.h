@@ -165,7 +165,9 @@ public:
 
 	bool IsPlayerDrop() const { return m_is_player_drop; }
 	uint32 GetCharacterDropperID() const { return m_character_id; }
+	uint8 GetCharacterDropperLevel() const { return m_character_level; }
 	bool IsSSFRuleSet() const { return m_ssf_ruleset; }
+	bool IsSelfFoundTradeable();
 
 	const char* GetEntityVariable(const char *id);
 	void SetEntityVariable(const char *id, const char *m_var);
@@ -191,6 +193,7 @@ protected:
 	bool			m_ground_spawn;
 	bool			m_is_player_drop;
 	uint32          m_character_id;
+	uint8           m_character_level;
 	bool            m_ssf_ruleset;
 
 	std::map<std::string, std::string> o_EntityVariables;

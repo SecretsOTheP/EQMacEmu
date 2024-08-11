@@ -2992,12 +2992,23 @@ void Client::Handle_OP_ClickObject(const EQApplicationPacket *app)
 			}
 			else if ((IsSelfFound() || IsSoloOnly()))
 			{
-				// If the client is self found or solo, don't allow them to pick up the item, unless they are the one that dropped it
-				// Also make sure they dropped it while SSF
-				if(object->GetCharacterDropperID() != this->CharacterID())
+				// If the client is self found or solo, don't allow them to pick up the item:
+				
+				// unless the item is summoned and in level range
+				if (!IsSoloOnly() && object->IsSSFRuleSet() && object->IsSelfFoundTradeable())
+				{
+					if (!IsInLevelRange(object->GetCharacterDropperLevel()))
+					{
+						msg = "That item is too powerful for you to pick up.";
+					}
+					// Permit picking summoned items from other self-found players in level range
+				}
+				// unless they are the one that dropped it
+				else if(object->GetCharacterDropperID() != this->CharacterID())
 				{
 					msg = "You cannot pick up dropped items because you are performing a self found or solo challenge.";
 				}
+				// Also make sure they dropped it while SSF
 				else if(!object->IsSSFRuleSet())
 				{
 					msg = "You cannot pick up dropped items from yourself before you accepted the challenge.";
