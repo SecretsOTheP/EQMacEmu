@@ -784,8 +784,13 @@ public:
 
 
 	std::map<uint32, LootLockout> loot_lockouts;
+	std::map<uint32, CharacterInstanceLockout> character_instance_lockouts;
 	std::map<uint16, LootItemLockout> looted_legacy_items;
 	bool IsLootLockedOutOfNPC(uint32 npctype_id);
+
+	bool IsLockedOutOfInstance(uint32 zone_id);
+
+	uint32 GetTargetZoneInstanceID(uint32 zone_id);
 
 
 	inline bool IsTrader() const { return(Trader); }

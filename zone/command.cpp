@@ -4249,6 +4249,24 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 		}
 	}
 
+	c->Message(Chat::Lime, "=== Current Instance Lockouts ===");
+
+	for (auto lockout : c->character_instance_lockouts)
+	{
+		int64_t time_remaining = lockout.second.expirydate - curTime;
+		if (time_remaining >= 1)
+		{
+			c->Message(Chat::Red, "== %s (Instance #%s): Expires in %s", database.GetZoneName(lockout.second.zone_id), lockout.second.zone_instance_id, Strings::SecondsToTime((int)time_remaining).c_str());
+		}
+		else
+		{
+			if (time_remaining <= 1)
+			{
+				c->Message(Chat::Lime, "== %s (Instance): Available", database.GetZoneName(lockout.second.zone_id));
+			}
+		}
+	}
+
 
 	c->Message(Chat::Lime, "=== Current Legacy Item Lockouts ===");
 

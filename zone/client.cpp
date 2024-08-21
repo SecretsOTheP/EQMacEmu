@@ -6712,6 +6712,41 @@ bool Client::IsLootLockedOutOfNPC(uint32 npctype_id)
 	return false;
 };
 
+bool Client::IsLockedOutOfInstance(uint32 zone_id)
+{
+	if (zone_id == 0)
+		return false;
+
+	auto instancetItr = character_instance_lockouts.find(zone_id);
+
+	if (instancetItr != character_instance_lockouts.end())
+		return instancetItr->second.HasLockout(Timer::GetTimeSeconds());
+
+	return false;
+};
+
+uint32 Client::GetTargetZoneInstanceID(uint32 zone_id)
+{
+	if (zone_id == 0)
+		return GUILD_NONE;
+
+	auto instanceItr = character_instance_lockouts.find(zone_id);
+
+	if (instanceItr != character_instance_lockouts.end())
+	{
+		if (instanceItr->second.HasLockout(Timer::GetTimeSeconds()))
+		{
+			return instanceItr->second.zone_instance_id;
+		}
+		else
+		{
+			return GUILD_NONE;
+		}
+	}
+
+	return GUILD_NONE;
+};
+
 std::vector<int> Client::GetMemmedSpells() {
 	std::vector<int> memmed_spells;
 	for (int index = 0; index < EQ::spells::SPELL_GEM_COUNT; index++) {

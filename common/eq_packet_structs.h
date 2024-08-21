@@ -2807,6 +2807,32 @@ struct LootItemLockout
 	}
 };
 
+struct CharacterInstanceLockout
+{
+	uint32 character_id;
+	uint32 zone_id;
+	uint32 zone_instance_id;
+	int64 expirydate;
+
+	CharacterInstanceLockout()
+	{
+		character_id = 0;
+		zone_id = 0;
+		zone_instance_id = 0;
+		expirydate = 0;
+	}
+
+	bool HasLockout(time_t curTime)
+	{
+		if (character_id == 0 || zone_id == 0 || zone_instance_id == 0)
+			return false;
+
+		if (curTime >= expirydate || expirydate == 0)
+			return false;
+		return true;
+	}
+};
+
 struct PlayerEngagementRecord
 {
 	bool isFlagged = false;

@@ -1210,6 +1210,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	database.LoadCharacterMemmedSpells(cid, &m_pp);  /* Load Character Memorized Spells */
 	database.LoadCharacterLanguages(cid, &m_pp); /* Load Character Languages */
 	database.LoadCharacterLootLockouts(loot_lockouts, cid); /* Load Loot Lockouts */
+	database.LoadCharacterInstanceLockouts(character_instance_lockouts, cid); /* Load Character Instance Lockouts */
 	database.LoadCharacterReimbursements(item_reimbursement_list, cid); /* Load Items for Reimbursement */
 	bool deletenorent = database.NoRentExpired(GetName());
 	if (loaditems && deletenorent) {

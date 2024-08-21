@@ -318,30 +318,17 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 
 		if (guild_zone_door)
 		{
-
 			if (!sender)
 				return;
 
-			Raid* player_raid = sender->GetRaid();
-
-			if (!player_raid)
+			if (sender->IsLockedOutOfInstance(zoneid))
 			{
-				sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
-					RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
-					RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
-					RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
-				return;
+				zoneguildid = sender->GetTargetZoneInstanceID(zoneid);
 			}
-
-			if (!player_raid->CanRaidEngageRaidTarget(player_raid->GetLeaderGuildID()))
+			else
 			{
-				sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
-					RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
-					RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
-					RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
-				return;
+				// TODO: GetTargetZoneInstanceID / Get raid leader's instance ID if not leader / if leader and not locked out, issue new ID, if not, message
 			}
-			zoneguildid = player_raid->GetLeaderGuildID();
 		}
 
 		if ((floor_port || strncmp(destination_zone_name,zone_name,strlen(zone_name)) == 0) && !keyneeded)

@@ -959,6 +959,52 @@ bool ZoneDatabase::LoadCharacterLootLockouts(std::map<uint32, LootLockout>& loot
 	return true;
 }
 
+bool ZoneDatabase::LoadCharacterInstanceLockouts(std::map<uint32, CharacterInstanceLockout>& instance_lockout_list, uint32 character_id)
+{
+	std::string query = StringFormat(
+		"SELECT					   "
+		"expiry,			       "
+		"zone_id,                  "
+		"zone_instance_id          "
+		"FROM `character_instance_lockouts` WHERE (character_id = %u)", character_id);
+	auto results = database.QueryDatabase(query);
+	for (auto row = results.begin(); row != results.end(); ++row) {
+
+		CharacterInstanceLockout instanceLockout;
+		memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+		instanceLockout.character_id = character_id;
+		instanceLockout.expirydate = atoll(row[0]);
+		instanceLockout.zone_id = atoul(row[1]);
+		instanceLockout.zone_instance_id = atoul(row[2]);
+		instance_lockout_list[instanceLockout.zone_id] = instanceLockout;
+	}
+
+	return true;
+}
+
+bool ZoneDatabase::LoadCharacterInstanceLockoutByZone(std::map<uint32, CharacterInstanceLockout>& instance_lockout_list, uint32 character_id, uint32 zone_id)
+{
+	std::string query = StringFormat(
+		"SELECT					   "
+		"expiry,			       "
+		"zone_id,                  "
+		"zone_instance_id          "
+		"FROM `character_instance_lockouts` WHERE (character_id = %u) AND (zone_id = %u)", character_id, zone_id);
+	auto results = database.QueryDatabase(query);
+	for (auto row = results.begin(); row != results.end(); ++row) {
+
+		CharacterInstanceLockout instanceLockout;
+		memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+		instanceLockout.character_id = character_id;
+		instanceLockout.expirydate = atoll(row[0]);
+		instanceLockout.zone_id = atoul(row[1]);
+		instanceLockout.zone_instance_id = atoul(row[2]);
+		instance_lockout_list[instanceLockout.zone_id] = instanceLockout;
+	}
+
+	return true;
+}
+
 bool ZoneDatabase::LoadCharacterReimbursements(std::list<TempMerchantList>& reimbursement_list, uint32 character_id)
 {
 	std::string query = StringFormat(
@@ -993,6 +1039,45 @@ bool ZoneDatabase::SaveCharacterLootLockout(uint32 character_id, uint32 expiry, 
 	auto results = QueryDatabase(query);
 	return true;
 }
+
+bool ZoneDatabase::SaveCharacterInstanceLockout(uint32 character_id, uint32 expiry, uint32 zone_id, uint32 zone_instance_id)
+{
+	std::string query = StringFormat("REPLACE INTO `character_instance_lockouts` (character_id, expiry, zone_id, zone_instance_id) VALUES (%u, %u, %u, %u)", character_id, expiry, zone_id, zone_instance_id);
+	auto results = QueryDatabase(query);
+	return true;
+}
+
+bool ZoneDatabase::GetHighestZoneInstanceID()
+{
+	std::string query = StringFormat("SELECT MAX(zone_instance_id) FROM `character_instance_lockouts`");
+	auto results = QueryDatabase(query);
+	if (!results.Success()) {
+		return 1;
+	}
+
+	if (results.RowCount() == 0)
+		return 1;
+
+	auto row = results.begin();
+	return row[0];
+}
+
+bool ZoneDatabase::GetZoneInstanceIDByCharacterID()
+{
+	std::string query = StringFormat("SELECT `zone_instance_id` FROM `character_instance_lockouts` WHERE character_id");
+	auto results = QueryDatabase(query);
+	if (!results.Success()) {
+		return GUILD_NONE;
+	}
+
+	if (results.RowCount() == 0)
+		return GUILD_NONE;
+
+	auto row = results.begin();
+	return row[0];
+}
+
+
 
 bool ZoneDatabase::DeleteCharacterSkills(uint32 character_id, PlayerProfile_Struct* pp) {
 	std::string query = StringFormat(

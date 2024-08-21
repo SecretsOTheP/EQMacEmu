@@ -2907,4 +2907,34 @@ bool Zone::AllowManastoneClick()
 	return true;
 }
 
+uint32 Zone::GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zone_id)
+{
+	std::pair<uint32, uint32> charzonePair = std::make_pair(character_id, zone_id);
+
+	auto itr = zone_character_instance_cache.find(charzonePair);
+
+	if (itr != zone_character_instance_cache.end())
+	{
+		if (itr->second.HasLockout(Timer::GetTimeSeconds()))
+		{
+			return itr->second.zone_instance_id;
+		}
+		else
+		{
+			return GUILD_NONE;
+		}
+	}
+	else
+	{
+		//TODO: Use database.LoadCharacterInstanceLockoutsByZone()
+	}
+}
+
+void Zone::ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, uint32 expiry)
+{
+	std::pair<uint32, uint32> charzonePair = std::make_pair(character_id, zone_id);
+
+	zone_character_instance_cache[]
+}
+
 #include "zone_loot.cpp"

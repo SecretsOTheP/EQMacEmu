@@ -295,6 +295,11 @@ public:
 	/* Character Loot Lockout system */
 	bool LoadCharacterLootLockouts(std::map<uint32, LootLockout>& loot_lockout_list, uint32 character_id);
 	bool SaveCharacterLootLockout(uint32 character_id, uint32 expiry, uint32 npctype_id, const char* npc_name);
+	bool SaveCharacterInstanceLockout(uint32 character_id, uint32 expiry, uint32 zone_id, uint32 zone_instance_id);
+	bool GetHighestZoneInstanceID();
+	bool LoadCharacterInstanceLockouts(std::map<uint32, CharacterInstanceLockout>& instance_lockout_list, uint32 character_id);
+
+	bool LoadCharacterInstanceLockoutByZone(std::map<uint32, CharacterInstanceLockout>& instance_lockout_list, uint32 character_id, uint32 zone_id);
 
 	bool LoadCharacterReimbursements(std::list<TempMerchantList>& item_reimbursements, uint32 character_id);
 

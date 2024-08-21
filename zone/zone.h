@@ -159,6 +159,10 @@ public:
 
 	bool AllowManastoneClick();
 
+	uint32 GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zone_id);
+
+	void ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, uint32 expiry);
+
 	bool RemoveSpawnEntry(uint32 spawnid);
 	bool RemoveSpawnGroup(uint32 in_id);
 
@@ -434,6 +438,9 @@ private:
 	MobMovementManager* mMovementManager;
 
 	GlobalLootManager m_global_loot;
+
+	//Ordered by <CharacterID, ZoneID || Data>
+	std::unordered_map<std::pair<uint32, uint32>, CharacterInstanceLockout> zone_character_instance_cache;
 
 	// loot
 	std::vector<LoottableRepository::Loottable>               m_loottables = {};
