@@ -1546,6 +1546,57 @@ Mob *HateList::GetMostHate(bool includeBonus)
 	return topMob;
 }
 
+Mob* HateList::GetMostHateSkip(Mob* skip, bool includeBonus)
+{
+	if (skip == nullptr)
+	{
+		return GetMostHate(includeBonus);
+	}
+
+	Mob* topMob = nullptr;
+	int32 topHate = -1;
+	bool firstInRangeBonusApplied = false;
+	tHateEntry* cur;
+	auto iterator = list.begin();
+	while (iterator != list.end())
+	{
+		cur = (*iterator);
+		int32 bonus = 0;
+
+		if (cur->ent->IsClient() && cur->ent->CastToClient()->IsFeigned() && !owner->GetSpecialAbility(IMMUNE_FEIGN_DEATH))
+		{
+			++iterator;
+			continue;
+		}
+
+		if (cur->ent == skip)
+		{
+			++iterator;
+			continue;
+		}
+
+		if (includeBonus)
+		{
+			bool combatRange = owner->IsInCombatRange(cur->ent);
+
+			bonus = GetHateBonus(cur, combatRange, !firstInRangeBonusApplied);
+
+			if (!firstInRangeBonusApplied && combatRange)
+			{
+				firstInRangeBonusApplied = true;
+			}
+		}
+
+		if (cur->ent != nullptr && ((cur->hate + bonus) > topHate))
+		{
+			topMob = cur->ent;
+			topHate = cur->hate + bonus;
+		}
+		++iterator;
+	}
+	return topMob;
+}
+
 
 Mob *HateList::GetRandom()
 {

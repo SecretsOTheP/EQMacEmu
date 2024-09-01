@@ -519,6 +519,7 @@ public:
 	uint32 GetHateAmount(Mob* tmob, bool include_bonus = true) { return hate_list.GetEntHate(tmob, include_bonus);}
 	uint32 GetDamageAmount(Mob* tmob, bool combine_pet_dmg = false) { return hate_list.GetEntDamage(tmob, combine_pet_dmg);}
 	Mob* GetHateTop() { return hate_list.GetTop();}
+	Mob* GetHateSecond(Mob* skip) { return hate_list.GetMostHateSkip(skip); }
 	void HandleFTEEngage(Client* c) { return hate_list.HandleFTEEngage(c); }
 	void HandleFTEDisengage() { return hate_list.HandleFTEDisengage(); }
 	bool IsCharacterOnHateList(uint32 character_id) { return hate_list.IsCharacterOnHateList(character_id); }

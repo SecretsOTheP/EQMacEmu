@@ -186,6 +186,7 @@ public:
 	bool IsPet();
 	Lua_HateList GetHateList();
 	Lua_Mob GetHateTop();
+	Lua_Mob GetHateSecond(Lua_Mob skip);
 	Lua_Mob GetHateRandom();
 	Lua_Client GetHateRandomClient();
 	Lua_Client GetHateRandomClient(uint32 max_dist);

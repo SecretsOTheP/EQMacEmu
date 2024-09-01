@@ -98,6 +98,10 @@ public:
 	void CheckFrenzyHate();
 	//Gets the target with the most hate regardless of things like frenzy etc.
 	Mob* GetMostHate(bool includeBonus = true);
+
+	//Gets the target with the most hate regardless of things like frenzy etc.
+	Mob* GetMostHateSkip(Mob* skip = nullptr, bool includeBonus = true);
+
 	// Count 'Summoned' pets on hatelist
 	int SummonedPetCount(Mob *hater);
 	// setting this true will allow the NPC to persue targets outside the NPC's distance limit

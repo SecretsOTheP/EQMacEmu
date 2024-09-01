@@ -801,6 +801,11 @@ Lua_Mob Lua_Mob::GetHateTop() {
 	return Lua_Mob(self->GetHateTop());
 }
 
+Lua_Mob Lua_Mob::GetHateSecond(Lua_Mob skip) {
+	Lua_Safe_Call_Class(Lua_Mob);
+	return Lua_Mob(self->GetHateSecond(skip));
+}
+
 Lua_Mob Lua_Mob::GetHateRandom() {
 	Lua_Safe_Call_Class(Lua_Mob);
 	return Lua_Mob(self->GetHateRandom());
@@ -1772,6 +1777,7 @@ luabind::scope lua_register_mob() {
 		.def("IsPet", (bool(Lua_Mob::*)(void))&Lua_Mob::IsPet)
 		.def("GetHateList", &Lua_Mob::GetHateList)
 		.def("GetHateTop", (Lua_Mob(Lua_Mob::*)(void))&Lua_Mob::GetHateTop)
+		.def("GetHateSecond", (Lua_Mob(Lua_Mob::*)(Lua_Mob))& Lua_Mob::GetHateSecond)
 		.def("GetHateRandom", (Lua_Mob(Lua_Mob::*)(void))&Lua_Mob::GetHateRandom)
 		.def("GetHateRandomClient", (Lua_Client(Lua_Mob::*)(void))&Lua_Mob::GetHateRandomClient)
 		.def("GetHateRandomClient", (Lua_Client(Lua_Mob::*)(uint32))&Lua_Mob::GetHateRandomClient)
