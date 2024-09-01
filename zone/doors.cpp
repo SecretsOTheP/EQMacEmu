@@ -321,13 +321,35 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			if (!sender)
 				return;
 
+			uint32 ourZoneInstanceID = GUILD_NONE;
+
 			if (sender->IsLockedOutOfInstance(zoneid))
 			{
-				zoneguildid = sender->GetTargetZoneInstanceID(zoneid);
+				ourZoneInstanceID = sender->GetTargetZoneInstanceID(zoneid);
 			}
 			else
 			{
 				// TODO: GetTargetZoneInstanceID / Get raid leader's instance ID if not leader / if leader and not locked out, issue new ID, if not, message
+				Raid* player_raid = sender->GetRaid();
+
+				if (!player_raid)
+				{
+					sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid with %i players at or above level %i present total.",
+						RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
+						RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
+					return;
+				}
+				if (player_raid->GetRaidLeaderCharacterID() != sender->CharacterID())
+				{
+					uint32 leader_instanceid = zone->GetZoneInstanceIDByCharacterAndZone(player_raid->GetRaidLeaderCharacterID(), zoneid);
+					if (ourZoneInstanceID == GUILD_NONE)
+					{
+						zoneguildid = leader_instanceid;
+						//TODO: hardcode, retrieve from db later
+						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
+						database.SaveCharacterInstanceLockout(sender->CharacterID(), RuleI()
+					}
+				}
 			}
 		}
 

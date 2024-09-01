@@ -1245,6 +1245,7 @@ void WorldServer::Process() {
 					}
 					r->LearnMembers();
 					r->VerifyRaid();
+					r->SetRaidLeaderCharacterID(rga->gleader);
 					r->SendMakeLeaderPacket(rga->playername);
 				}
 			}

@@ -7279,7 +7279,7 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 
 				r = new Raid(leader);
 				entity_list.AddRaid(r);
-				r->SetRaidDetails();
+				r->SetRaidDetails(leader->CharacterID());
 				r->SendRaidCreate(leader);
 				
 				//get a free group for leader or their group

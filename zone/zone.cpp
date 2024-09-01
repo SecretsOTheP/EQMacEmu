@@ -2926,15 +2926,22 @@ uint32 Zone::GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zon
 	}
 	else
 	{
-		//TODO: Use database.LoadCharacterInstanceLockoutsByZone()
+		CharacterInstanceLockout zone_instance_lockout = database.GetZoneInstanceIDByCharacterID(character_id, zone_id);
+		zone_character_instance_cache[charzonePair] = zone_instance_lockout;
 	}
 }
 
-void Zone::ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, uint32 expiry)
+void Zone::ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, int64 expiry)
 {
 	std::pair<uint32, uint32> charzonePair = std::make_pair(character_id, zone_id);
 
-	zone_character_instance_cache[]
+	CharacterInstanceLockout pairLockout = CharacterInstanceLockout();
+	pairLockout.character_id = character_id;
+	pairLockout.expirydate = expiry;
+	pairLockout.zone_id = zone_id;
+	pairLockout.zone_instance_id = zone_instance_id;
+
+	zone_character_instance_cache[charzonePair] = pairLockout;
 }
 
 #include "zone_loot.cpp"

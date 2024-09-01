@@ -161,7 +161,7 @@ public:
 
 	uint32 GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zone_id);
 
-	void ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, uint32 expiry);
+	void ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, int64 expiry);
 
 	bool RemoveSpawnEntry(uint32 spawnid);
 	bool RemoveSpawnGroup(uint32 in_id);

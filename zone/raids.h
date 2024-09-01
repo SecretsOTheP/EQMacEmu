@@ -80,7 +80,7 @@ public:
 	bool IsLeader(const char* name) { return (strcmp(leadername, name)==0); }
 	void SetRaidLeader(const char *wasLead, const char *name);
 	uint32 GetLeaderGuildID();
-
+	bool CanRaidEnterPersonalInstance();
 	inline bool GetEngageCachedResult() { return raid_engage_check_result;	}
 
 	bool	Process();
@@ -112,6 +112,9 @@ public:
 	uint32	GetGroup(const char *name);
 	uint32	GetGroup(Client *c);
 	uint16	GetAvgLevel();
+
+	uint32	GetRaidLeaderCharacterID();
+	inline void	SetRaidLeaderCharacterID(uint32 charid) { leader_charid = charid; }
 
 	uint32	GetLootType() { return LootType; }
 	void	ChangeLootType(uint32 type);
@@ -145,7 +148,7 @@ public:
 
 	//updates the list of Client* objects based on who's in and not in the zone.
 	//also learns raid structure based on db.
-	void	SetRaidDetails();
+	void	SetRaidDetails(uint32 character_id);
 	void	GetRaidDetails();
 	bool	LearnMembers();
 	void	VerifyRaid();
@@ -187,6 +190,7 @@ public:
 
 protected:
 	Client *leader;
+	uint32 leader_charid;
 	uint32 LootType;
 	bool disbandCheck;
 	bool forceDisband;

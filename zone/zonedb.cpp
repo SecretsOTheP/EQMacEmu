@@ -1062,19 +1062,28 @@ bool ZoneDatabase::GetHighestZoneInstanceID()
 	return row[0];
 }
 
-bool ZoneDatabase::GetZoneInstanceIDByCharacterID()
+CharacterInstanceLockout ZoneDatabase::GetZoneInstanceIDByCharacterID(uint32 character_id, uint32 zone_id)
 {
-	std::string query = StringFormat("SELECT `zone_instance_id` FROM `character_instance_lockouts` WHERE character_id");
+	CharacterInstanceLockout pairLockout = CharacterInstanceLockout();
+	pairLockout.character_id = character_id;
+	pairLockout.zone_id = zone_id;
+	pairLockout.expirydate = 0;
+	pairLockout.zone_instance_id = GUILD_NONE;
+
+	std::string query = StringFormat("SELECT `zone_instance_id`, `expiry` FROM `character_instance_lockouts` WHERE (character_id = %u) AND (zone_id = %u)", character_id, zone_id);
 	auto results = QueryDatabase(query);
 	if (!results.Success()) {
-		return GUILD_NONE;
+		return pairLockout;
 	}
 
 	if (results.RowCount() == 0)
-		return GUILD_NONE;
+		return pairLockout;
 
 	auto row = results.begin();
-	return row[0];
+
+	pairLockout.zone_instance_id = atoul(row[0]);
+	pairLockout.expirydate = atoll(row[1]);
+	return pairLockout;
 }
 
 

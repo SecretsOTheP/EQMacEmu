@@ -39,6 +39,7 @@ Raid::Raid(uint32 raidID)
 	currentleaderguildid = GUILD_NONE;
 	raid_engage_check_result = true;
 	LootType = 1;
+	leader_charid = 0;
 	disbandCheck = false;
 	forceDisband = false;
 }
@@ -52,6 +53,7 @@ Raid::Raid(Client* nLeader)
 	strn0cpy(leadername, nLeader->GetName(), 64);
 	currentleaderguildid = nLeader->GuildID();
 	LootType = 1;
+	leader_charid = nLeader->CharacterID();
 	disbandCheck = false;
 	forceDisband = false;
 	raid_engage_check_result = true;
@@ -429,10 +431,14 @@ void Raid::SetRaidLeader(const char *wasLead, const char *name)
 	}
 	strn0cpy(leadername, name, 64);
 
-	Client *c = entity_list.GetClientByName(name);
-	if(c)
-		SetLeader(c);
+	uint32 leaderCharID = database.GetCharacterID(name);
 
+	Client *c = entity_list.GetClientByName(name);
+	if (c)
+	{
+		SetLeader(c);
+		SetRaidDetails(leaderCharID);
+	}
 	LearnMembers();
 	VerifyRaid();
 	SendMakeLeaderPacket(name);
@@ -443,6 +449,7 @@ void Raid::SetRaidLeader(const char *wasLead, const char *name)
 	strn0cpy(rga->playername, name, 64);
 	rga->zoneid = zone->GetZoneID();
 	rga->zoneguildid = zone->GetGuildID();
+	rga->gleader = leaderCharID;
 	worldserver.SendPacket(pack);
 	safe_delete(pack);
 }
@@ -548,20 +555,34 @@ bool Raid::IsGuildOfficerInRaidOfGuild(uint32 guild_id)
 
 bool Raid::CanRaidEngageRaidTarget(uint32 guild_id)
 {
-	bool has_raid_officer = IsGuildOfficerInRaidOfGuild(guild_id);
+	//Guild system. Always allowed to engage now.
+	//bool has_raid_officer = IsGuildOfficerInRaidOfGuild(guild_id);
 
-	if (!has_raid_officer)
-		return false;
+	//if (!has_raid_officer)
+	//	return false;
 
-	uint32 present_members = GetPresentMembersFromGuildID(guild_id);
+	//uint32 present_members = GetPresentMembersFromGuildID(guild_id);
+	//uint32 raid_count = RaidCount();
+
+	//if (present_members < RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement))
+	//	return false;
+
+	//if (raid_count < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
+	//	return false;
+
+	return true;
+}
+
+
+bool Raid::CanRaidEnterPersonalInstance(uint32 target_zone_id)
+{
 	uint32 raid_count = RaidCount();
-
-	if (present_members < RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement))
-		return false;
 
 	if (raid_count < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
 		return false;
 
+	if(zone->GetZoneInstanceIDByCharacterAndZone(leader_charid, )
+	
 	return true;
 }
 
@@ -1068,6 +1089,11 @@ bool Raid::IsRaidLeader(const char* name) {
 		}
 	}
 	return false;
+}
+
+uint32 Raid::GetRaidLeaderCharacterID() 
+{
+	return leader_charid;
 }
 
 bool Raid::IsRaidLeaderOrLooter(const char* name) {
@@ -1715,31 +1741,32 @@ void Raid::SendRaidGroupRemove(const char *who, uint32 gid, bool skip_removed)
 	safe_delete(pack);
 }
 
-void Raid::SetRaidDetails()
+void Raid::SetRaidDetails(uint32 character_id)
 {
-	std::string query = StringFormat("INSERT INTO raid_details SET raidid = %lu, loottype = 1, locked = 0",
-                                    (unsigned long)GetID());
+	std::string query = StringFormat("INSERT INTO raid_details SET raidid = %lu, loottype = 1, locked = 0, leader_charid = %lu",
+                                    (unsigned long)GetID(), character_id);
     auto results = database.QueryDatabase(query);
 }
 
 void Raid::GetRaidDetails()
 {
-	std::string query = StringFormat("SELECT loottype FROM raid_details WHERE raidid = %lu",
-                                    (unsigned long)GetID());
-    auto results = database.QueryDatabase(query);
+	std::string query = StringFormat("SELECT loottype, leader_charid FROM raid_details WHERE raidid = %lu",
+		(unsigned long)GetID());
+	auto results = database.QueryDatabase(query);
 	if (!results.Success())
 	{
 		Log(Logs::General, Logs::Error, "Error getting raid details for raid %lu: %s", (unsigned long)GetID(), results.ErrorMessage().c_str());
 		return;
 	}
 
-    if (results.RowCount() == 0) {
-        return;
-    }
+	if (results.RowCount() == 0) {
+		return;
+	}
 
-    auto row = results.begin();
+	auto row = results.begin();
 
-    LootType = atoi(row[0]);
+	LootType = atoi(row[0]);
+	leader_charid = atoi(row[1]);
 }
 
 bool Raid::LearnMembers()
@@ -1804,7 +1831,8 @@ void Raid::VerifyRaid()
 				members[x].member = nullptr;
 			}
 		}
-		if(members[x].IsRaidLeader){
+		if(members[x].IsRaidLeader)
+		{
 			if(strlen(members[x].membername) > 0){
 				SetLeader(members[x].member);
 				currentleaderguildid = members[x].guildid;
