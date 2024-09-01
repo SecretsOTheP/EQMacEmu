@@ -573,19 +573,6 @@ bool Raid::CanRaidEngageRaidTarget(uint32 guild_id)
 	return true;
 }
 
-
-bool Raid::CanRaidEnterPersonalInstance(uint32 target_zone_id)
-{
-	uint32 raid_count = RaidCount();
-
-	if (raid_count < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
-		return false;
-
-	if(zone->GetZoneInstanceIDByCharacterAndZone(leader_charid, )
-	
-	return true;
-}
-
 uint32 Raid::GetPresentMembersFromGuildID(uint32 guild_id)
 {
 	if (guild_id == 0 || guild_id == GUILD_NONE)
