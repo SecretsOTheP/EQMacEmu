@@ -2919,16 +2919,17 @@ uint32 Zone::GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zon
 		{
 			return itr->second.zone_instance_id;
 		}
-		else
-		{
-			return GUILD_NONE;
-		}
 	}
 	else
 	{
 		CharacterInstanceLockout zone_instance_lockout = database.GetZoneInstanceIDByCharacterID(character_id, zone_id);
 		zone_character_instance_cache[charzonePair] = zone_instance_lockout;
+
+		return zone_instance_lockout.zone_instance_id
 	}
+
+	return GUILD_NONE;
+
 }
 
 void Zone::ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, int64 expiry)

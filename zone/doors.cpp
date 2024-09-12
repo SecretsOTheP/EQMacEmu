@@ -347,7 +347,8 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 						zoneguildid = leader_instanceid;
 						//TODO: hardcode, retrieve from db later
 						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
-						database.SaveCharacterInstanceLockout(sender->CharacterID(), RuleI()
+						auto cur_time = time(nullptr);
+						database.SaveCharacterInstanceLockout(sender->CharacterID(), cur_time + RuleI(Quarm, InstanceMinimumLockoutTime), zoneid, zoneguildid)
 					}
 				}
 			}
