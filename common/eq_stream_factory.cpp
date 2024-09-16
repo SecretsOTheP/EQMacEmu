@@ -17,6 +17,7 @@
 #include <iostream>
 #include <fcntl.h>
 #include <atomic>
+#include <unordered_set>
 
 #include "op_codes.h"
 
