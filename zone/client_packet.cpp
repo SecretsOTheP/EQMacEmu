@@ -1987,7 +1987,7 @@ void Client::Handle_OP_AAAction(const EQApplicationPacket *app)
 		return;
 	}
 
-	if(Admin() < 95 && RuleB(Character, DisableAAs))
+	if(Admin() < 95 && RuleB(Character, DisableAAs) && !(IsSelfFound() && IsHardcore() && GetLevel() >= 60))
 	{
 		Message(Chat::Yellow, "Alternate Abilities are currently disabled. You will continue to use traditional experience.");
 		return;
