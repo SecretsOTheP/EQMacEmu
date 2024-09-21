@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unordered_set>
 
 #include <signal.h>
 
@@ -117,7 +118,9 @@ EQEmuLogSys LogSys;
 ServerEarthquakeImminent_Struct next_quake;
 WorldContentService content_service;
 PathManager         path;
-
+std::unordered_set<uint32> ipWhitelist;
+std::mutex		ipMutex;
+bool bSkipFactoryAuth = false;
 extern ConsoleList console_list;
 
 void CatchSignal(int sig_num);
@@ -506,25 +509,25 @@ int main(int argc, char** argv) {
 
 		//give the stream identifier a chance to do its work....
 		stream_identifier.Process();
-
-		int i = 5;
+		int i = 0;
+		auto mSeconds = std::chrono::milliseconds(RuleI(Quarm, MaxTimeSpentProcessingConns));
+		auto endTime = std::chrono::high_resolution_clock::now();
 		//check the factory for any new incoming streams.
-		while ((eqs = eqsf.Pop())) {
-			//pull the stream out of the factory and give it to the stream identifier
-			//which will figure out what patch they are running, and set up the dynamic
-			//structures and opcodes for that patch.
-			struct in_addr	in{};
-			in.s_addr = eqs->GetRemoteIP();
-			LogInfo("New connection from {0}:{1}", inet_ntoa(in),ntohs(eqs->GetRemotePort()));
-			stream_identifier.AddStream(eqs);	//takes the stream
-			i++;
-			if (i == 5)
-				break;
-		}
+		// 
+		//while (beginTime + mSeconds <= std::chrono::high_resolution_clock::now() && (eqs = eqsf.Pop())) {
+		//	//pull the stream out of the factory and give it to the stream identifier
+		//	//which will figure out what patch they are running, and set up the dynamic
+		//	//structures and opcodes for that patch.
+		//	struct in_addr	in{};
+		//	in.s_addr = eqs->GetRemoteIP();
+		//	LogInfo("New connection from {0}:{1}", inet_ntoa(in),ntohs(eqs->GetRemotePort()));
+		//	stream_identifier.AddStream(eqs);	//takes the stream
+		//}
 
 		i = 0;
+		endTime = std::chrono::high_resolution_clock::now() + std::chrono::duration_cast<std::chrono::nanoseconds>(mSeconds);
 		//check the factory for any new incoming streams.
-		while ((eqos = eqsf.PopOld())) {
+		while (std::chrono::high_resolution_clock::now() <= endTime && (eqos = eqsf.PopOld())) {
 			//pull the stream out of the factory and give it to the stream identifier
 			//which will figure out what patch they are running, and set up the dynamic
 			//structures and opcodes for that patch.
@@ -533,8 +536,6 @@ int main(int argc, char** argv) {
 			LogInfo("New connection from {0}:{1}", inet_ntoa(in), ntohs(eqos->GetRemotePort()));
 			stream_identifier.AddOldStream(eqos);	//takes the stream
 			i++;
-			if (i == 5)
-				break;
 		}
 
 		i = 0;
@@ -556,28 +557,24 @@ int main(int argc, char** argv) {
 				}
 			}
 			if (!RuleB(World, UseBannedIPsTable)){
-					LogInfo("New connection from [{0}]:[{1}], processing connection", inet_ntoa(in), ntohs(eqsi->GetRemotePort()));
+					LogRulesDetail("New connection from [{0}]:[{1}], processing connection", inet_ntoa(in), ntohs(eqsi->GetRemotePort()));
 					auto client = new Client(eqsi);
 					// @merth: client->zoneattempt=0;
 					client_list.Add(client);
 			}
-			i++;
-			if (i == 5)
-				break;
 		}
 
 		event_scheduler.Process(&zoneserver_list);
 
 		client_list.Process();
 		i = 0;
-		while ((tcpc = tcps.NewQueuePop())) {
+		endTime = std::chrono::high_resolution_clock::now() + std::chrono::duration_cast<std::chrono::nanoseconds>(mSeconds);
+		while (std::chrono::high_resolution_clock::now() <= endTime && (tcpc = tcps.NewQueuePop())) {
 			struct in_addr in{};
 			in.s_addr = tcpc->GetrIP();
 			LogInfo("New TCP connection from {0}:{1}", inet_ntoa(in),tcpc->GetrPort());
 			console_list.Add(new Console(tcpc));
 			i++;
-			if (i == 5)
-				break;
 		}
 
 		if(EQTimeTimer.Check())

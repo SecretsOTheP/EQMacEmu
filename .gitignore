@@ -58,3 +58,4 @@ bin/
 *.bak
 /utils/TaskMaster/.vs/
 /utils/TaskMaster/Debug/
+submodules/libuv/RelWithDebInfo/uv.exp

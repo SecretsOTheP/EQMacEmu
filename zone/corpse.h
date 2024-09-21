@@ -128,6 +128,7 @@ class Corpse : public Mob {
 	bool    ContainsLegacyItem();
 	void	ProcessLootLockouts(Client* give_exp_client, NPC* in_npc);
 	void	AddPlayerLockout(Client* c);
+	void	SetInitialAllowedLooters(const std::vector<std::string>& in) { initial_allowed_looters = std::unordered_set<std::string>(in.begin(), in.end()); }
 
 
 	inline void	Lock()				{ is_locked = true; }

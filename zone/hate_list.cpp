@@ -1038,6 +1038,16 @@ void HateList::Add(Mob *ent, int32 in_hate, int32 in_dam, bool bFrenzy, bool iAd
 				if (kr)
 				{
 					owner->CastToNPC()->solo_raid_fte = kr->GetID();
+					owner->CastToNPC()->sf_fte_list.clear();
+					const uint32 highest_level_in_raid = kr->GetHighestLevel2();
+					for (int x = 0; x < MAX_RAID_MEMBERS; x++)
+					{
+						auto member = kr->members[x].member;
+						if (member && member->IsInLevelRange(highest_level_in_raid))
+						{
+							owner->CastToNPC()->sf_fte_list.emplace_back(member->GetSSFLooterName());
+						}
+					}
 				}
 				else if (kg)
 				{

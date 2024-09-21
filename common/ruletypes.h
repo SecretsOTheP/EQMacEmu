@@ -199,6 +199,7 @@ RULE_BOOL(AlKabor, EnableLatePlanesHarmonyNerf, true, "AK behavior is true. If t
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Quarm)
+RULE_BOOL(Quarm, CursorAllowDuplicateItems, true, "Allows duplicate item IDs to stack on the cursor.  Set to false to emulate very early clients.")
 RULE_BOOL(Quarm, EnableQuakes, true, "Quarm default is true. If false, disable the auto-quake system.")
 RULE_BOOL(Quarm, EnableQuakeDowntimeRecovery, false, "24 Hour")
 RULE_INT(Quarm, QuakeMinVariance, 604800, "7 Days")
@@ -284,6 +285,7 @@ RULE_REAL(Quarm, BonusGroupEXP4MemberOverride, 1.10, "Quarm's custom group EXP b
 RULE_REAL(Quarm, BonusGroupEXP5MemberOverride, 1.14, "Quarm's custom group EXP bonus override for x members. For server events that directly target group bonuses.")
 RULE_REAL(Quarm, BonusGroupEXP6MemberOverride, 1.20, "Quarm's custom group EXP bonus override for x members. For server events that directly target group bonuses.")
 RULE_REAL(Quarm, BonusGroupEXP7MemberOverride, 1.24, "Quarm's custom group EXP bonus override for x members. For server events that directly target group bonuses.")
+RULE_INT(Quarm, MaxTimeSpentProcessingConns, 100, "")
 RULE_CATEGORY_END()
 RULE_CATEGORY( Map )
 //enable these to help prevent mob hopping when they are pathing

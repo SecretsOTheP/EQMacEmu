@@ -952,7 +952,6 @@ bool Corpse::Process() {
 
 	if (corpse_delay_timer.Check()) {
 		allowed_looters.clear();
-		initial_allowed_looters.clear();
 		corpse_delay_timer.Disable();
 		return true;
 	}
@@ -1076,17 +1075,10 @@ void Corpse::SetDecayTimer(uint32 decaytime) {
 bool Corpse::CanPlayerLoot(std::string playername) {
 	uint8 looters = 0;
 
-	std::string appendedCharName = playername;
-
 	Client* c = entity_list.GetClientByName(playername.c_str());
 	if (c && c->IsSelfFound() || c && c->IsSoloOnly())
 	{
-		if (c->IsSelfFound())
-			appendedCharName += "-SF";
-
-		if (c->IsSoloOnly())
-			appendedCharName += "-Solo";
-
+		std::string appendedCharName = c->GetSSFLooterName();
 		auto temporarily_allowed_itr = temporarily_allowed_looters.find(appendedCharName);
 
 		if (temporarily_allowed_itr == temporarily_allowed_looters.end() && c->IsLootLockedOutOfNPC(npctype_id) && npctype_id != 0)
@@ -1098,7 +1090,95 @@ bool Corpse::CanPlayerLoot(std::string playername) {
 			return false;
 		}
 
-		if (initial_allowed_looters.find(appendedCharName) != initial_allowed_looters.end()) {
+		if (!c->HasRaid()) {
+			if (initial_allowed_looters.find(appendedCharName) != initial_allowed_looters.end()) {
+				return true;
+			}
+		}
+		else
+		{
+			if (allowed_looters.empty() && initial_allowed_looters.find(appendedCharName) != initial_allowed_looters.end())
+			{
+				// Clearing allowed_looters is the mechanism by which a corpse is opened
+				// to FFA looting. For SF players, the corpse is only unlocked for those
+				// players who were present at the moment of FTE in an eligible raid,
+				// which is indicated by being in initial_allowed_looters.
+				c->Message(Chat::Cyan, "You were in an eligible raid that was first to engage, so you are allowed to loot.");
+				return true;
+			}
+			else if (allowed_looters.find(appendedCharName) == allowed_looters.end() && initial_allowed_looters.find(appendedCharName) != initial_allowed_looters.end())
+			{
+				Raid* raid = c->GetRaid();
+				if (raid->GetLootType() == 3) // Looter / Raid Leader loot
+				{
+					if (raid->IsRaidLooter(c->GetCleanName()))
+					{
+						for (int x = 0; x < MAX_RAID_MEMBERS; x++)
+						{
+							if (raid->members[x].member)
+							{
+								if (allowed_looters.find(raid->members[x].member->GetSSFLooterName()) != allowed_looters.end())
+								{
+									c->Message(Chat::Cyan, "Adding you to the looter list of this corpse. You are in a raid with another eligible member of the raid.");
+									AllowPlayerLoot(appendedCharName);
+									break;
+								}
+							}
+						}
+					}
+				}
+				else if (raid->GetLootType() == 2) // Group Leader / Raid Leader loot
+				{
+					if (raid->IsRaidLeader(c->GetCleanName()) || raid->IsGroupLeader(c->GetCleanName()))
+					{
+						for (int x = 0; x < MAX_RAID_MEMBERS; x++)
+						{
+							if (raid->members[x].member)
+							{
+								if (allowed_looters.find(raid->members[x].member->GetSSFLooterName()) != allowed_looters.end())
+								{
+									c->Message(Chat::Cyan, "Adding you to the looter list of this corpse. You are in a raid and you're a group or raid leader.");
+									AllowPlayerLoot(appendedCharName);
+									break;
+								}
+							}
+						}
+					}
+				}
+				else if (raid->GetLootType() == 1 && raid->IsRaidLeader(c->GetCleanName())) // Raid Leader loot
+				{
+					for (int x = 0; x < MAX_RAID_MEMBERS; x++)
+					{
+						if (raid->members[x].member)
+						{
+							if (allowed_looters.find(raid->members[x].member->GetSSFLooterName()) != allowed_looters.end())
+							{
+								c->Message(Chat::Cyan, "Adding you to the looter list of this corpse. You are in a raid and you're the new raid leader.");
+								AllowPlayerLoot(appendedCharName);
+								break;
+							}
+						}
+					}
+				}
+				else if (raid->GetLootType() == 4) // Raid Leader loot
+				{
+					for (int x = 0; x < MAX_RAID_MEMBERS; x++)
+					{
+						if (raid->members[x].member)
+						{
+							if (allowed_looters.find(raid->members[x].member->GetSSFLooterName()) != allowed_looters.end())
+							{
+								c->Message(Chat::Cyan, "Adding you to the looter list of this corpse. You are in a raid and the loot is set to free-for-all.");
+								AllowPlayerLoot(appendedCharName);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (allowed_looters.find(appendedCharName) != allowed_looters.end()) {
 				return true;
 		}
 	}

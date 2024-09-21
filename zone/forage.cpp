@@ -471,9 +471,19 @@ void Client::ForageItem(bool guarantee) {
 		{
 			int16 inv_slot_id = GetInv().HasItem(foragedfood, 1, invWhereCursor);
 			if (inv_slot_id != INVALID_INDEX && !GetGM()) {
-				// we already have this item on the cursor - so stop sending it here.
-				Message_StringID(Chat::Skills, FORAGE_FAILED);
-				return;
+				if (RuleB(Quarm, CursorAllowDuplicateItems)) {
+					if (m_inv.CursorSize() >= 10) {
+						auto broken_string = fmt::format("Forage failed. Cursor queue full.");
+						Message(Chat::Red, broken_string.c_str());
+						return;
+					}
+				}
+				else
+				{
+					// we already have this item on the cursor - so stop sending it here.
+					Message_StringID(Chat::Skills, FORAGE_FAILED);
+					return;
+				}
 			}
 		}
 

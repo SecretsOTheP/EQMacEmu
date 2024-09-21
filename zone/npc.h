@@ -470,6 +470,9 @@ public:
 	uint32 solo_group_fte;
 	uint32 solo_fte_charid;
 
+	// names of first raid members that may be later permitted to loot who aggroed this NPC
+	std::vector<std::string> sf_fte_list;
+
 	bool ValidateFTE();
 
 	std::string GetSpawnedString();

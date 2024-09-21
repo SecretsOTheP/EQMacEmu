@@ -1186,21 +1186,6 @@ bool Mob::IsBeneficialAllowed(Mob *target)
 				c1 = mob1->CastToClient();
 				c2 = mob2->CastToClient();
 
-				if (c1->IsDueling() || c2->IsDueling())
-				{
-					if
-					(
-						c1->IsDueling() &&
-						c2->IsDueling() &&
-						c1->GetDuelTarget() == c2->GetID() &&
-						c2->GetDuelTarget() == c1->GetID()
-					) 
-						return true; // if they're dueling they can heal each other too
-					
-					// if at least one of them is dueling someone, but not each other, then no healing/buffing to/from anyone else
-					return false;
-				}
-
 				if (c2->IsSoloOnly())
 				{
 					// if the target is solo, don't allow anyone to buff it
@@ -1214,6 +1199,21 @@ bool Mob::IsBeneficialAllowed(Mob *target)
 					bool compatible = c1->IsSelfFound() == c2->IsSelfFound();
 					if (!compatible || compatible && !can_get_experience)
 						return false;
+				}
+
+				if (c1->IsDueling() || c2->IsDueling())
+				{
+					if
+					(
+						c1->IsDueling() &&
+						c2->IsDueling() &&
+						c1->GetDuelTarget() == c2->GetID() &&
+						c2->GetDuelTarget() == c1->GetID()
+					) 
+						return true; // if they're dueling they can heal each other too
+					
+					// if at least one of them is dueling someone, but not each other, then no healing/buffing to/from anyone else
+					return false;
 				}
 
 				if ((bool)c1->GetPVP() == (bool)c2->GetPVP())

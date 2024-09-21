@@ -32,6 +32,12 @@
 #include <stdlib.h>
 #include <string>
 #include <sstream>
+#include <mutex>
+#include <unordered_set>
+
+std::unordered_set<uint32> ipWhitelist;
+std::mutex		ipMutex;
+bool bSkipFactoryAuth = true;
 
 TimeoutManager timeout_manager;
 LoginServer server;
@@ -149,6 +155,9 @@ int main()
 			EQ::EventLoop::Get().Shutdown();
 			return;
 		}
+		ipMutex.lock();
+		ipWhitelist.clear();
+		ipMutex.unlock();
 		
 		server.client_manager->Process();
 		server.server_manager->Process();

@@ -17,9 +17,14 @@
 #include <iostream>
 #include <fcntl.h>
 #include <atomic>
+#include <unordered_set>
+#include <unordered_map>
 
 #include "op_codes.h"
 
+extern std::unordered_set<uint32> ipWhitelist;
+extern std::mutex ipMutex;
+extern bool bSkipFactoryAuth;
 static std::atomic_bool s_checkTimeoutRunning;
 
 EQStreamFactory::EQStreamFactory(EQStreamType type, int port, uint32 timeout)
@@ -45,9 +50,9 @@ void EQStreamFactory::Close()
 		ReaderThread.join();
 	}
 
-	if (WriterNewThread.joinable()) {
-		WriterNewThread.join();
-	}
+	//if (WriterNewThread.joinable()) {
+	//	WriterNewThread.join();
+	//}
 
 	if (WriterOldThread.joinable()) {
 		WriterOldThread.join();
@@ -119,7 +124,7 @@ bool EQStreamFactory::Open()
 #endif
 
 	ReaderThread = std::thread(&EQStreamFactory::ReaderLoop, this);
-	WriterNewThread = std::thread(&EQStreamFactory::WriterLoopNew, this);
+	//WriterNewThread = std::thread(&EQStreamFactory::WriterLoopNew, this);
 	WriterOldThread = std::thread(&EQStreamFactory::WriterLoopOld, this);
 	return true;
 }
@@ -217,35 +222,48 @@ void EQStreamFactory::ReaderLoop()
 			}
 			else {
 				auto streamKey = std::make_pair(from.sin_addr.s_addr, from.sin_port);
+				bool bFound = false;
 
+				if (!bSkipFactoryAuth)
+				{
+					ipMutex.lock();
+					bFound = ipWhitelist.find(from.sin_addr.s_addr) == ipWhitelist.end() ? false : true;
+					ipMutex.unlock();
+
+					if (!bFound)
+						continue;
+				}
 				std::unique_lock<std::mutex> streams_lock(MStreams, std::defer_lock);
 				std::unique_lock<std::mutex> old_streams_lock(MOldStreams, std::defer_lock);
 				std::lock(streams_lock, old_streams_lock); //lock both mutexes (in order to avoid deadlock)
 
-				stream_iter = Streams.find(streamKey);
+				//stream_iter = Streams.find(streamKey);
 				oldstream_iter = OldStreams.find(streamKey);
-				bool hasNewStream = stream_iter != Streams.end();
+				//bool hasNewStream = stream_iter != Streams.end();
 				bool hasOldStream = oldstream_iter != OldStreams.end();
 
-				if (hasNewStream == false && hasOldStream == false) {
-					if (buffer[1] == OP_SessionRequest) {
+				if (/*hasNewStream == false && */ hasOldStream == false) {
+	/*				if (buffer[1] == OP_SessionRequest) {
 						RecvBuffer data = RecvBuffer(true, length, buffer, streamKey, from);
 						ProcessLoopNew(data, stream_iter);
 					}
-					else {
+					else {*/
+					if (buffer[1] != OP_SessionRequest)
+					{
 						RecvBuffer data = RecvBuffer(true, length, buffer, streamKey, from);
 						ProcessLoopOld(data, oldstream_iter);
 					}
+					//}
 				}
 				else {
-					if (hasNewStream) {
-						RecvBuffer data = RecvBuffer(false, length, buffer, streamKey, from);
-						ProcessLoopNew(data, stream_iter);
-					}
-					else if (hasOldStream) {
+					//if (hasNewStream) {
+						//RecvBuffer data = RecvBuffer(false, length, buffer, streamKey, from);
+						//ProcessLoopNew(data, stream_iter);
+					//}
+				//	else if (hasOldStream) {
 						RecvBuffer data = RecvBuffer(false, length, buffer, streamKey, from);
 						ProcessLoopOld(data, oldstream_iter);
-					}
+					//}
 				}
 			}
 

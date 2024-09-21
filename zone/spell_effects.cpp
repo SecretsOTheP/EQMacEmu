@@ -1015,10 +1015,12 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 			case SE_SummonItem:
 			{
 				if (IsClient() && spell.base[i] > 0) {
-					// we already have this item on the cursor - so stop sending it here.  Client will just delete it.
-					int16 inv_slot_id = CastToClient()->GetInv().HasItem(spell.base[i], 1, invWhereCursor);
-					if (inv_slot_id != INVALID_INDEX) {
-						break;
+					if (!RuleB(Quarm, CursorAllowDuplicateItems)) {
+						// we already have this item on the cursor - so stop sending it here.  Client will just delete it.
+						int16 inv_slot_id = CastToClient()->GetInv().HasItem(spell.base[i], 1, invWhereCursor);
+						if (inv_slot_id != INVALID_INDEX) {
+							break;
+						}
 					}
 				}
 				const EQ::ItemData *item = database.GetItem(spell.base[i]);
@@ -1060,6 +1062,37 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 						}
 						SummonedItem = database.CreateItem(spell.base[i], quantity);
 					}
+				} else if (IsPet()) {
+					int max = spell.max[i];
+					if(max == 0)
+						max = 20;
+
+					int quantity = 0;
+					if(database.ItemQuantityType(spell.base[i]) == EQ::item::Quantity_Charges) {
+						quantity = item->MaxCharges;
+					} else if(database.ItemQuantityType(spell.base[i]) == EQ::item::Quantity_Normal) {
+						quantity = 1;
+					} else if(spell.formula[i] > 0 && spell.formula[i] <= 20) {
+						quantity = spell.formula[i];
+					} else {
+						quantity = CalcSpellEffectValue_formula(spell.formula[i],0,item->Stackable ? item->StackSize : item->MaxCharges,GetLevel(),spell_id);
+						if (quantity < max)
+							quantity = max;
+					}
+
+					if (quantity < 1)
+						quantity = 1;
+
+					// Destroy duplicate items on charmed pets and nodrop items.
+					if (item->NoDrop != 0 && (!IsCharmedPet() || (IsCharmedPet() && CastToNPC()->CountQuestItem(item->ID) == 0)))
+					{
+						// For pets, all items are added to inventory, even if the
+						// item is summoned into a bag so that the pet can equip
+						// the item, if possible.
+						CastToNPC()->AddPetLoot(item->ID, quantity);
+					}
+				} else if (caster) {
+					caster->Message_StringID(Chat::SpellFailure, SPELL_NO_EFFECT);
 				}
 
 				break;
@@ -1073,6 +1106,25 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 #endif
 				uint8 slot;
 
+				if (IsPet() && item) {
+					int charges;
+
+					if (item->Stackable)
+						charges = (spell.formula[i] > item->StackSize) ? item->StackSize : spell.formula[i];
+					else if (item->MaxCharges) // mod rods, not sure if there are actual examples of this for IntoBag
+						charges = item->MaxCharges;
+					else
+						charges = 1;
+
+					if (charges < 1)
+						charges = 1;
+
+					// Destroy duplicate items on charmed pets and nodrop items.
+					if (item->NoDrop != 0 && (!IsCharmedPet() || (IsCharmedPet() && CastToNPC()->CountQuestItem(item->ID) == 0)))
+					{
+						CastToNPC()->AddPetLoot(item->ID, charges);
+					}
+				} else
 				if (!SummonedItem || !SummonedItem->IsClassBag()) {
 					if (caster)
 						caster->Message(Chat::Red, "SE_SummonItemIntoBag but no bag has been summoned!");
@@ -1101,6 +1153,8 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 							safe_delete(SubItem);
 						}
 					}
+				} else if (caster) {
+					caster->Message_StringID(Chat::SpellFailure, SPELL_NO_EFFECT);
 				}
 
 				break;

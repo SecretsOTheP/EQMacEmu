@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <iomanip>
 #include <stdlib.h>
+#include <unordered_set>
+
 #include "../common/version.h"
 
 #ifdef _WINDOWS
@@ -62,12 +64,14 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "world_config.h"
-
+#include <mutex>
 extern ZSList zoneserver_list;
 extern ClientList client_list;
 extern uint32 numzones;
 extern uint32 numplayers;
 extern volatile bool	RunLoops;
+extern std::mutex ipMutex;
+extern std::unordered_set<uint32> ipWhitelist;
 
 LoginServer::LoginServer(const char* iAddress, uint16 iPort, const char* Account, const char* Password, uint8 Type)
 : statusupdate_timer(LoginServer_StatusUpdateInterval)
@@ -162,6 +166,11 @@ bool LoginServer::Process() {
 					if (mule && RuleI(World, MaxMulesPerIP) >= 0 && !client_list.CheckMuleLimit(id, utwr->ip, status))
 						utwrs->response = -5;
 				}
+
+				ipMutex.lock();
+				ipWhitelist.insert(utwr->ip);
+				ipMutex.unlock();
+				
 
 				utwrs->worldid = utwr->worldid;
 				SendPacket(outpack);

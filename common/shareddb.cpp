@@ -1078,24 +1078,24 @@ int32 SharedDatabase::DeleteStalePlayerCorpses()
 		rows_affected += results.RowsAffected();
 	}
 
-	if(RuleB(Character, UsePlayerCorpseBackups))
-	{
-		std::string cb_query = StringFormat(
-			"SELECT id FROM `character_corpses_backup`");
-		auto cb_results = QueryDatabase(cb_query);
-		for (auto row = cb_results.begin(); row != cb_results.end(); ++row) {
-			uint32 corpse_id = atoi(row[0]);
-			std::string cbd_query = StringFormat(
-				"DELETE from character_corpses_backup where id = %d AND ( "
-				"SELECT COUNT(*) from character_corpse_items_backup where corpse_id = %d) "
-				" = 0", corpse_id, corpse_id);
-			auto cbd_results = QueryDatabase(cbd_query);
-			if(!cbd_results.Success())
-				return -1;
+	//if(RuleB(Character, UsePlayerCorpseBackups))
+	//{
+	//	std::string cb_query = StringFormat(
+	//		"SELECT id FROM `character_corpses_backup`");
+	//	auto cb_results = QueryDatabase(cb_query);
+	//	for (auto row = cb_results.begin(); row != cb_results.end(); ++row) {
+	//		uint32 corpse_id = atoi(row[0]);
+	//		std::string cbd_query = StringFormat(
+	//			"DELETE from character_corpses_backup where id = %d AND ( "
+	//			"SELECT COUNT(*) from character_corpse_items_backup where corpse_id = %d) "
+	//			" = 0", corpse_id, corpse_id);
+	//		auto cbd_results = QueryDatabase(cbd_query);
+	//		if(!cbd_results.Success())
+	//			return -1;
 
-			rows_affected += cbd_results.RowsAffected();
-		}
-	}
+	//		rows_affected += cbd_results.RowsAffected();
+	//	}
+	//}
 
     return rows_affected;
 }

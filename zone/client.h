@@ -350,6 +350,7 @@ public:
 	inline uint8 IsSoloOnly() const { return m_epp.solo_only; }
 	inline uint8 IsSelfFound() const { return m_epp.self_found; }
 	inline uint8 HasBetaBuffGearFlag() const { return m_epp.betabuff_gear_flag; }
+	std::string GetSSFLooterName();
 
 	inline void SetHardcore(uint8 in_hardcore) { m_epp.hardcore = in_hardcore; }
 	inline void SetSoloOnly(uint8 in_solo_only) { m_epp.solo_only = in_solo_only; }

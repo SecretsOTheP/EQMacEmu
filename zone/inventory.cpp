@@ -799,11 +799,23 @@ bool Client::PushItemOnCursorWithoutQueue(EQ::ItemInstance* inst, bool drop)
 				}
 				else
 				{
-					auto broken_string = fmt::format("Cursor queue full or item {} (qty {} ) is a duplicate. This item is eligible for reimbursement.", inst->GetID(), inst->GetCharges());
-					Log(Logs::General, Logs::Inventory, "Cursor queue has too many items or item %d (qty %d ) is a duplicate. It will be deleted.", inst->GetID(), inst->GetCharges());
-					if (RuleB(QueryServ, PlayerLogItemDesyncs)) { QServ->QSItemDesyncs(CharacterID(), broken_string.c_str(), GetZoneID()); }
-					Message(Chat::Red, broken_string.c_str());
-					return false;
+					if (RuleB(Quarm, CursorAllowDuplicateItems)) {
+						if (m_inv.CursorSize() >= 10) {
+							auto broken_string = fmt::format("Cursor queue full. This item is eligible for reimbursement.");
+							Log(Logs::General, Logs::Inventory, "Cursor queue has too many items. It will be deleted.");
+							if (RuleB(QueryServ, PlayerLogItemDesyncs)) { QServ->QSItemDesyncs(CharacterID(), broken_string.c_str(), GetZoneID()); }
+							Message(Chat::Red, broken_string.c_str());
+							return false;
+						}
+					}
+					else
+					{
+						auto broken_string = fmt::format("Cursor queue full or item {} (qty {} ) is a duplicate. This item is eligible for reimbursement.", inst->GetID(), inst->GetCharges());
+						Log(Logs::General, Logs::Inventory, "Cursor queue has too many items or item %d (qty %d ) is a duplicate. It will be deleted.", inst->GetID(), inst->GetCharges());
+						if (RuleB(QueryServ, PlayerLogItemDesyncs)) { QServ->QSItemDesyncs(CharacterID(), broken_string.c_str(), GetZoneID()); }
+						Message(Chat::Red, broken_string.c_str());
+						return false;
+					}
 				}
 			}
 		}

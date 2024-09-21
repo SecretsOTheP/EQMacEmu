@@ -175,6 +175,25 @@ void NPC::SpellProcess()
 	}
 }
 
+namespace {
+	bool IsWhitelistedBeneficialSpellForSelfFound(uint16 spell_id, Client *caster, Client *target)
+	{
+		if (caster == nullptr || !caster->IsSelfFound())
+			return false;
+
+		if (target == nullptr || !target->IsSelfFound() || target->IsSoloOnly())
+			return false;
+
+		if (IsEffectInSpell(spell_id, SE_Teleport))
+			return true;
+
+		if (IsEffectInSpell(spell_id, SE_BindAffinity))
+			return true;
+
+		return false;
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // functions related to begin/finish casting, fizzling etc
 //
@@ -425,6 +444,11 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		target_id = GetID();
 	}
 
+	if(target_id == 0 && spell.targettype == ST_Target && IsEffectInSpell(spell_id, SE_SummonItem)) {
+		Log(Logs::Detail, Logs::Spells, "SE_SummonItem spell %d auto-targeted the caster.", spell_id);
+		target_id = GetID();
+	}
+
 	if(cast_time <= -1) {
 		// save the non-reduced cast time to use in the packet
 		cast_time = orgcasttime = spell.cast_time;
@@ -633,6 +657,14 @@ bool Mob::DoPreCastingChecks(uint16 spell_id, CastingSlot slot, uint16 spell_tar
 			return false;
 		}
 
+		// Interrupt summon item spells cast onto non-pet npcs
+		if(spells[spell_id].targettype == ST_Target && IsEffectInSpell(spell_id, SE_SummonItem) &&
+				spell_target && (!spell_target->IsPet() && !spell_target->IsClient()))
+		{
+			InterruptSpell(CANNOT_AFFECT_NPC, Chat::SpellFailure, spell_id, false, false);
+			return false;
+		}
+
 		// Interrupt spell casts that are targetting self found or solo if they're not allowed
 		// Already know caster is a client from the first check in this function
 		if(spell_target && spell_target->IsClient())					
@@ -656,7 +688,7 @@ bool Mob::DoPreCastingChecks(uint16 spell_id, CastingSlot slot, uint16 spell_tar
 				} 
 				if (spell_target->CastToClient()->IsSelfFound() && spell_target != this)
 				{
-					bool can_get_experience = spell_target->CastToClient()->IsInLevelRange(caster->GetLevel2());
+					bool can_get_experience = spell_target->CastToClient()->IsInLevelRange(caster->GetLevel2()) && caster->IsInLevelRange(spell_target->CastToClient()->GetLevel2());
 					bool compatible = caster->IsSelfFound() == spell_target->CastToClient()->IsSelfFound();
 					if (!compatible)
 					{
@@ -664,7 +696,7 @@ bool Mob::DoPreCastingChecks(uint16 spell_id, CastingSlot slot, uint16 spell_tar
 						is_failed_cast = true;
 						fail_message = SELF_FOUND_ERROR;
 					}
-					else if(compatible && !can_get_experience)
+					else if(compatible && !can_get_experience && !IsWhitelistedBeneficialSpellForSelfFound(spell_id, caster, spell_target->CastToClient()))
 					{
 						// if the spell_target can not get EXP while grouped with the caster, don't allow the caster to buff
 						is_failed_cast = true;
@@ -2923,12 +2955,13 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 
 				}
 
-				if(!IsBeneficialAllowed(spelltar) ||
+				if(!IsBeneficialAllowed(spelltar) && !IsWhitelistedBeneficialSpellForSelfFound(spell_id, pClient, pClientTarget) ||
 					(IsGroupOnlySpell(spell_id) &&
 						!(
 							(pBasicGroup && ((pBasicGroup == pBasicGroupTarget) || (pBasicGroup == pBasicGroupTargetPet))) || //Basic Group
 
 							((nGroup > 0) && ((nGroup == nGroupTarget) || (nGroup == nGroupTargetPet))) || //Raid group
+							(pRaid && ((pRaid == pRaidTarget) || (pRaid == pRaidTargetPet)) && !IsBuffSpell(spell_id)) || //Raid. Buffs don't sync client-side
 
 							(spelltar == GetPet()) //should be able to cast grp spells on self and pet despite grped status.
 						)

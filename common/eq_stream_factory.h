@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+#include <unordered_map>
 
 #include "../common/eq_stream.h"
 #include "../common/condition.h"
@@ -16,8 +17,21 @@
 class EQStream;
 class Timer;
 
-using EQStreamIterator = std::map<std::pair<uint32, uint16>, std::shared_ptr<EQStream>>::iterator;
-using EQOldStreamIterator = std::map<std::pair<uint32, uint16>, std::shared_ptr<EQOldStream>>::iterator;
+struct stream_pair_hash {
+	template <class T1, class T2>
+	uint64_t operator () (const std::pair<T1, T2>& p) const {
+		const uint64_t a = static_cast<uint64_t>(p.first);
+		const uint64_t b = static_cast<uint64_t>(p.second);
+
+		const uint64_t h0 = (b << 32) | a;
+		const uint64_t h1 = (a << 32) | b;
+
+		return (p.first < p.second) ? h0 : h1;
+	}
+};
+
+using EQStreamIterator = std::unordered_map<std::pair<uint32, uint32>, std::shared_ptr<EQStream>>::iterator;
+using EQOldStreamIterator = std::unordered_map<std::pair<uint32, uint32>, std::shared_ptr<EQOldStream>>::iterator;
 
 class RecvBuffer {
 	private:
@@ -61,16 +75,16 @@ class EQStreamFactory : private Timeoutable {
 		std::mutex MNewStreams;
 		std::mutex MNewOldStreams;
 
-		std::map<std::pair<uint32, uint16>, std::shared_ptr<EQStream>> Streams;
+		std::unordered_map<std::pair<uint32, uint32>, std::shared_ptr<EQStream>, stream_pair_hash> Streams;
 		std::mutex MStreams;
 		std::mutex MOldStreams;
 
 		std::queue<std::shared_ptr<EQOldStream>> NewOldStreams;
 
-		std::map<std::pair<uint32, uint16>, std::shared_ptr<EQOldStream>> OldStreams;
+		std::unordered_map<std::pair<uint32, uint32>, std::shared_ptr<EQOldStream>, stream_pair_hash> OldStreams;
 
 		std::thread ReaderThread;
-		std::thread WriterNewThread;
+		//std::thread WriterNewThread;
 		std::thread WriterOldThread;
 
 		virtual void CheckTimeout();

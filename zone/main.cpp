@@ -71,6 +71,7 @@
 #include <time.h>
 #include <ctime>
 #include <chrono>
+#include <unordered_set>
 
 #ifdef _CRTDBG_MAP_ALLOC
 	#undef new
@@ -111,6 +112,9 @@ const SPDat_Spell_Struct* spells;
 int32 SPDAT_RECORDS = -1;
 const ZoneConfig *Config;
 double frame_time = 0.0;
+std::unordered_set<uint32> ipWhitelist;
+std::mutex		ipMutex;
+bool bSkipFactoryAuth = true;
 
 void Shutdown();
 void UpdateWindowTitle(char* iNewTitle);
@@ -408,18 +412,20 @@ int main(int argc, char** argv) {
 			}
 
 			//check the factory for any new incoming streams.
-			while ((eqss = eqsf.Pop())) {
-				//pull the stream out of the factory and give it to the stream identifier
-				//which will figure out what patch they are running, and set up the dynamic
-				//structures and opcodes for that patch.
-				struct in_addr	in;
-				in.s_addr = eqss->GetRemoteIP();
-				LogInfo("New connection from [{0}]:[{1}]", inet_ntoa(in), ntohs(eqss->GetRemotePort()));
-				stream_identifier.AddStream(eqss);	//takes the stream
-			}
+			//while ((eqss = eqsf.Pop())) {
+			//	//pull the stream out of the factory and give it to the stream identifier
+			//	//which will figure out what patch they are running, and set up the dynamic
+			//	//structures and opcodes for that patch.
+			//	struct in_addr	in;
+			//	in.s_addr = eqss->GetRemoteIP();
+			//	LogInfo("New connection from [{0}]:[{1}]", inet_ntoa(in), ntohs(eqss->GetRemotePort()));
+			//	stream_identifier.AddStream(eqss);	//takes the stream
+			//}
 
+			auto mSeconds = std::chrono::milliseconds(RuleI(Quarm, MaxTimeSpentProcessingConns));
+			auto endTime = std::chrono::high_resolution_clock::now() + std::chrono::duration_cast<std::chrono::nanoseconds>(mSeconds);
 			//check the factory for any new incoming streams.
-			while ((eqoss = eqsf.PopOld())) {
+			while (std::chrono::high_resolution_clock::now() <= endTime && (eqoss = eqsf.PopOld())) {
 				//pull the stream out of the factory and give it to the stream identifier
 				//which will figure out what patch they are running, and set up the dynamic
 				//structures and opcodes for that patch.
