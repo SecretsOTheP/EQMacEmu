@@ -334,21 +334,50 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 
 				if (!player_raid)
 				{
+					sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid.");
+					return;
+				}
+
+				if (player_raid->MeetsInstancedRaidRequirements() < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
+				{
 					sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid with %i players at or above level %i present total.",
 						RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
 						RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
 					return;
 				}
+
 				if (player_raid->GetRaidLeaderCharacterID() != sender->CharacterID())
 				{
 					uint32 leader_instanceid = zone->GetZoneInstanceIDByCharacterAndZone(player_raid->GetRaidLeaderCharacterID(), zoneid);
-					if (ourZoneInstanceID == GUILD_NONE)
+					if (ourZoneInstanceID == GUILD_NONE && leader_instanceid != GUILD_NONE)
 					{
 						zoneguildid = leader_instanceid;
 						//TODO: hardcode, retrieve from db later
 						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
 						auto cur_time = time(nullptr);
-						database.SaveCharacterInstanceLockout(sender->CharacterID(), cur_time + RuleI(Quarm, InstanceMinimumLockoutTime), zoneid, zoneguildid)
+
+						int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
+						zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
+						database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+					}
+					else
+					{
+						sender->Message(Chat::Red, "You are unable to enter an instance because your raid leader hasn't entered first.");
+						return;
+					}
+				}
+				else
+				{
+					uint32 leader_instanceid = zone->GetZoneInstanceIDByCharacterAndZone(player_raid->GetRaidLeaderCharacterID(), zoneid);
+					if (ourZoneInstanceID == GUILD_NONE)
+					{
+						zoneguildid = database.GetHighestZoneInstanceID() + 1;
+						//TODO: hardcode, retrieve from db later
+						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
+						auto cur_time = time(nullptr);
+						int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
+						zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
+						database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
 					}
 				}
 			}

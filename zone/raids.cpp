@@ -573,30 +573,25 @@ bool Raid::CanRaidEngageRaidTarget(uint32 guild_id)
 	return true;
 }
 
-uint32 Raid::GetPresentMembersFromGuildID(uint32 guild_id)
+bool Raid::MeetsInstancedRaidRequirements()
 {
-	if (guild_id == 0 || guild_id == GUILD_NONE)
-	{
-		return 0;
-	}
-
 	uint32 membercount = 0;
 
 	for (int x = 0; x < MAX_RAID_MEMBERS; x++)
 	{
 		if (strlen(members[x].membername) > 0)
 		{
-			uint32 guild_id = members[x].guildid;
-			uint32 member_level = members[x].level >= RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement);
-
-			if (guild_id != 0 && guild_id != GUILD_NONE && guild_id == guild_id)
-			{
-				membercount++;
-			}
+			uint32 member_level = members[x].level;
+			if (member_level < RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement))
+				return false;
+			membercount++;
 		}
 	}
 
-	return membercount;
+	if (membercount < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
+		return false;
+	
+	return true;
 }
 
 uint32 Raid::GetGroup(const char *name)

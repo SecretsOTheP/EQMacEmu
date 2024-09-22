@@ -64,6 +64,19 @@ struct ZoneBanishPoint
 	uint16 target_zone_id;
 };
 
+struct zone_instance_pair_hash {
+	template <class T1, class T2>
+	uint64_t operator () (const std::pair<T1, T2>& p) const {
+		const uint64_t a = static_cast<uint64_t>(p.first);
+		const uint64_t b = static_cast<uint64_t>(p.second);
+
+		const uint64_t h0 = (b << 32) | a;
+		const uint64_t h1 = (a << 32) | b;
+
+		return (p.first < p.second) ? h0 : h1;
+	}
+};
+
 struct ZoneClientAuth_Struct {
 	uint32	ip;			// client's IP address
 	uint32	wid;		// client's WorldID#
@@ -440,7 +453,7 @@ private:
 	GlobalLootManager m_global_loot;
 
 	//Ordered by <CharacterID, ZoneID || Data>
-	std::unordered_map<std::pair<uint32, uint32>, CharacterInstanceLockout> zone_character_instance_cache;
+	std::unordered_map<std::pair<uint32, uint32>, CharacterInstanceLockout, zone_instance_pair_hash> zone_character_instance_cache;
 
 	// loot
 	std::vector<LoottableRepository::Loottable>               m_loottables = {};

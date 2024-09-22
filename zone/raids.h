@@ -106,6 +106,7 @@ public:
 	uint32	GetPresentMembersFromGuildID(uint32 guild_id);
 	bool	IsGuildOfficerInRaidOfGuild(uint32 guild_id);
 	bool	CanRaidEngageRaidTarget(uint32 guild_id);
+	bool MeetsInstancedRaidRequirements();
 	uint32	GetHighestLevel();
 	uint32	GetHighestLevel2();
 	uint32	GetLowestLevel();
