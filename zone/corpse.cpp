@@ -2810,6 +2810,15 @@ void Corpse::AddPlayerLockout(Client* c)
 		//if they're not in zone, this will be loaded once they are.
 		database.SaveCharacterLootLockout(c->CharacterID(), lootLockout.expirydate, npctype_id, GetCleanNPCName().c_str());
 
+		zone->ReplaceZoneInstanceIDCache(c->CharacterID(), zone->GetZoneID(), zone->GetGuildID(), lootLockout.expirydate);
+		database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+		CharacterInstanceLockout instanceLockout;
+		memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+		instanceLockout.character_id = sender->CharacterID();
+		instanceLockout.expirydate = end_time;
+		instanceLockout.zone_id = zoneid;
+		instanceLockout.zone_instance_id = zoneguildid;
+
 		std::string appendedCharName = c->GetCleanName();
 
 		if (c->IsSelfFound())

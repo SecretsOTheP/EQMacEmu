@@ -359,6 +359,13 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 						int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
 						zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
 						database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+						CharacterInstanceLockout instanceLockout;
+						memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+						instanceLockout.character_id = sender->CharacterID();
+						instanceLockout.expirydate = end_time;
+						instanceLockout.zone_id = zoneid;
+						instanceLockout.zone_instance_id = zoneguildid;
+						sender->character_instance_lockouts[zoneid] = instanceLockout;
 					}
 					else
 					{
@@ -371,13 +378,20 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 					uint32 leader_instanceid = zone->GetZoneInstanceIDByCharacterAndZone(player_raid->GetRaidLeaderCharacterID(), zoneid);
 					if (ourZoneInstanceID == GUILD_NONE)
 					{
-						zoneguildid = database.GetHighestZoneInstanceID() + 1;
+						zoneguildid = database.GetHighestZoneInstanceID(zoneid) + 1;
 						//TODO: hardcode, retrieve from db later
 						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
 						auto cur_time = time(nullptr);
 						int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
 						zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
 						database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+						CharacterInstanceLockout instanceLockout;
+						memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+						instanceLockout.character_id = sender->CharacterID();
+						instanceLockout.expirydate = end_time;
+						instanceLockout.zone_id = zoneid;
+						instanceLockout.zone_instance_id = zoneguildid;
+						sender->character_instance_lockouts[zoneid] = instanceLockout;
 					}
 				}
 			}

@@ -1047,16 +1047,16 @@ bool ZoneDatabase::SaveCharacterInstanceLockout(uint32 character_id, uint32 expi
 	return true;
 }
 
-int32 ZoneDatabase::GetHighestZoneInstanceID()
+int32 ZoneDatabase::GetHighestZoneInstanceID(uint32 zone_id)
 {
-	std::string query = StringFormat("SELECT MAX(zone_instance_id) FROM `character_instance_lockouts`");
+	std::string query = StringFormat("SELECT MAX(zone_instance_id) FROM `character_instance_lockouts` WHERE (zone_id = %u)", zone_id);
 	auto results = QueryDatabase(query);
 	if (!results.Success()) {
-		return 1;
+		return 0;
 	}
 
 	if (results.RowCount() == 0)
-		return 1;
+		return 0;
 
 	auto row = results.begin();
 	int32 res = row[0] ? atoi(row[0]) : 0;
