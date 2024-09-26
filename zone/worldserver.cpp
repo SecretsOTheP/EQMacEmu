@@ -427,6 +427,31 @@ void WorldServer::Process() {
 			}
 			break;
 		}
+		case ServerOP_CZUpdateLockoutCache:
+		{
+			CZUpdateLockoutCache_Struct* zulc = (CZUpdateLockoutCache_Struct*)pack->pBuffer;
+			if (pack->size != sizeof(CZUpdateLockoutCache_Struct)) {
+				break;
+			}
+
+			if (zulc)
+			{
+				Client* c = entity_list.GetClientByCharID(zulc->CharId);
+				if (c && c->IsClient())
+				{
+					CharacterInstanceLockout instanceLockout;
+					memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+					instanceLockout.character_id = zulc->CharId;
+					instanceLockout.expirydate = zulc->Expiry;
+					instanceLockout.zone_id = zulc->ZoneId;
+					instanceLockout.zone_instance_id = zulc->ZoneInstanceId;
+					c->CastToClient()->character_instance_lockouts[zulc->ZoneId] = instanceLockout;
+				}
+				zone->ReplaceZoneInstanceIDCache(zulc->CharId, zone->GetZoneID(), zone->GetGuildID(), zulc->Expiry);
+			}
+			break;
+		}
+
 		case ServerOP_ZoneBootup: {
 			if (pack->size != sizeof(ServerZoneStateChange_struct)) {
 				LogError("Wrong size on ServerOP_ZoneBootup. Got: [{}] Expected: [{}]", pack->size, sizeof(ServerZoneStateChange_struct));

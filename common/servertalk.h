@@ -182,6 +182,8 @@
 #define ServerOP_ReloadRulesWorld	0x4003
 #define ServerOP_ReloadTitles		0x0062
 
+#define ServerOP_CZUpdateLockoutCache 0x4050
+
 /* Query Server OP Codes */
 #define ServerOP_QSPlayerLogItemDeletes				0x5013
 #define ServerOP_QSPlayerLogItemMoves				0x5014
@@ -1161,6 +1163,14 @@ struct CZMessagePlayer_Struct {
 	uint32	Type;
 	char	CharName[64];
 	char	Message[512];
+};
+
+struct CZUpdateLockoutCache_Struct {
+	char CharName[64];
+	uint32 CharId;
+	int64 Expiry;
+	uint32 ZoneId;
+	uint32 ZoneInstanceId;
 };
 
 struct CZSetEntVarByNPCTypeID_Struct {

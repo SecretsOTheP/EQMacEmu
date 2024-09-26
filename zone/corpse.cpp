@@ -2456,6 +2456,16 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 						}
 						//if they're not in zone, this will be loaded once they are.
 						database.SaveCharacterLootLockout(playerItr->second.character_id, lootLockout.expirydate, in_npc->GetNPCTypeID(), in_npc->GetCleanName());
+						database.SaveCharacterInstanceLockout(playerItr->second.character_id, lootLockout.expirydate, zone->GetZoneID(), zone->GetGuildID());	
+
+						auto pack2 = new ServerPacket(ServerOP_CZUpdateLockoutCache, sizeof(CZUpdateLockoutCache_Struct));
+						CZUpdateLockoutCache_Struct* CZLC = (CZUpdateLockoutCache_Struct*)pack2->pBuffer;
+						CZLC->CharId = playerItr->second.character_id;
+						strn0cpy(CZLC->CharName, playerItr->second.character_name, 64);
+						CZLC->ZoneId = zone->GetZoneID();
+						CZLC->ZoneInstanceId = zone->GetGuildID();
+						worldserver.SendPacket(pack2);
+						safe_delete(pack2);
 
 						std::string appendedCharName = kg->membername[i];
 
@@ -2473,11 +2483,10 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 						if (mclient && mclient->IsClient())
 							mclient->CastToClient()->Message(Chat::Yellow, "You were locked out of %s and receive no loot.", in_npc->GetCleanName());
 						else
-						{
+						{							
 							std::string message = "You were locked out of ";
 							message += in_npc->GetCleanName();
 							message += " and receive no loot.";
-
 
 							uint32 message_len = strlen(kg->membername[i]) + 1;
 							uint32 message_len2 = strlen(message.c_str()) + 1;
@@ -2576,6 +2585,17 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 
 							//if they're not in zone, this will be loaded once they are.
 							database.SaveCharacterLootLockout(playerItr->second.character_id, lootLockout.expirydate, in_npc->GetNPCTypeID(), in_npc->GetCleanName());
+							database.SaveCharacterInstanceLockout(playerItr->second.character_id, lootLockout.expirydate, zone->GetZoneID(), zone->GetGuildID());
+
+							auto pack2 = new ServerPacket(ServerOP_CZUpdateLockoutCache, sizeof(CZUpdateLockoutCache_Struct));
+							CZUpdateLockoutCache_Struct* CZLC = (CZUpdateLockoutCache_Struct*)pack2->pBuffer;
+							CZLC->CharId = playerItr->second.character_id;
+							strn0cpy(CZLC->CharName, playerItr->second.character_name, 64);
+							CZLC->ZoneId = zone->GetZoneID();
+							CZLC->ZoneInstanceId = zone->GetGuildID();
+							worldserver.SendPacket(pack2);
+							safe_delete(pack2);
+							
 							records.erase(playerItr);
 						}
 						else
@@ -2653,6 +2673,15 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 
 					//if they're not in zone, this will be loaded once they are.
 					database.SaveCharacterLootLockout(playerItr->second.character_id, lootLockout.expirydate, in_npc->GetNPCTypeID(), in_npc->GetCleanName());
+					database.SaveCharacterInstanceLockout(playerItr->second.character_id, lootLockout.expirydate, zone->GetZoneID(), zone->GetGuildID());
+					auto pack2 = new ServerPacket(ServerOP_CZUpdateLockoutCache, sizeof(CZUpdateLockoutCache_Struct));
+					CZUpdateLockoutCache_Struct* CZLC = (CZUpdateLockoutCache_Struct*)pack2->pBuffer;
+					CZLC->CharId = playerItr->second.character_id;
+					strn0cpy(CZLC->CharName, playerItr->second.character_name, 64);
+					CZLC->ZoneId = zone->GetZoneID();
+					CZLC->ZoneInstanceId = zone->GetGuildID();
+					worldserver.SendPacket(pack2);
+					safe_delete(pack2);
 
 					std::string appendedCharName = give_exp_client->GetCleanName();
 
@@ -2671,7 +2700,6 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 					give_exp_client->Message(Chat::Yellow, "You were locked out of %s and receive no standard loot.", in_npc->GetCleanName());
 					DenyPlayerLoot(give_exp_client->GetCleanName());
 					records.erase(playerItr);
-
 				}
 			}
 		}
@@ -2699,11 +2727,18 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 			message += ".";
 			Client* c = entity_list.GetClientByCharID(record.second.character_id);
 			if (c && c->IsClient())
+			{
 				c->CastToClient()->Message(Chat::Yellow, message.c_str());
+				CharacterInstanceLockout instanceLockout;
+				memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+				instanceLockout.character_id = c->CharacterID();
+				instanceLockout.expirydate = lootLockout.expirydate;
+				instanceLockout.zone_id = zone->GetZoneID();
+				instanceLockout.zone_instance_id = zone->GetGuildID();
+				give_exp_client->CastToClient()->character_instance_lockouts[zone->GetZoneID()] = instanceLockout;
+			}
 			else
 			{
-
-
 				uint32 message_len = strlen(record.second.character_name) + 1;
 				uint32 message_len2 = strlen(message.c_str()) + 1;
 				auto pack = new ServerPacket(ServerOP_CZMessagePlayer, sizeof(CZMessagePlayer_Struct) + message_len + message_len2);
@@ -2713,10 +2748,21 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 				strn0cpy(CZSC->Message, message.c_str(), 512);
 				worldserver.SendPacket(pack);
 				safe_delete(pack);
+
 			}
 			//if they're not in zone, this will be loaded once they are.
 			database.SaveCharacterLootLockout(record.second.character_id, lootLockout.expirydate, in_npc->GetNPCTypeID(), in_npc->GetCleanName());
+			database.SaveCharacterInstanceLockout(record.second.character_id, lootLockout.expirydate, zone->GetZoneID(), zone->GetGuildID());
 			
+			auto pack2 = new ServerPacket(ServerOP_CZUpdateLockoutCache, sizeof(CZUpdateLockoutCache_Struct));
+			CZUpdateLockoutCache_Struct* CZLC = (CZUpdateLockoutCache_Struct*)pack2->pBuffer;
+			CZLC->CharId = record.second.character_id;
+			strn0cpy(CZLC->CharName, record.second.character_name, 64);
+			CZLC->ZoneId = zone->GetZoneID();
+			CZLC->ZoneInstanceId = zone->GetGuildID();
+			worldserver.SendPacket(pack2);
+			safe_delete(pack2);
+
 			if (c)
 			{
 				auto clientLootLockoutItr = c->loot_lockouts.find(in_npc->GetNPCTypeID());
@@ -2774,6 +2820,9 @@ void Corpse::AddPlayerLockout(Client* c)
 	if (!c)
 		return;
 
+	if (zone->GetGuildID() == GUILD_NONE)
+		return;
+
 	bool noLockouts = !c->IsLootLockedOutOfNPC(npctype_id);
 
 	if (noLockouts)
@@ -2809,15 +2858,16 @@ void Corpse::AddPlayerLockout(Client* c)
 
 		//if they're not in zone, this will be loaded once they are.
 		database.SaveCharacterLootLockout(c->CharacterID(), lootLockout.expirydate, npctype_id, GetCleanNPCName().c_str());
+		database.SaveCharacterInstanceLockout(c->CharacterID(), lootLockout.expirydate, zone->GetZoneID(), zone->GetGuildID());
 
-		zone->ReplaceZoneInstanceIDCache(c->CharacterID(), zone->GetZoneID(), zone->GetGuildID(), lootLockout.expirydate);
-		database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
-		CharacterInstanceLockout instanceLockout;
-		memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
-		instanceLockout.character_id = sender->CharacterID();
-		instanceLockout.expirydate = end_time;
-		instanceLockout.zone_id = zoneid;
-		instanceLockout.zone_instance_id = zoneguildid;
+		auto pack2 = new ServerPacket(ServerOP_CZUpdateLockoutCache, sizeof(CZUpdateLockoutCache_Struct));
+		CZUpdateLockoutCache_Struct* CZLC = (CZUpdateLockoutCache_Struct*)pack2->pBuffer;
+		CZLC->CharId = c->CharacterID();
+		strn0cpy(CZLC->CharName, c->GetCleanName(), 64);
+		CZLC->ZoneId = zone->GetZoneID();
+		CZLC->ZoneInstanceId = zone->GetGuildID();
+		worldserver.SendPacket(pack2);
+		safe_delete(pack2);
 
 		std::string appendedCharName = c->GetCleanName();
 
