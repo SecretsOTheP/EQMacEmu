@@ -109,6 +109,7 @@ ZoneEventScheduler    event_scheduler;
 WorldContentService   content_service;
 PathManager           path;
 const SPDat_Spell_Struct* spells;
+std::map<std::tuple<int,int,int>, SpellModifier_Struct> spellModifiers;
 int32 SPDAT_RECORDS = -1;
 const ZoneConfig *Config;
 double frame_time = 0.0;
@@ -290,6 +291,11 @@ int main(int argc, char** argv) {
 	if(!database.LoadSpells(hotfix_name, &SPDAT_RECORDS, &spells)) {
 		LogError("Loading spells FAILED!");
 		return 1;
+	}
+	
+	LogInfo("Loading spell modifiers");
+	if(!database.LoadSpellModifiers(spellModifiers)) {
+		LogError("Loading spell modifiers FAILED, continuing...");
 	}
 
 	// load these here for now

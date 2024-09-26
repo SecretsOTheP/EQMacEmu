@@ -13,6 +13,9 @@
 #ifndef RULE_BOOL
 #define RULE_BOOL(cat, rule, default_value, notes)
 #endif
+#ifndef RULE_STRING
+#define RULE_STRING(cat, rule, default_value, notes)
+#endif
 #ifndef RULE_CATEGORY_END
 #define RULE_CATEGORY_END()
 #endif
@@ -286,6 +289,13 @@ RULE_REAL(Quarm, BonusGroupEXP5MemberOverride, 1.14, "Quarm's custom group EXP b
 RULE_REAL(Quarm, BonusGroupEXP6MemberOverride, 1.20, "Quarm's custom group EXP bonus override for x members. For server events that directly target group bonuses.")
 RULE_REAL(Quarm, BonusGroupEXP7MemberOverride, 1.24, "Quarm's custom group EXP bonus override for x members. For server events that directly target group bonuses.")
 RULE_INT(Quarm, MaxTimeSpentProcessingConns, 100, "")
+RULE_BOOL(Quarm, ClientFactionOverride, false, "Enables or disables client personal faction adjustment")
+RULE_REAL(Quarm, ClientFactionMultiplier, 2.0, "Client personal faction adjustment multiplier")
+RULE_BOOL(Quarm, LichDamageMitigation, false, "Quarm lich hack to make PoP era lich spell data cause the correct live era pvp mitigated damage to self.")
+RULE_BOOL(Quarm, ClientBeneficialSpellDurationModifier, false, "Enables or disables duration modification for player beneficial spells")
+RULE_BOOL(Quarm, ClientDetrimentalSpellDurationModifier, false, "Enables or disables duration modification for player detrimental spells")
+RULE_BOOL(Quarm, NPCBeneficialSpellDurationModifier, false, "Enables or disables duration modification for NPC beneficial spells")
+RULE_BOOL(Quarm, NPCDetrimentalSpellDurationModifier, false, "Enables or disables duration modification for NPC detrimental spells")
 RULE_CATEGORY_END()
 RULE_CATEGORY( Map )
 //enable these to help prevent mob hopping when they are pathing
@@ -536,4 +546,5 @@ RULE_CATEGORY_END()
 #undef RULE_INT
 #undef RULE_REAL
 #undef RULE_BOOL
+#undef RULE_STRING
 #undef RULE_CATEGORY_END

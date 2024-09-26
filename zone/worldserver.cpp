@@ -1740,6 +1740,16 @@ void WorldServer::Process() {
 			RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
 			break;
 		}
+		
+		case ServerOP_ReloadSpellModifiers: {
+			worldserver.SendEmoteMessage(
+				0, 0, 0, 15,
+				"Spell modifiers reloaded for Zone: '%s'",
+				zone->GetLongName()
+			);
+			database.LoadSpellModifiers(spellModifiers);
+			break;
+		}
 
 		case ServerOP_ReloadContentFlags: {
 			if (zone) {

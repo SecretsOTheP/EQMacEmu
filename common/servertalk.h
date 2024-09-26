@@ -181,6 +181,7 @@
 #define ServerOP_ReloadRules	0x4002
 #define ServerOP_ReloadRulesWorld	0x4003
 #define ServerOP_ReloadTitles		0x0062
+#define ServerOP_ReloadSpellModifiers	0x4016
 
 #define ServerOP_CZUpdateLockoutCache 0x4050
 

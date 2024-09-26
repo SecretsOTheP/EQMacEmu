@@ -4729,6 +4729,18 @@ int32 Client::UpdatePersonalFaction(int32 char_id, int32 npc_value, int32 factio
 
 	if (hit != 0)
 	{	
+		if (RuleB(Quarm, ClientFactionOverride))
+		{
+			const float factionMultiplier = RuleR(Quarm, ClientFactionMultiplier);
+			
+			// We should not support sign flipping or zeroing out faction as this could have undetermined ramifications
+			if (factionMultiplier > 0)
+			{
+				Log(Logs::Detail, Logs::Faction, "Faction Multiplier %0.2f applied to faction %d for %s.", factionMultiplier, faction_id, GetName());
+				hit *= factionMultiplier;
+			}
+		}
+		
 		int16 min_personal_faction = database.MinFactionCap(faction_id);
 		int16 max_personal_faction = database.MaxFactionCap(faction_id);
 		int32 personal_faction = GetCharacterFactionLevel(faction_id);

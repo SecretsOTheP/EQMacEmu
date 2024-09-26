@@ -357,6 +357,7 @@ int command_init(void)
 		command_add("reloadtraps", "- Repops all traps in the current zone.", AccountStatus::QuestTroupe, command_reloadtraps) ||
 		command_add("reloadworld", "[0|1] - Clear quest cache and reload all rules (0 - no repop, 1 - repop).", AccountStatus::GMImpossible, command_reloadworld) ||
 		command_add("reloadzps", "- Reload zone points from database", AccountStatus::GMLeadAdmin, command_reloadzps) ||
+		command_add("reloadspmod", "- Reload spell modifiers from database", AccountStatus::GMLeadAdmin, command_reloadspmod) ||
 		command_add("removelegacyitem", "- Remove a legacy item from your target [itemid], or specify a [charid] [itemid] to remove the flag of.", AccountStatus::GMAdmin, command_removelegacyitem) ||
 		command_add("repop", "[delay] - Repop the zone with optional delay.", AccountStatus::GMLeadAdmin, command_repop) ||
 		command_add("repopclose", "[distance in units] Repops only NPC's nearby for fast development purposes", AccountStatus::GMAdmin, command_repopclose) ||
@@ -3950,6 +3951,17 @@ void command_reloadlevelmods(Client *c, const Seperator *sep){
 void command_reloadzps(Client *c, const Seperator *sep){
 	database.LoadStaticZonePoints(&zone->zone_point_list, zone->GetShortName());
 	c->Message(Chat::Default, "Reloading server zone_points.");
+}
+
+void command_reloadspmod(Client *c, const Seperator *sep){
+	if (c)
+	{
+		auto pack = new ServerPacket(ServerOP_ReloadSpellModifiers, 0);
+		worldserver.SendPacket(pack);
+		c->Message(Chat::Red, "Successfully sent the packet to world to reload spell modifiers globally.");
+		safe_delete(pack);
+
+	}
 }
 
 void command_zoneshutdown(Client *c, const Seperator *sep){

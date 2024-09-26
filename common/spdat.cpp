@@ -98,6 +98,18 @@ bool IsSacrificeSpell(uint16 spell_id)
 	return IsEffectInSpell(spell_id, SE_Sacrifice);
 }
 
+bool IsLichSpell(uint16 spell_id)
+{
+	if (!IsValidSpell(spell_id))
+		return false;
+
+	// Lich line valid through PoP. This should probably be a hash lookup or dynamic if scaled bigger than quarm PoP.
+	if (spell_id == 641 || spell_id == 642 || spell_id == 643 || spell_id == 644 || spell_id == 1611 || spell_id == 1416 || spell_id == 2114 || spell_id == 3311)
+		return true;
+
+	return false;
+}
+
 bool IsLifetapSpell(uint16 spell_id)
 {
 	if (IsValidSpell(spell_id) && (spells[spell_id].targettype == ST_Tap || spells[spell_id].targettype == ST_TargetAETap))

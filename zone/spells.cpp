@@ -184,7 +184,11 @@ namespace {
 		if (target == nullptr || !target->IsSelfFound() || target->IsSoloOnly())
 			return false;
 
-		if (IsEffectInSpell(spell_id, SE_Teleport))
+		if (spell_id == SPELL_WIND_OF_THE_NORTH || spell_id == SPELL_WIND_OF_THE_SOUTH ||
+				spell_id == SPELL_TISHANS_RELOCATION || spell_id == SPELL_MARKARS_RELOCATION)
+			return true;
+
+		if (IsTeleportSpell(spell_id))
 			return true;
 
 		if (IsEffectInSpell(spell_id, SE_BindAffinity))
@@ -277,7 +281,7 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	}
 
 	//prevent immune from aggro and spells npcs from being casted on.
-	if (IsClient() && spell_target && spell_target->IsNPC())
+	if (IsClient() && spell_target && spell_target->IsNPC() && spells[spell_id].targettype != ST_Self && !IsGroupSpell(spell_id))
 	{
 		NPC* spell_target_npc = spell_target->CastToNPC();
 		if (spell_target_npc)
@@ -667,7 +671,7 @@ bool Mob::DoPreCastingChecks(uint16 spell_id, CastingSlot slot, uint16 spell_tar
 
 		// Interrupt spell casts that are targetting self found or solo if they're not allowed
 		// Already know caster is a client from the first check in this function
-		if(spell_target && spell_target->IsClient())					
+		if(spell_target && spell_target->IsClient() && spells[spell_id].targettype != ST_Self && !IsGroupSpell(spell_id))
 		{
 			// Only fail if it's beneficial - don't want to fail on detrimental for pvp purposes
 			if(IsBeneficialSpell(spell_id))
@@ -2427,37 +2431,42 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 
 	int res = CalcBuffDuration_formula(castlevel, formula, duration);
 
-	if (caster && caster->IsClient() && IsBeneficialSpell(spell_id) && formula != DF_Permanent)
+	if (caster && formula != DF_Permanent)
 	{
-		int aa_bonus = 0;
-		uint8 spell_reinforcement = caster->GetAA(aaSpellCastingReinforcement);
-		if (spell_reinforcement > 0)
-		{
-			switch (spell_reinforcement)
+		res = CalcBuffDuration_modification(spell_id, duration, caster->IsClient());
+		
+		if (caster->IsClient() && IsBeneficialSpell(spell_id))
+		{	
+			int aa_bonus = 0;
+			uint8 spell_reinforcement = caster->GetAA(aaSpellCastingReinforcement);
+			if (spell_reinforcement > 0)
 			{
-			case 1:
-				aa_bonus = 5;
-				break;
-			case 2:
-				aa_bonus = 15;
-				break;
-			case 3:
-				aa_bonus = 30;
-				break;
-			default:
-				aa_bonus = 0;
-				break;
-				Log(Logs::General, Logs::AA, "Spell Casting Reinforcement added %d% to the duration of buff %d", aa_bonus, spell_id);
+				switch (spell_reinforcement)
+				{
+				case 1:
+					aa_bonus = 5;
+					break;
+				case 2:
+					aa_bonus = 15;
+					break;
+				case 3:
+					aa_bonus = 30;
+					break;
+				default:
+					aa_bonus = 0;
+					break;
+					Log(Logs::General, Logs::AA, "Spell Casting Reinforcement added %d% to the duration of buff %d", aa_bonus, spell_id);
 
-			}
-			if (caster->GetAA(aaSpellCastingReinforcementMastery))
-			{
-				aa_bonus += 20;
-				Log(Logs::General, Logs::AA, "Spell Casting Reinforcement Mastery added a total %d to the duration of buff %d%", aa_bonus, spell_id);
-			}
-			int bonus = res * aa_bonus / 100;
+				}
+				if (caster->GetAA(aaSpellCastingReinforcementMastery))
+				{
+					aa_bonus += 20;
+					Log(Logs::General, Logs::AA, "Spell Casting Reinforcement Mastery added a total %d to the duration of buff %d%", aa_bonus, spell_id);
+				}
+				int bonus = res * aa_bonus / 100;
 
-			res += bonus;
+				res += bonus;
+			}
 		}
 	}
 
@@ -2470,6 +2479,86 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 		spell_id, castlevel, formula, duration, res);
 
 	return(res);
+}
+
+int CalcBuffDuration_modification(int spell_id, int duration, bool isclient)
+{
+	const bool   spellDetrimental = IsDetrimentalSpell(spell_id);
+	const bool   spellBeneficial  = IsBeneficialSpell(spell_id);
+	const uint32 zoneId           = zone->GetZoneID();
+	
+	// Stop all spells that should never have durations modified
+	if (IsSplurtFormulaSpell(spell_id))
+	{
+		return duration;
+	}
+		
+	// Check if enabled for caster and type
+	if (
+		(isclient  && ((spellDetrimental && !RuleB(Quarm, ClientDetrimentalSpellDurationModifier)) || (spellBeneficial && !RuleB(Quarm, ClientBeneficialSpellDurationModifier)))) ||
+	    (!isclient && ((spellDetrimental && !RuleB(Quarm, NPCDetrimentalSpellDurationModifier))    || (spellBeneficial && !RuleB(Quarm, NPCBeneficialSpellDurationModifier))))
+	)  
+	{
+		return duration;
+	}
+	
+	SpellModifier_Struct spellModifier;
+
+	// Ordered search through our spell modifier map, check exact spell and zone first, then fallback to aggregators
+	// If we can't match any of this then return the standard duration
+	bool foundModifier = 
+	    (FindSpellModifier(isclient,spell_id,zoneId,spellModifier) || 
+	    (IsBeneficialSpell && FindSpellModifier(isclient,SpellModifierType::Beneficial,zoneId,spellModifier)) ||
+		(IsDetrimentalSpell && FindSpellModifier(isclient,SpellModifierType::Detrimental,zoneId,spellModifier)) ||
+		FindSpellModifier(isclient,spell_id,0,spellModifier) ||
+		(IsBeneficialSpell && FindSpellModifier(isclient,SpellModifierType::Beneficial,0,spellModifier)) ||
+		(IsDetrimentalSpell && FindSpellModifier(isclient,SpellModifierType::Detrimental,0,spellModifier)));
+		
+	if (!foundModifier) 
+	{
+		return duration;
+	}
+	
+	// We only allow exact spell IDs to set fixed duration
+	if (spellModifier.spell_match_id > 0 && spellModifier.tic_duration > 0) 
+	{
+		Log(Logs::Detail, Logs::Spells, "Fixed spell duration modification applied! spell_id:%d, duration:%d", spell_id, spellModifier.tic_duration);
+		return spellModifier.tic_duration;
+	}
+	
+	// Apply multiplier if it's set
+	if (spellModifier.tic_multiplier > 0)
+	{
+		duration = static_cast<int>(duration * spellModifier.tic_multiplier);
+	}
+	
+	if (spellModifier.tic_add != 0)
+	{
+		duration += spellModifier.tic_add;
+	}
+	
+	// If we have negative duration, just zero it out
+	if (duration < 0)
+	{
+		duration = 0;
+	}
+	
+	Log(Logs::Detail, Logs::Spells, "Variable spell duration modification applied! spell_id:%d, multiplier:%0.2f, add:%i, duration:%d", spell_id, spellModifier.tic_multiplier, spellModifier.tic_add, duration);
+
+	return duration;
+}
+
+bool FindSpellModifier(int isclient, int spell_id, int zone_id, SpellModifier_Struct &spellModifier)
+{
+	auto foundModifier = spellModifiers.find(std::make_tuple(isclient,spell_id,zone_id));
+	
+	if (foundModifier != spellModifiers.end()) 
+	{
+		spellModifier = foundModifier->second;
+		return true;
+	}
+	
+	return false;
 }
 
 // the generic formula calculations

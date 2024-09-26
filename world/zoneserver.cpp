@@ -1015,6 +1015,10 @@ bool ZoneServer::Process() {
 				RuleManager::Instance()->LoadRules(&database, "default");
 				break;
 			}
+			case ServerOP_ReloadSpellModifiers: {
+				zoneserver_list.SendPacket(pack);
+				break;
+			}
 			case ServerOP_ReloadContentFlags: {
 				zoneserver_list.SendPacket(pack);
 				content_service.SetExpansionContext()->ReloadContentFlags();
