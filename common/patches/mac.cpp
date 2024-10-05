@@ -49,7 +49,7 @@ namespace Mac {
 
 		//ok, now we have what we need to register.
 
-		EQStreamInterface::Signature signature;
+		EQStream::Signature signature;
 		std::string pname;
 
 		signature.ignore_eq_opcode = 0;

@@ -3,36 +3,48 @@
 #include "eq_stream_factory.h"
 
 #ifdef _WINDOWS
-#include <winsock2.h>
-#include <io.h>
-#include <stdio.h>
+	#include <winsock2.h>
+	#include <process.h>
+	#include <io.h>
+	#include <stdio.h>
 #else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/select.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <sys/select.h>
+	#include <arpa/inet.h>
+	#include <netdb.h>
+	#include <pthread.h>
 #endif
 
 #include <iostream>
 #include <fcntl.h>
-#include <atomic>
-#include <unordered_set>
-#include <unordered_map>
 
 #include "op_codes.h"
 
-extern std::unordered_set<uint32> ipWhitelist;
-extern std::mutex ipMutex;
-extern bool bSkipFactoryAuth;
-static std::atomic_bool s_checkTimeoutRunning;
+ThreadReturnType EQStreamFactoryReaderLoop(void *eqfs)
+{
+	EQStreamFactory *fs=(EQStreamFactory *)eqfs;
+
+	fs->ReaderLoop();
+
+	THREAD_RETURN(nullptr);
+}
+
+ThreadReturnType EQStreamFactoryWriterLoop(void *eqfs)
+{
+	EQStreamFactory *fs=(EQStreamFactory *)eqfs;
+
+	fs->WriterLoop();
+
+	THREAD_RETURN(nullptr);
+}
 
 EQStreamFactory::EQStreamFactory(EQStreamType type, int port, uint32 timeout)
 	: Timeoutable(5000), stream_timeout(timeout)
 {
 	StreamType = type;
 	Port = port;
-	sock = -1;
+	sock =-1;
 }
 
 void EQStreamFactory::Close()
@@ -45,62 +57,17 @@ void EQStreamFactory::Close()
 	close(sock);
 #endif
 	sock = -1;
-
-	if (ReaderThread.joinable()) {
-		ReaderThread.join();
-	}
-
-	//if (WriterNewThread.joinable()) {
-	//	WriterNewThread.join();
-	//}
-
-	if (WriterOldThread.joinable()) {
-		WriterOldThread.join();
-	}
-}
-
-void EQStreamFactory::Stop() {
-	StopReader();
-	StopWriterNew();
-	StopWriterOld();
-}
-
-void EQStreamFactory::StopReader() {
-	std::lock_guard<std::mutex> lock(MReaderRunning);
-	ReaderRunning = false;
-}
-
-void EQStreamFactory::StopWriterNew() {
-	std::unique_lock<std::mutex> lock(MWriterRunningNew);
-	WriterRunningNew = false;
-	lock.unlock();
-	WriterWorkNew.notify_one();
-}
-
-void EQStreamFactory::StopWriterOld() {
-	std::unique_lock<std::mutex> lock(MWriterRunningOld);
-	WriterRunningOld = false;
-	lock.unlock();
-	WriterWorkOld.notify_one();
-}
-
-void EQStreamFactory::SignalWriterNew() {
-	WriterWorkNew.notify_one();
-}
-
-void EQStreamFactory::SignalWriterOld() {
-	WriterWorkOld.notify_one();
 }
 
 bool EQStreamFactory::Open()
 {
-	struct sockaddr_in address;
+struct sockaddr_in address;
 #ifndef WIN32
-	pthread_t t1, t2;
+	pthread_t t1,t2;
 #endif
 	/* Setup internet address information.
 	This is used with the bind() call */
-	memset((char *)&address, 0, sizeof(address));
+	memset((char *) &address, 0, sizeof(address));
 	address.sin_family = AF_INET;
 	address.sin_port = htons(Port);
 	address.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -116,264 +83,236 @@ bool EQStreamFactory::Open()
 		sock = -1;
 		return false;
 	}
-#ifdef _WINDOWS
-	unsigned long nonblock = 1;
-	ioctlsocket(sock, FIONBIO, &nonblock);
-#else
-	fcntl(sock, F_SETFL, O_NONBLOCK);
-#endif
-
-	ReaderThread = std::thread(&EQStreamFactory::ReaderLoop, this);
-	//WriterNewThread = std::thread(&EQStreamFactory::WriterLoopNew, this);
-	WriterOldThread = std::thread(&EQStreamFactory::WriterLoopOld, this);
+	#ifdef _WINDOWS
+		unsigned long nonblock = 1;
+		ioctlsocket(sock, FIONBIO, &nonblock);
+	#else
+		fcntl(sock, F_SETFL, O_NONBLOCK);
+	#endif
+	//moved these because on windows the output was delayed and causing the console window to look bad
+	#ifdef _WINDOWS
+		_beginthread(EQStreamFactoryReaderLoop,0, this);
+		_beginthread(EQStreamFactoryWriterLoop,0, this);
+	#else
+		pthread_create(&t1,nullptr,EQStreamFactoryReaderLoop,this);
+		pthread_create(&t2,nullptr,EQStreamFactoryWriterLoop,this);
+	#endif
 	return true;
 }
 
-std::shared_ptr<EQStream> EQStreamFactory::Pop()
+EQStream *EQStreamFactory::Pop()
 {
-	std::shared_ptr<EQStream> s = nullptr;
-	std::lock_guard<std::mutex> lock(MNewStreams);
+EQStream *s = nullptr;
+	MNewStreams.lock();
 	if (!NewStreams.empty()) {
-		s = NewStreams.front();
+		s=NewStreams.front();
 		NewStreams.pop();
-		s->PutInUse();
 	}
+	MNewStreams.unlock();
 
 	return s;
 }
 
-
-std::shared_ptr<EQOldStream> EQStreamFactory::PopOld()
+void EQStreamFactory::PushOld(EQOldStream *s)
 {
-	std::shared_ptr<EQOldStream> s = nullptr;
-	std::lock_guard<std::mutex> lock(MNewOldStreams);
-	if (!NewOldStreams.empty()) {
-		s = NewOldStreams.front();
-		NewOldStreams.pop();
+	//cout << "Push():Locking MNewStreams" << endl;
+	MNewStreams.lock();
+	try {
 		s->PutInUse();
 	}
-
-	return s;
-}
-
-void EQStreamFactory::Push(std::shared_ptr<EQStream> s)
-{
-	std::lock_guard<std::mutex> lock(MNewStreams);
-	NewStreams.push(s);
-}
-
-void EQStreamFactory::PushOld(std::shared_ptr<EQOldStream> s)
-{
-	std::lock_guard<std::mutex> lock(MNewOldStreams);
+	catch (...) {
+		fprintf(stderr, "Catching Stream Crash.");
+		MNewStreams.unlock();
+		return;
+	}
 	NewOldStreams.push(s);
+	MNewStreams.unlock();
+	//cout << "Push(): Unlocking MNewStreams" << endl;
+}
+
+
+void EQStreamFactory::Push(EQStream *s)
+{
+	MNewStreams.lock();
+	try {
+		s->PutInUse();
+	}
+	catch (...) {
+		fprintf(stderr, "Catching Stream Crash.");
+		MNewStreams.unlock();
+		return;
+	}
+	NewStreams.push(s);
+	MNewStreams.unlock();
+}
+
+
+EQOldStream *EQStreamFactory::PopOld()
+{
+EQOldStream *s=nullptr;
+	//cout << "Pop():Locking MNewStreams" << endl;
+	MNewStreams.lock();
+	if (NewOldStreams.size()) {
+		s=NewOldStreams.front();
+		NewOldStreams.pop();
+	}
+	MNewStreams.unlock();
+	//cout << "Pop(): Unlocking MNewStreams" << endl;
+
+	return s;
 }
 
 void EQStreamFactory::ReaderLoop()
 {
-	fd_set readset;
-	EQStreamIterator stream_iter;
-	EQOldStreamIterator oldstream_iter;
-	int num;
-	int length;
-	unsigned char buffer[2048];
-	sockaddr_in from;
-	int socklen = sizeof(sockaddr_in);
-	timeval sleep_time;
-	ReaderRunning = true;
-	while (sock != -1) {
-		std::unique_lock<std::mutex> reader_lock(MReaderRunning);
+fd_set readset;
+std::map<std::pair<uint32, uint16>, EQStream*>::iterator stream_itr;
+std::map<std::pair<uint32, uint16>, EQOldStream *>::iterator oldstream_itr;
+int num;
+int length;
+unsigned char buffer[2048];
+sockaddr_in from;
+int socklen=sizeof(sockaddr_in);
+timeval sleep_time;
+//time_t now;
+
+	ReaderRunning=true;
+	while(sock!=-1) {
+		MReaderRunning.lock();
 		if (!ReaderRunning) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			MReaderRunning.unlock();
 			break;
 		}
-		reader_lock.unlock();
-
-		if (s_checkTimeoutRunning) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			continue;
-		}
+		MReaderRunning.unlock();
 
 		FD_ZERO(&readset);
-		FD_SET(sock, &readset);
+		FD_SET(sock,&readset);
 
-		sleep_time.tv_sec = 30;
-		sleep_time.tv_usec = 0;
-		if ((num = select(sock + 1, &readset, nullptr, nullptr, &sleep_time)) < 0) {
+		sleep_time.tv_sec=30;
+		sleep_time.tv_usec=0;
+		if ((num=select(sock+1,&readset,nullptr,nullptr,&sleep_time))<0) {
 			// What do we wanna do?
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			continue;
-		}
-		else if (num == 0) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		} else if (num==0)
 			continue;
-		}
 
-		if (sock == -1)
+		if(sock == -1)
 			break;		//somebody closed us while we were sleeping.
 
-		if (FD_ISSET(sock, &readset)) {
+		if (FD_ISSET(sock,&readset)) {
 #ifdef _WINDOWS
-			if ((length = recvfrom(sock, (char*)buffer, sizeof(buffer), 0, (struct sockaddr*)&from, (int *)&socklen)) < 2)
+			if ((length=recvfrom(sock,(char*)buffer,sizeof(buffer),0,(struct sockaddr*)&from,(int *)&socklen)) < 2)
 #else
-			if ((length = recvfrom(sock, buffer, 2048, 0, (struct sockaddr *)&from, (socklen_t *)&socklen)) < 2)
+			if ((length=recvfrom(sock,buffer,2048,0,(struct sockaddr *)&from,(socklen_t *)&socklen)) < 2)
 #endif
 			{
 				// What do we wanna do?
-			}
-			else {
-				auto streamKey = std::make_pair(from.sin_addr.s_addr, from.sin_port);
-				bool bFound = false;
-
-				if (!bSkipFactoryAuth)
-				{
-					ipMutex.lock();
-					bFound = ipWhitelist.find(from.sin_addr.s_addr) == ipWhitelist.end() ? false : true;
-					ipMutex.unlock();
-
-					if (!bFound)
-						continue;
-				}
-				std::unique_lock<std::mutex> streams_lock(MStreams, std::defer_lock);
-				std::unique_lock<std::mutex> old_streams_lock(MOldStreams, std::defer_lock);
-				std::lock(streams_lock, old_streams_lock); //lock both mutexes (in order to avoid deadlock)
-
-				//stream_iter = Streams.find(streamKey);
-				oldstream_iter = OldStreams.find(streamKey);
-				//bool hasNewStream = stream_iter != Streams.end();
-				bool hasOldStream = oldstream_iter != OldStreams.end();
-
-				if (/*hasNewStream == false && */ hasOldStream == false) {
-	/*				if (buffer[1] == OP_SessionRequest) {
-						RecvBuffer data = RecvBuffer(true, length, buffer, streamKey, from);
-						ProcessLoopNew(data, stream_iter);
+			} else {
+				MStreams.lock();
+				stream_itr = Streams.find(std::make_pair(from.sin_addr.s_addr, from.sin_port));
+				oldstream_itr = OldStreams.find(std::make_pair(from.sin_addr.s_addr, from.sin_port));
+				if (stream_itr == Streams.end() && oldstream_itr == OldStreams.end()) {
+					if (buffer[1]==OP_SessionRequest) {
+						EQStream *s = new EQStream(from);
+						s->SetStreamType(StreamType);
+						Streams[std::make_pair(from.sin_addr.s_addr, from.sin_port)]=s;
+						Push(s);
+						WriterWork.Signal();
+						s->AddBytesRecv(length);
+						s->Process(buffer,length);
+						s->SetLastPacketTime(Timer::GetCurrentTime());
 					}
-					else {*/
-					if (buffer[1] != OP_SessionRequest)
+					else {
+						EQOldStream *s = new EQOldStream(from, sock);
+						s->SetStreamType(OldStream);
+						OldStreams[std::make_pair(from.sin_addr.s_addr, from.sin_port)]=s;
+						PushOld(s);
+						WriterWork.Signal();
+						//s->AddBytesRecv(length);
+						s->SetLastPacketTime(Timer::GetCurrentTime());
+						s->ReceiveData(buffer,length);
+					}
+
+					MStreams.unlock();
+				} else {
+
+					//newstr
+					stream_itr = Streams.find(std::make_pair(from.sin_addr.s_addr, from.sin_port));
+					EQStream *curstream = nullptr;
+					if(stream_itr != Streams.end())
+					curstream = stream_itr->second;
+					//oldstr
+					oldstream_itr = OldStreams.find(std::make_pair(from.sin_addr.s_addr, from.sin_port));
+					EQOldStream *oldcurstream = nullptr;
+					if(oldstream_itr != OldStreams.end())
+					oldcurstream = oldstream_itr->second;
+
+					if(curstream != nullptr)
 					{
-						RecvBuffer data = RecvBuffer(true, length, buffer, streamKey, from);
-						ProcessLoopOld(data, oldstream_iter);
+						//dont bother processing incoming packets for closed connections
+						if(curstream->CheckClosed())
+							curstream = nullptr;
+						else
+							curstream->PutInUse();
+						MStreams.unlock();	//the in use flag prevents the stream from being deleted while we are using it.
+
+						if(curstream) {
+							curstream->AddBytesRecv(length);
+							curstream->Process(buffer,length);
+							curstream->SetLastPacketTime(Timer::GetCurrentTime());
+							curstream->ReleaseFromUse();
+						}
 					}
-					//}
-				}
-				else {
-					//if (hasNewStream) {
-						//RecvBuffer data = RecvBuffer(false, length, buffer, streamKey, from);
-						//ProcessLoopNew(data, stream_iter);
-					//}
-				//	else if (hasOldStream) {
-						RecvBuffer data = RecvBuffer(false, length, buffer, streamKey, from);
-						ProcessLoopOld(data, oldstream_iter);
-					//}
+					else if(oldcurstream != nullptr)
+					{
+						if(oldcurstream->CheckClosed())
+							oldcurstream = nullptr;
+						else
+							oldcurstream->PutInUse();
+
+						MStreams.unlock();	//the in use flag prevents the stream from being deleted while we are using it.
+
+						if(oldcurstream) {
+							//oldcurstream->AddBytesRecv(length);
+							oldcurstream->ParceEQPacket(length, buffer);
+							oldcurstream->SetLastPacketTime(Timer::GetCurrentTime());
+							oldcurstream->ReleaseFromUse();
+						}
+					}
+					else
+					{
+						MStreams.unlock();
+					}
 				}
 			}
-
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-		}
-	}
-}
-
-void EQStreamFactory::ProcessLoopNew(const RecvBuffer& recvBuffer, EQStreamIterator iterator)
-{
-	const auto& from = recvBuffer.From();
-	const auto& length = recvBuffer.Length();
-	const auto buffer = recvBuffer.Buffer();
-
-	if (recvBuffer.IsNew()) {
-		std::shared_ptr<EQStream> s = std::make_shared<EQStream>(from);
-		s->SetStreamType(StreamType);
-		Streams[recvBuffer.StreamKey()] = s;
-		WriterWorkNew.notify_one();
-		Push(s);
-		s->AddBytesRecv(length);
-		s->Process(buffer, length);
-		s->SetLastPacketTime(Timer::GetCurrentTime());
-	}
-	else {
-		std::shared_ptr<EQStream> curstream = iterator->second;
-
-		//dont bother processing incoming packets for closed connections
-		if (curstream != nullptr) {
-			if (curstream->CheckClosed())
-				curstream = nullptr;
-			else
-				curstream->PutInUse();
-		}
-
-		if (curstream) {
-			curstream->AddBytesRecv(length);
-			curstream->Process(buffer, length);
-			curstream->SetLastPacketTime(Timer::GetCurrentTime());
-			curstream->ReleaseFromUse();
-		}
-	}
-}
-
-void EQStreamFactory::ProcessLoopOld(const RecvBuffer& recvBuffer, EQOldStreamIterator iterator)
-{
-	const auto& from = recvBuffer.From();
-	const auto& length = recvBuffer.Length();
-	auto buffer = recvBuffer.Buffer();
-
-	if (recvBuffer.IsNew()) {
-		std::shared_ptr<EQOldStream> s = std::make_shared<EQOldStream>(from, sock);
-		s->SetStreamType(StreamType);
-		OldStreams[recvBuffer.StreamKey()] = s;
-		WriterWorkOld.notify_one();
-		PushOld(s);
-		//s->AddBytesRecv(length);
-		s->ParceEQPacket(length, buffer);
-		s->SetLastPacketTime(Timer::GetCurrentTime());
-	}
-	else {
-		std::shared_ptr<EQOldStream> curstream = iterator->second;
-
-		//dont bother processing incoming packets for closed connections
-		if (curstream != nullptr) {
-			if (curstream->CheckClosed())
-				curstream = nullptr;
-			else
-				curstream->PutInUse();
-		}
-
-		if (curstream) {
-			//curstream->AddBytesRecv(length);
-			curstream->ParceEQPacket(length, buffer);
-			curstream->SetLastPacketTime(Timer::GetCurrentTime());
-			curstream->ReleaseFromUse();
 		}
 	}
 }
 
 void EQStreamFactory::CheckTimeout()
 {
-	// give priority for CheckTimeout to do work
-	s_checkTimeoutRunning = true;
-
 	//lock streams the entire time were checking timeouts, it should be fast.
-	std::unique_lock<std::mutex> streams_lock(MStreams, std::defer_lock);
-	std::unique_lock<std::mutex> oldstreams_lock(MOldStreams, std::defer_lock);
-	std::lock(streams_lock, oldstreams_lock); //lock both mutexes (in order to avoid deadlock)
+	MStreams.lock();
 
-	unsigned long now = Timer::GetCurrentTime();
-	EQStreamIterator stream_itr;
+	unsigned long now=Timer::GetCurrentTime();
+	std::map<std::pair<uint32, uint16>,EQStream *>::iterator stream_itr;
 
-	for (stream_itr = Streams.begin(); stream_itr != Streams.end();) {
-		std::shared_ptr<EQStream> s = stream_itr->second;
+	for(stream_itr = Streams.begin();stream_itr != Streams.end();) {
+		EQStream *s = stream_itr->second;
 
 		s->CheckTimeout(now, stream_timeout);
 
 		EQStreamState state = s->GetState();
 
 		//not part of the else so we check it right away on state change
-		if (state == CLOSED) {
+		if (state==CLOSED) {
 			if (s->IsInUse()) {
 				//give it a little time for everybody to finish with it
-			}
-			else {
+			} else {
 				//everybody is done, we can delete it now
 				auto temp = stream_itr;
 				++stream_itr;
-				temp->second = nullptr;
+				//let whoever has the stream outside delete it
+				delete temp->second;
 				Streams.erase(temp);
 				continue;
 			}
@@ -381,26 +320,24 @@ void EQStreamFactory::CheckTimeout()
 
 		++stream_itr;
 	}
-
-	EQOldStreamIterator oldstream_itr;
-
-	for (oldstream_itr = OldStreams.begin(); oldstream_itr != OldStreams.end();) {
-		std::shared_ptr<EQOldStream> s = oldstream_itr->second;
-
+	now=Timer::GetCurrentTime();
+	std::map<std::pair<uint32, uint16>,EQOldStream *>::iterator oldstream_itr;
+	for(oldstream_itr = OldStreams.begin();oldstream_itr != OldStreams.end();) {
+		EQOldStream *s = oldstream_itr->second;
 		s->CheckTimeout(now, stream_timeout);
 
 		EQStreamState state = s->GetState();
-
 		//not part of the else so we check it right away on state change
-		if (state == CLOSED) {
+		if (state==CLOSED) {
 			if (s->IsInUse()) {
 				//give it a little time for everybody to finish with it
-			}
-			else {
+			} else {
 				//everybody is done, we can delete it now
+				//cout << "Removing connection" << endl;
 				auto temp = oldstream_itr;
 				++oldstream_itr;
-				temp->second = nullptr;
+				//let whoever has the stream outside delete it
+				delete temp->second;
 				OldStreams.erase(temp);
 				continue;
 			}
@@ -408,49 +345,47 @@ void EQStreamFactory::CheckTimeout()
 
 		++oldstream_itr;
 	}
-
-	s_checkTimeoutRunning = false;
+	MStreams.unlock();
 }
 
-void EQStreamFactory::WriterLoopNew() {
-	std::vector<std::shared_ptr<EQStream>> wants_write;
-	std::vector<std::shared_ptr<EQStream>>::iterator cur, end;
+void EQStreamFactory::WriterLoop()
+{
+	std::vector<EQStream *> wants_write;
+	std::vector<EQStream *>::iterator cur,end;
+	std::vector<EQOldStream *> old_wants_write;
+	std::vector<EQOldStream *>::iterator oldcur,oldend;
+	bool decay=false;
 	uint32 stream_count;
-	bool decay = false;
+
 	Timer DecayTimer(20);
 
-	WriterRunningNew = true;
+	WriterRunning=true;
 	DecayTimer.Enable();
-	while (sock != -1) {
-		std::unique_lock<std::mutex> writer_lock(MWriterRunningNew);
-		if (!WriterRunningNew) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	while(sock != -1) {
+		//if (!havework) {
+			//WriterWork.Wait();
+		//}
+		MWriterRunning.lock();
+		if (!WriterRunning)
 			break;
-		}
-		writer_lock.unlock();
-
-		if (s_checkTimeoutRunning) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			continue;
-		}
+		MWriterRunning.unlock();
 
 		wants_write.clear();
-		decay = DecayTimer.Check();
+		old_wants_write.clear();
+
+		decay=DecayTimer.Check();
 
 		//copy streams into a seperate list so we dont have to keep
 		//MStreams locked while we are writting
-		std::unique_lock<std::mutex> streams_lock(MStreams);
-		for (auto stream_itr = Streams.begin(); stream_itr != Streams.end(); ++stream_itr) {
+		MStreams.lock();
+		for(auto stream_itr = Streams.begin();stream_itr != Streams.end();stream_itr++) {
 			// If it's time to decay the bytes sent, then let's do it before we try to write
 			if (decay)
 				stream_itr->second->Decay();
 
 			//bullshit checking, to see if this is really happening, GDB seems to think so...
-			if (stream_itr->second == nullptr) {
-				fprintf(stderr,
-					"ERROR: nullptr Stream encountered in EQStreamFactory::WriterLoop for: %i:%i",
-					stream_itr->first.first, stream_itr->first.second);
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			if(stream_itr->second == nullptr) {
+				fprintf(stderr, "ERROR: nullptr Stream encountered in EQStreamFactory::WriterLoop for: %i:%i", stream_itr->first.first, stream_itr->first.second);
 				continue;
 			}
 
@@ -459,84 +394,48 @@ void EQStreamFactory::WriterLoopNew() {
 				wants_write.push_back(stream_itr->second);
 			}
 		}
+		for(auto oldstream_itr = OldStreams.begin();oldstream_itr != OldStreams.end();oldstream_itr++) {
 
-		stream_count = Streams.size();
-		streams_lock.unlock();
+			//bullshit checking, to see if this is really happening, GDB seems to think so...
+			if(oldstream_itr->second == nullptr) {
+				fprintf(stderr, "ERROR: nullptr Stream encountered in EQStreamFactory::WriterLoop for: %i:%i", oldstream_itr->first.first, oldstream_itr->first.second);
+				continue;
+			}		
+			
+			oldstream_itr->second->CheckTimers();
 
-		// do the actual writes
+			//Commented this so all streams, regardless of them having data, send data out. This is so keepalive packets don't screw up the data rate calculations. Slightly more CPU used.
+			//if (oldstream_itr->second->HasOutgoingData()) {
+					oldstream_itr->second->PutInUse();
+					old_wants_write.push_back(oldstream_itr->second);
+			//}						
+		}
+
+		MStreams.unlock();
+		//do the actual writes
 		cur = wants_write.begin();
 		end = wants_write.end();
 
-		for (; cur != end; ++cur) {
+		for(; cur != end; ++cur) {
 			(*cur)->Write(sock);
 			(*cur)->ReleaseFromUse();
 		}
 
-		if (!stream_count) {
-			std::unique_lock<std::mutex> writer_work_lock(MWriterRunningNew);
-			WriterWorkNew.wait(writer_work_lock);
-		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
-}
-
-void EQStreamFactory::WriterLoopOld() {
-	std::vector<std::shared_ptr<EQOldStream>> old_wants_write;
-	std::vector<std::shared_ptr<EQOldStream>>::iterator oldcur, oldend;
-	uint32 stream_count;
-
-	WriterRunningOld = true;
-	while (sock != -1) {
-		std::unique_lock<std::mutex> writer_lock(MWriterRunningOld);
-		if (!WriterRunningOld) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			break;
-		}
-		writer_lock.unlock();
-
-		if (s_checkTimeoutRunning) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			continue;
-		}
-
-		old_wants_write.clear();
-
-		std::unique_lock<std::mutex> oldstreams_lock(MOldStreams);
-		for (auto stream_itr = OldStreams.begin(); stream_itr != OldStreams.end(); ++stream_itr) {
-
-			//bullshit checking, to see if this is really happening, GDB seems to think so...
-			if (stream_itr->second == nullptr) {
-				fprintf(stderr,
-					"ERROR: nullptr Stream encountered in EQStreamFactory::WriterLoop for: %i:%i",
-					stream_itr->first.first, stream_itr->first.second);
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				continue;
-			}
-			stream_itr->second->CheckTimers();
-			//if (stream_itr->second->HasOutgoingData()) {
-			stream_itr->second->PutInUse();
-			old_wants_write.push_back(stream_itr->second);
-			//}
-		}
-
-		stream_count = OldStreams.size();
-		oldstreams_lock.unlock();
-
-		// do the actual writes
+		//do the actual writes
 		oldcur = old_wants_write.begin();
 		oldend = old_wants_write.end();
-
-		for (; oldcur != oldend; ++oldcur) {
+		for(; oldcur != oldend; ++oldcur) {
 			(*oldcur)->SendPacketQueue();
 			(*oldcur)->ReleaseFromUse();
 		}
 
-		if (!stream_count) {
-			std::unique_lock<std::mutex> writer_work_lock(MWriterRunningOld);
-			WriterWorkOld.wait(writer_work_lock);
-		}
+		Sleep(10);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		MStreams.lock();
+		stream_count=Streams.size() + OldStreams.size();
+		MStreams.unlock();
+		if (!stream_count) {
+			WriterWork.Wait();
+		}
 	}
 }

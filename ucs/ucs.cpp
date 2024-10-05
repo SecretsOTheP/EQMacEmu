@@ -35,8 +35,6 @@
 #include "worldserver.h"
 #include <list>
 #include <signal.h>
-#include <mutex>
-#include <unordered_set>
 
 ChatChannelList *ChannelList;
 Clientlist *g_Clientlist;
@@ -45,9 +43,6 @@ TimeoutManager timeout_manager;
 Database database;
 WorldServer *worldserver = nullptr;
 PathManager path;
-std::unordered_set<uint32> ipWhitelist;
-std::mutex		ipMutex;
-bool bSkipFactoryAuth = true;
 
 const ucsconfig *Config;
 
@@ -144,10 +139,6 @@ int main() {
 	auto loop_fn = [&](EQ::Timer* t) {
 
 		Timer::SetCurrentTime();
-
-		ipMutex.lock();
-		ipWhitelist.clear();
-		ipMutex.unlock();
 
 		if (!RunLoops) {
 			EQ::EventLoop::Get().Shutdown();

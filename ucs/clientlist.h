@@ -86,10 +86,10 @@ struct CharacterEntry {
 class Client {
 
 public:
-	Client(std::shared_ptr<EQStream> eqs);
+	Client(EQStream* eqs);
 	~Client();
 
-	std::shared_ptr<EQStream> ClientStream;
+	EQStream *ClientStream;
 	void AddCharacter(int CharID, const char *CharacterName, int Level, int Race, int Class);
 	void ClearCharacters() { Characters.clear(); }
 	void SendChatlist();
