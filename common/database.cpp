@@ -1346,6 +1346,7 @@ bool Database::CheckNameFilter(const char* name, bool surname) {
 
 	// Rule 2: Check for allowed characters and optional backtick for surnames.
 	bool special_char_found = false;
+	bool second_uppercase_used = false; // Surnames may contain 2 uppercase letters
 	for (size_t i = 0; i < str_name.size(); i++) {
 		if (str_name[i] == '`' || str_name[i] == '\'') {
 			// For non-surnames, if special char already found, or if it's at the start/end of the string.
@@ -1356,6 +1357,11 @@ bool Database::CheckNameFilter(const char* name, bool surname) {
 		}
 		else if (!isalpha(str_name[i])) {
 			return false;
+		}
+		else if (i > 0 && isupper(str_name[i])) {
+			if (!surname || second_uppercase_used)
+				return false;
+			second_uppercase_used = true;
 		}
 	}
 
