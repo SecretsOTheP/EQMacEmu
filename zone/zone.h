@@ -199,7 +199,8 @@ public:
 	void	LoadTempMerchantData();
 	uint32	GetTempMerchantQuantity(uint32 NPCID, uint32 Slot);
 	int32	GetTempMerchantQtyNoSlot(uint32 NPCID, int16 itemid);
-	int		SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold=false);
+	const TempMerchantList* GetTempMerchantListByItemId(uint32 NPCID, uint16 itemid) const;
+	int		SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold=false, uint32 self_found_character_id = 0);
 	int		SaveReimbursementItem(std::list<TempMerchantList>& reimbursement_list, uint32 charid, uint32 item, int32 charges, bool sold = false);
 	void	SaveMerchantItem(uint32 merchantid, int16 item, int8 charges, int8 slot);
 	void	ResetMerchantQuantity(uint32 merchantid);

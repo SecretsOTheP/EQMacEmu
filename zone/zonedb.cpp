@@ -416,7 +416,7 @@ void ZoneDatabase::LoadWorldContainer(uint32 parentid, EQ::ItemInstance* contain
 		return;
 	}
 
-	std::string query = StringFormat("SELECT bagidx, itemid, charges "
+	std::string query = StringFormat("SELECT bagidx, itemid, charges, custom_data "
                                     "FROM object_contents WHERE parentid = %i", parentid);
     auto results = QueryDatabase(query);
     if (!results.Success()) {
@@ -431,6 +431,7 @@ void ZoneDatabase::LoadWorldContainer(uint32 parentid, EQ::ItemInstance* contain
 
         EQ::ItemInstance* inst = database.CreateItem(item_id, charges);
         if (inst) {
+            DecodeCustomDataFromString(inst->GetCustomData(), row[3]);
             // Put item inside world container
             container->PutItem(index, *inst);
         }
@@ -450,6 +451,7 @@ void ZoneDatabase::SaveWorldContainer(uint32 zone_id, uint32 parent_id, const EQ
 	DeleteWorldContainer(parent_id,zone_id);
 
 	// Save all 10 items, if they exist
+	std::string custom_data_str;
 	for (uint8 index = EQ::invbag::SLOT_BEGIN; index <= EQ::invbag::SLOT_END; index++) {
 
 		EQ::ItemInstance* inst = container->GetItem(index);
@@ -462,11 +464,12 @@ void ZoneDatabase::SaveWorldContainer(uint32 zone_id, uint32 parent_id, const EQ
 		}
 
         uint32 item_id = inst->GetItem()->ID;
+        custom_data_str = Strings::Escape(inst->GetCustomDataString());
 
         std::string query = StringFormat("REPLACE INTO object_contents "
-                                        "(zoneid, parentid, bagidx, itemid, charges, droptime) "
-                                        "VALUES (%i, %i, %i, %i, %i, now())",
-                                        zone_id, parent_id, index, item_id, inst->GetCharges());
+                                        "(zoneid, parentid, bagidx, itemid, charges, custom_data, droptime) "
+                                        "VALUES (%i, %i, %i, %i, %i, '%s', now())",
+                                        zone_id, parent_id, index, item_id, inst->GetCharges(), custom_data_str.c_str());
         auto results = QueryDatabase(query);
         if (!results.Success())
             Log(Logs::General, Logs::Error, "Error in ZoneDatabase::SaveWorldContainer: %s", results.ErrorMessage().c_str());
@@ -3055,7 +3058,7 @@ void ZoneDatabase::MarkCorpseAsRezzed(uint32 db_id) {
 	auto results = QueryDatabase(query);
 }
 
-uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, uint32 zoneid, uint32 zoneguildid, CharacterCorpseEntry* corpse, const glm::vec4& position) {
+uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, uint32 zoneid, uint32 zoneguildid, CharacterCorpseEntry* corpse, const LootItems& items, const glm::vec4& position) {
 	/* Dump Basic Corpse Data */
 	std::string query = StringFormat("INSERT INTO `character_corpses` SET \n"
 		"`charname` =		  '%s',\n"
@@ -3158,24 +3161,32 @@ uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, ui
 	else
 	{
 		uint8 first_entry = 0;
-		for (unsigned int i = 0; i < corpse->itemcount; i++) {
+		std::string custom_data_str;
+		for (auto it = items.cbegin(); it != items.cend(); it++) {
+			LootItem* item = *it;
+			if (!item)
+				continue;
+
+			custom_data_str = Strings::Escape(EncodeCustomDataToString(&item->custom_data));
 			if (first_entry != 1) {
 				corpse_items_query = StringFormat("REPLACE INTO `character_corpse_items` \n"
-					" (corpse_id, equip_slot, item_id, charges) \n"
-					" VALUES (%u, %u, %u, %u) \n",
+					" (corpse_id, equip_slot, item_id, charges, custom_data) \n"
+					" VALUES (%u, %u, %u, %u, '%s') \n",
 					last_insert_id,
-					corpse->items[i].equip_slot,
-					corpse->items[i].item_id,
-					corpse->items[i].charges
+					item->equip_slot,
+					item->item_id,
+					item->charges,
+					custom_data_str.c_str()
 				);
 				first_entry = 1;
 			}
 			else {
-				corpse_items_query = corpse_items_query + StringFormat(", (%u, %u, %u, %u) \n",
+				corpse_items_query += StringFormat(", (%u, %u, %u, %u, '%s') \n",
 					last_insert_id,
-					corpse->items[i].equip_slot,
-					corpse->items[i].item_id,
-					corpse->items[i].charges
+					item->equip_slot,
+					item->item_id,
+					item->charges,
+					custom_data_str.c_str()
 				);
 			}
 		}
@@ -3187,7 +3198,7 @@ uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, ui
 	return last_insert_id;
 }
 
-bool ZoneDatabase::SaveCharacterCorpseBackup(uint32 corpse_id, uint32 charid, const char* charname, uint32 zoneid, uint32 zoneguildid, CharacterCorpseEntry* corpse, const glm::vec4& position) {
+bool ZoneDatabase::SaveCharacterCorpseBackup(uint32 corpse_id, uint32 charid, const char* charname, uint32 zoneid, uint32 zoneguildid, CharacterCorpseEntry* corpse, const LootItems& items, const glm::vec4& position) {
 	/* Dump Basic Corpse Data */
 	std::string query = StringFormat("INSERT INTO `character_corpses_backup` SET \n"
 		"`id` =						%u,\n"
@@ -3286,29 +3297,41 @@ bool ZoneDatabase::SaveCharacterCorpseBackup(uint32 corpse_id, uint32 charid, co
 	}
 
 	/* Dump Items from Inventory */
+	query = "";
 	uint8 first_entry = 0;
-	for (unsigned int i = 0; i < corpse->itemcount; i++) {
+	std::string custom_data_str;
+	for (auto it = items.cbegin(); it != items.cend(); it++) {
+		LootItem* item = *it;
+		if (!item)
+			continue;
+
+		custom_data_str = Strings::Escape(EncodeCustomDataToString(&item->custom_data));
 		if (first_entry != 1){
 			query = StringFormat("REPLACE INTO `character_corpse_items_backup` \n"
-				" (corpse_id, equip_slot, item_id, charges) \n"
-				" VALUES (%u, %u, %u, %u) \n",
-				corpse_id, 
-				corpse->items[i].equip_slot,
-				corpse->items[i].item_id,
-				corpse->items[i].charges
+				" (corpse_id, equip_slot, item_id, charges, custom_data) \n"
+				" VALUES (%u, %u, %u, %u, '%s') \n",
+				corpse_id,
+				item->equip_slot,
+				item->item_id,
+				item->charges,
+				custom_data_str.c_str()
 			);
 			first_entry = 1;
 		}
 		else{ 
-			query = query + StringFormat(", (%u, %u, %u, %u) \n",
+			query += StringFormat(", (%u, %u, %u, %u, '%s') \n",
 				corpse_id,
-				corpse->items[i].equip_slot,
-				corpse->items[i].item_id,
-				corpse->items[i].charges
+				item->equip_slot,
+				item->item_id,
+				item->charges,
+				custom_data_str.c_str()
 			);
 		}
 	}
-	auto sc_results = QueryDatabase(query); 
+	if (query.empty()) {
+		return true;
+	}
+	auto sc_results = QueryDatabase(query);
 	if (!sc_results.Success()){
 		Log(Logs::Detail, Logs::Error, "Error inserting character_corpse_items_backup.");
 		return false;
@@ -3398,7 +3421,7 @@ bool ZoneDatabase::LoadCharacterCorpseRezData(uint32 corpse_id, uint32 *exp, uin
 	return false;
 }
 
-bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntry* corpse){
+bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntry* corpse, LootItems& itemlist) {
 	std::string query = StringFormat(
 		"SELECT           \n"
 		"is_locked,       \n"
@@ -3482,7 +3505,8 @@ bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntr
 		"SELECT                       \n"
 		"equip_slot,                  \n"
 		"item_id,                     \n"
-		"charges                      \n"
+		"charges,                     \n"
+		"custom_data                  \n"
 		"FROM                         \n"
 		"character_corpse_items       \n"
 		"WHERE `corpse_id` = %u\n"
@@ -3491,18 +3515,19 @@ bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntr
 	);
 	results = QueryDatabase(query);
 
-	i = 0;
 	corpse->itemcount = results.RowCount();
 	uint16 r = 0;
 	for (auto& row = results.begin(); row != results.end(); ++row) {
-		memset(&corpse->items[i], 0, sizeof(LootItem));
-		corpse->items[i].equip_slot = atoi(row[r++]);		// equip_slot,
-		corpse->items[i].item_id = atoul(row[r++]); 		// item_id,
-		corpse->items[i].charges = atoi(row[r++]); 		// charges,
-		corpse->items[i].min_looter_level = 0;
-		corpse->items[i].item_loot_lockout_timer = 0;
+		LootItem* corpse_item = new LootItem;
+		memset(corpse_item, 0, sizeof(LootItem));
+		corpse_item->equip_slot = atoi(row[r++]);		// equip_slot,
+		corpse_item->item_id = atoul(row[r++]); 		// item_id,
+		corpse_item->charges = atoi(row[r++]); 			// charges,
+		DecodeCustomDataFromString(&corpse_item->custom_data, row[r++]); // custom_Data
+		corpse_item->min_looter_level = 0;
+		corpse_item->item_loot_lockout_timer = 0;
+		itemlist.push_back(corpse_item);
 		r = 0;
-		i++;
 	}
 
 	return true;

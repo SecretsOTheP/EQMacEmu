@@ -50,6 +50,8 @@ public:
 	void SetCharges(int charges);
 	uint32 GetPrice();
 	void SetPrice(uint32 price);
+	uint32 GetSelfFoundCharacterID();
+	void SetSelfFoundCharacter(uint32 self_found_character_id, std::string name);
 	std::string GetCustomDataString();
 	void SetCustomData(std::string identifier, std::string value);
 	void SetCustomData(std::string identifier, int value);

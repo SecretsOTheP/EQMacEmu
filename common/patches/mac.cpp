@@ -923,7 +923,7 @@ namespace Mac {
 		}
   
 			mac_pop_item->ItemClass = item->ItemClass;
-			strcpy(mac_pop_item->Name,item->Name);
+			inst->GetName(mac_pop_item->Name, sizeof(mac_pop_item->Name));
 			strcpy(mac_pop_item->Lore,item->Lore);       
 			strcpy(mac_pop_item->IDFile,item->IDFile);  
 			mac_pop_item->Weight = item->Weight;      

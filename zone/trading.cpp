@@ -689,7 +689,7 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 						DeleteItemInInventory(i);
 						if (npc->CanTalk())
 							npc->Say_StringID(zone->random.Int(TRADE_BAD_FACTION1, TRADE_BAD_FACTION4));
-						SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true);
+						SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetCustomData());
 						Log(Logs::General, Logs::Trading, "Quest NPC %s is returning %s because the faction check has failed.", npc->GetName(), item->Name);
 
 					}
@@ -700,7 +700,8 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 						{
 							auto loot_drop_entry = LootdropEntriesRepository::NewNpcEntity();
 							loot_drop_entry.item_charges = static_cast<int8>(inst->GetCharges());
-							npc->AddLootDrop(item, loot_drop_entry, true, true);
+							bool pet = true; // setting pet(traded) flag to prevent self-found from looting this like a normal drop
+							npc->AddLootDrop(item, loot_drop_entry, true, true, false, pet, false, inst->GetCustomData());
 							Log(Logs::General, Logs::Trading, "Adding loot item %s to Quest NPC %s due to bad faction.", item->Name, npc->GetName());
 						}
 					}
@@ -710,7 +711,7 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 			{
 				if (Admin() == 0)
 				{
-				// if it was not a NO DROP (or if a GM is trading), let the pet have it
+					// if it was not a NO DROP (or if a GM is trading), let the pet have it
 					if (GetGM() || npc->IsPet())
 					{
 						// pets need to look inside bags and try to equip items found there
@@ -730,26 +731,23 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 											npc->AddLootDrop(bagitem, loot_drop_entry, true, true);
 											Log(Logs::General, Logs::Trading, "GM: Adding loot item %s (bag) to non-Quest NPC %s", bagitem->Name, npc->GetName());
 										}
-// Destroy duplicate and nodrop items on charmed pets.
+										// Destroy duplicate and nodrop items on charmed pets.
 										else if (bagitem->NoDrop != 0 &&
 											(!npc->IsCharmedPet() || (npc->IsCharmedPet() && npc->CountQuestItem(bagitem->ID) == 0)))
 										{
-											npc->AddPetLoot(bagitem->ID, baginst->GetCharges());
+											npc->AddPetLoot(bagitem->ID, baginst->GetCharges(), false, baginst->GetCustomData());
 											Log(Logs::General, Logs::Trading, "Adding loot item %s (bag) to non-Quest pet %s", bagitem->Name, npc->GetName());
 										}
-									}
-									else if (RuleB(NPC, ReturnNonQuestItems))
-									{
-										SummonItem(baginst->GetID(), baginst->GetCharges(), EQ::legacy::SLOT_QUEST, true);
-										if (npc->CanTalk())
-											npc->Say_StringID(NO_NEED_FOR_ITEM, GetName());
-										Log(Logs::General, Logs::Trading, "Non-Quest NPC %s is returning %s (bag) because it does not require it.", npc->GetName(), bagitem->Name);
-									}
-									else
-									{
-										if (bagitem->NoDrop != 0 && npc->CountQuestItem(bagitem->ID) == 0)
+										else if (RuleB(NPC, ReturnNonQuestItems))
 										{
-											npc->AddQuestLoot(bagitem->ID, baginst->GetCharges());
+											SummonItem(baginst->GetID(), baginst->GetCharges(), EQ::legacy::SLOT_QUEST, true, baginst->GetCustomData());
+											if(npc->CanTalk())
+												npc->Say_StringID(NO_NEED_FOR_ITEM, GetName());
+											Log(Logs::General, Logs::Trading, "Non-Quest NPC %s is returning %s (bag) because it does not require it.", npc->GetName(), bagitem->Name);
+										}
+										else if (bagitem->NoDrop != 0 && npc->CountQuestItem(bagitem->ID) == 0)
+										{
+											npc->AddQuestLoot(bagitem->ID, baginst->GetCharges(), baginst->GetCustomData());
 											Log(Logs::General, Logs::Trading, "Adding loot item %s (bag) to non-Quest NPC %s", bagitem->Name, npc->GetName());
 										}
 									}
@@ -765,18 +763,18 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 						Log(Logs::General, Logs::Trading, "GM: Adding loot item %s to non-Quest NPC %s", item->Name, npc->GetName());
 					}
 					// Destroy duplicate and nodrop items on charmed pets.
-					else if(item->NoDrop != 0 && 
+					else if(item->NoDrop != 0 &&
 						(!npc->IsCharmedPet() || (npc->IsCharmedPet() && npc->CountQuestItem(item->ID) == 0)))
 					{
-						npc->AddPetLoot(item->ID, inst->GetCharges());
+						npc->AddPetLoot(item->ID, inst->GetCharges(), false, inst->GetCustomData());
 						Log(Logs::General, Logs::Trading, "Adding loot item %s to non-Quest pet %s", item->Name, npc->GetName());
 					}
 				}
 				// Return items being handed into a non-quest NPC if the rule is true
-				else if (RuleB(NPC, ReturnNonQuestItems)) 
+				else if (RuleB(NPC, ReturnNonQuestItems))
 				{
 					DeleteItemInInventory(i);
-					SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true);
+					SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetCustomData());
 					if(npc->CanTalk())
 						npc->Say_StringID(NO_NEED_FOR_ITEM, GetName());
 					Log(Logs::General, Logs::Trading, "Non-Quest NPC %s is returning %s because it does not require it.", npc->GetName(), item->Name);
@@ -789,7 +787,7 @@ void Client::FinishTrade(Mob* tradingWith, bool finalizer, void* event_entry)
 					{
 						if (GetGM() || (item->NoDrop != 0 && npc->CountQuestItem(item->ID) == 0))
 						{
-							npc->AddQuestLoot(item->ID, inst->GetCharges());
+							npc->AddQuestLoot(item->ID, inst->GetCharges(), GetGM() ? nullptr : inst->GetCustomData());
 							Log(Logs::General, Logs::Trading, "Adding loot item %s to non-Quest NPC %s", item->Name, npc->GetName());
 						}
 					}

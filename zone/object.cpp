@@ -561,7 +561,7 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 			if(database.ItemQuantityType(item_id) != EQ::item::Quantity_Charges && charges < 1)
 				charges = 1;
 
-			if (sender->SummonItem(item_id, charges, 0, true))
+			if (sender->SummonItem(item_id, charges, EQ::invslot::slotCursor, true, m_inst->GetCustomData()))
 			{
 				EQ::ItemInstance* curitem = sender->GetInv().GetItem(EQ::invslot::slotCursor);
 				if (curitem && curitem->IsType(EQ::item::ItemClassBag))
@@ -698,10 +698,12 @@ uint32 ZoneDatabase::AddObject(uint32 type, uint32 icon, const Object_Struct& ob
 	uint32 database_id = 0;
 	uint32 item_id = 0;
 	int16 charges = 0;
+	std::string custom_data_str;
 
 	if (inst && inst->GetItem()) {
 		item_id = inst->GetItem()->ID;
 		charges = inst->GetCharges();
+		custom_data_str = Strings::Escape(inst->GetCustomDataString());
 	}
 
 	// SQL Escape object_name
@@ -727,10 +729,10 @@ uint32 ZoneDatabase::AddObject(uint32 type, uint32 icon, const Object_Struct& ob
     // Save new record for object
 	query = StringFormat("INSERT INTO object "
 		"(id, zoneid, xpos, ypos, zpos, heading, "
-		"itemid, charges, objectname, type, icon) "
-		"values (%i, %i, %f, %f, %f, %f, %i, %i, '%s', %i, %i)",
+		"itemid, charges, custom_data, objectname, type, icon) "
+		"values (%i, %i, %f, %f, %f, %f, %i, %i, '%s', '%s', %i, %i)",
 		database_id, object.zone_id, object.x, object.y, object.z, object.heading,
-		item_id, charges, object_name, type, icon);
+		item_id, charges, custom_data_str.c_str(), object_name, type, icon);
 
     safe_delete_array(object_name);
 	results = QueryDatabase(query);
@@ -752,10 +754,12 @@ void ZoneDatabase::UpdateObject(uint32 id, uint32 type, uint32 icon, const Objec
 {
 	uint32 item_id = 0;
 	int16 charges = 0;
+	std::string custom_data_str;
 
 	if (inst && inst->GetItem()) {
 		item_id = inst->GetItem()->ID;
 		charges = inst->GetCharges();
+		custom_data_str = Strings::Escape(inst->GetCustomDataString());
 	}
 
 	// SQL Escape object_name
@@ -766,10 +770,12 @@ void ZoneDatabase::UpdateObject(uint32 id, uint32 type, uint32 icon, const Objec
 	// Save new record for object
 	std::string query = StringFormat("UPDATE object SET "
                                     "zoneid = %i, xpos = %f, ypos = %f, zpos = %f, heading = %f, "
-                                    "itemid = %i, charges = %i, objectname = '%s', type = %i, icon = %i "
+                                    "itemid = %i, charges = %i, custom_data = '%s', objectname = '%s', "
+                                    "type = % i, icon = % i "
                                     "WHERE id = %i",
                                     object.zone_id, object.x, object.y, object.z, object.heading,
-                                    item_id, charges, object_name, type, icon, id);
+                                    item_id, charges, custom_data_str.c_str(), object_name,
+                                    type, icon, id);
     safe_delete_array(object_name);
     auto results = QueryDatabase(query);
 	if (!results.Success()) {

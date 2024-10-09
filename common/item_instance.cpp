@@ -52,7 +52,7 @@ static inline int32 GetNextItemInstSerialNumber() {
 //
 // class EQ::ItemInstance
 //
-EQ::ItemInstance::ItemInstance(const EQ::ItemData* item, int8 charges) {
+EQ::ItemInstance::ItemInstance(const EQ::ItemData* item, int8 charges, const EQ::ItemCustomData* item_custom_data) {
 	if(item) {
 		m_item = new EQ::ItemData(*item);
 	}
@@ -64,9 +64,13 @@ EQ::ItemInstance::ItemInstance(const EQ::ItemData* item, int8 charges) {
 	}
 
 	m_SerialNumber = GetNextItemInstSerialNumber();
+
+	if (item_custom_data) {
+		m_custom_data = *item_custom_data;
+	}
 }
 
-EQ::ItemInstance::ItemInstance(SharedDatabase *db, int16 item_id, int8 charges) {
+EQ::ItemInstance::ItemInstance(SharedDatabase *db, int16 item_id, int8 charges, const EQ::ItemCustomData* item_custom_data) {
 
 	m_item = db->GetItem(item_id);
 	if(m_item) {
@@ -83,6 +87,10 @@ EQ::ItemInstance::ItemInstance(SharedDatabase *db, int16 item_id, int8 charges) 
 	}
 
 	m_SerialNumber = GetNextItemInstSerialNumber();
+
+	if (item_custom_data) {
+		m_custom_data = *item_custom_data;
+	}
 }
 
 EQ::ItemInstance::ItemInstance(ItemInstTypes use_type) {
@@ -120,11 +128,6 @@ EQ::ItemInstance::ItemInstance(const ItemInstance& copy)
 			m_contents[it->first] = inst_new;
 		}
 	}
-	std::map<std::string, std::string>::const_iterator iter;
-	for (iter = copy.m_custom_data.begin(); iter != copy.m_custom_data.end(); ++iter) {
-		m_custom_data[iter->first] = iter->second;
-	}
-
 	m_SerialNumber	= copy.m_SerialNumber;
 	m_custom_data	= copy.m_custom_data;
 	m_timers		= copy.m_timers;
@@ -412,22 +415,7 @@ const EQ::ItemData* EQ::ItemInstance::GetItem() const
 }
 
 std::string EQ::ItemInstance::GetCustomDataString() const {
-	std::string ret_val;
-	auto iter = m_custom_data.begin();
-	while (iter != m_custom_data.end()) {
-		if (ret_val.length() > 0) {
-			ret_val += "^";
-		}
-		ret_val += iter->first;
-		ret_val += "^";
-		ret_val += iter->second;
-		++iter;
-
-		if (ret_val.length() > 0) {
-			ret_val += "^";
-		}
-	}
-	return ret_val;
+	return SharedDatabase::EncodeCustomDataToString(&m_custom_data);
 }
 
 std::string EQ::ItemInstance::GetCustomData(std::string identifier) {
@@ -470,6 +458,138 @@ void EQ::ItemInstance::DeleteCustomData(std::string identifier) {
 	if (iter != m_custom_data.end()) {
 		m_custom_data.erase(iter);
 	}
+}
+
+void EQ::ItemInstance::GetName(char* buf, size_t buf_len) const
+{
+	if (!m_item || buf_len < sizeof(m_item->Name)) {
+		buf[0] = 0;
+		return;
+	}
+
+	if (RuleB(SelfFound, PersonalizedItemNames))
+	{
+		const std::string* sf_name = GetSelfFoundCharacterName();
+		if (sf_name && !sf_name->empty()) {
+			size_t item_name_len = strlen(m_item->Name);
+			size_t p = sf_name->length();
+			if (p + item_name_len + 4 <= buf_len) {
+				memcpy(buf, sf_name->c_str(), p);
+				memcpy(&buf[p], "'s ", 3);
+				p += 3;
+				memcpy(&buf[p], m_item->Name, sizeof(m_item->Name) - p);
+				return;
+			}
+		}
+	}
+
+	memcpy(buf, m_item->Name, sizeof(m_item->Name));
+}
+
+bool EQ::ItemInstance::HasSelfFoundCharacterID() const
+{
+	return m_custom_data.find(CUSTOM_DATA_SELF_FOUND_CHARACTER_ID) != m_custom_data.end();
+}
+
+uint32 EQ::ItemInstance::GetSelfFoundCharacterID(const EQ::ItemCustomData& custom_data)
+{
+	auto iter = custom_data.find(CUSTOM_DATA_SELF_FOUND_CHARACTER_ID);
+	if (iter != custom_data.end()) {
+		return static_cast<uint32>(stoul(iter->second));
+	}
+	return 0;
+}
+
+const std::string* EQ::ItemInstance::GetSelfFoundCharacterName() const
+{
+	auto iter = m_custom_data.find(CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME);
+	if (iter != m_custom_data.end()) {
+		return &iter->second;
+	}
+	return nullptr;
+}
+
+size_t EQ::ItemInstance::GetSelfFoundCharacterName(char* out) const
+{
+	auto iter = m_custom_data.find(CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME);
+	if (iter != m_custom_data.end()) {
+		strcpy(out, iter->second.c_str());
+		return iter->second.size();
+	}
+	return 0;
+}
+
+void EQ::ItemInstance::SetSelfFoundCharacter(const EQ::ItemData* item_data, EQ::ItemCustomData* custom_data, uint32 self_found_character_id, const char* name)
+{
+	if (item_data && custom_data && self_found_character_id && !item_data->Stackable)
+	{
+		// Don't overwrite if already set
+		if (custom_data->find(CUSTOM_DATA_SELF_FOUND_CHARACTER_ID) == custom_data->end()) {
+			std::stringstream ss;
+			ss << self_found_character_id;
+			custom_data->insert({ CUSTOM_DATA_SELF_FOUND_CHARACTER_ID , ss.str() });
+			if (RuleB(SelfFound, PersonalizedItemNames) && name) {
+				custom_data->insert({ CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME, name });
+			}
+		}
+	}
+}
+
+void EQ::ItemInstance::SetSelfFoundCharacter(const EQ::ItemData* item_data, EQ::ItemCustomData* custom_data, uint32 self_found_character_id, const std::string& name)
+{
+	if (item_data && custom_data && self_found_character_id && !item_data->Stackable)
+	{
+		// Don't overwrite if already set
+		if (custom_data->find(CUSTOM_DATA_SELF_FOUND_CHARACTER_ID) == custom_data->end()) {
+			std::stringstream ss;
+			ss << self_found_character_id;
+			custom_data->insert({ CUSTOM_DATA_SELF_FOUND_CHARACTER_ID , ss.str() });
+			if (RuleB(SelfFound, PersonalizedItemNames)) {
+				custom_data->insert({ CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME, name });
+			}
+		}
+	}
+}
+
+void EQ::ItemInstance::ClearSelfFoundCharacterID()
+{
+	m_custom_data.erase(CUSTOM_DATA_SELF_FOUND_CHARACTER_ID);
+	m_custom_data.erase(CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME);
+}
+
+void EQ::ItemInstance::SetContentsSelfFoundCharacter(uint32 self_found_character_id, const std::string& name)
+{
+	if (self_found_character_id && m_item && IsClassBag())
+	{
+		for (auto it = m_contents.begin(); it != m_contents.end(); ++it) {
+			ItemInstance* inst = it->second;
+			if (inst)
+				inst->SetSelfFoundCharacter(self_found_character_id, name);
+		}
+	}
+}
+
+bool EQ::ItemInstance::IsMatchingSelfFoundCharacterID(uint32 self_found_character_id, bool check_all_bag_contents) const
+{
+	if (!self_found_character_id)
+		return false;
+
+	// We don't track self-found stackables
+	if (IsStackable())
+		return false;
+
+	// Check that all bag contents are also self found
+	if (check_all_bag_contents && IsClassBag())
+	{
+		for (auto it = m_contents.begin(); it != m_contents.end(); ++it) {
+			ItemInstance* inst = it->second;
+			if (inst && !inst->IsMatchingSelfFoundCharacterID(self_found_character_id, false)) {
+				return false;
+			}
+		}
+	}
+
+	return GetSelfFoundCharacterID() == self_found_character_id;
 }
 
 // Clone a type of EQ::ItemInstance object

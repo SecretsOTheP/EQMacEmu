@@ -447,6 +447,7 @@ public:
 	uint8 GetClientCountByBoatNPCID(uint32 boatid);
 	uint8 GetClientCountByBoatID(uint32 entityid);
 	void SendMerchantEnd(Mob* merchant);
+	void SendDeletedSelfFoundMerchantInventory(Mob* merchant, int32 slotid, const TempMerchantList& ml);
 	void SendMerchantInventory(Mob* merchant, int32 slotid = -1, bool isdelete = false);
 	void SendTraderEnd(Client* merchant);
 	bool TraderHasCustomer(Client* merchant);

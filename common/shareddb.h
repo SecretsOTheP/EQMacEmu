@@ -65,9 +65,12 @@ public:
 	/*
 	* Item Methods
 	*/
-	EQ::ItemInstance* CreateItem(uint32 item_id, int8 charges=0);
-	EQ::ItemInstance* CreateItem(const EQ::ItemData* item, int8 charges=0);
-	EQ::ItemInstance* CreateBaseItem(const EQ::ItemData* item, int8 charges=0);
+	EQ::ItemInstance* CreateItem(uint32 item_id, int8 charges=0, const EQ::ItemCustomData* item_custom_data = nullptr);
+	EQ::ItemInstance* CreateItem(const EQ::ItemData* item, int8 charges=0, const EQ::ItemCustomData* item_custom_data = nullptr);
+	EQ::ItemInstance* CreateBaseItem(const EQ::ItemData* item, int8 charges=0, const EQ::ItemCustomData* item_custom_data = nullptr);
+
+	static std::string EncodeCustomDataToString(const EQ::ItemCustomData* item_custom_data);
+	void DecodeCustomDataFromString(EQ::ItemCustomData* dst, const char* src);
 
 		// Web Token Verification
 		bool VerifyToken(std::string token, int& status);

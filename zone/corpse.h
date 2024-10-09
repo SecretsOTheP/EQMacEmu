@@ -96,7 +96,7 @@ class Corpse : public Mob {
 	int32 GetPlayerKillItem() { return player_kill_item; } 
 	void RemoveItem(uint16 lootslot);
 	void RemoveItem(LootItem* item_data);
-	void AddItem(uint32 itemnum, int8 charges, int16 slot = 0);
+	void AddItem(uint32 itemnum, int8 charges, int16 slot = 0, const EQ::ItemCustomData* item_custom_data = nullptr);
 	
 	/* Corpse: Coin */
 	void SetCash(uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_platinum);

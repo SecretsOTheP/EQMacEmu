@@ -119,6 +119,16 @@ uint32 Lua_ItemInst::GetPrice() {
 	return self->GetPrice();
 }
 
+uint32 Lua_ItemInst::GetSelfFoundCharacterID() {
+	Lua_Safe_Call_Int();
+	return self->GetSelfFoundCharacterID();
+}
+
+void Lua_ItemInst::SetSelfFoundCharacter(uint32 self_found_character_id, std::string name) {
+	Lua_Safe_Call_Void();
+	self->SetSelfFoundCharacter(self_found_character_id, name);
+}
+
 void Lua_ItemInst::SetPrice(uint32 price) {
 	Lua_Safe_Call_Void();
 	return self->SetPrice(price);

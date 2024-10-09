@@ -4871,6 +4871,29 @@ void EntityList::SendTraderUpdateMessage(Client* merchant, const EQ::ItemData* i
 	return;
 }
 
+void EntityList::SendDeletedSelfFoundMerchantInventory(Mob* merchant, int32 slotid, const TempMerchantList& ml)
+{
+	if (!merchant || !merchant->IsNPC())
+		return;
+
+	for(auto it = client_list.begin(); it != client_list.end(); ++it)
+	{
+		Client* c = it->second;
+		if (c && (c->IsSoloOnly() || c->IsSelfFound()) && c->GetMerchantSession() == merchant->GetID())
+		{
+			if (ml.GetSelfFoundPurchaseLimit(c->CharacterID()) == 0) {
+				auto delitempacket = new EQApplicationPacket(OP_ShopDelItem, sizeof(Merchant_DelItem_Struct));
+				Merchant_DelItem_Struct* delitem = (Merchant_DelItem_Struct*)delitempacket->pBuffer;
+				delitem->itemslot = slotid;
+				delitem->npcid = merchant->GetID();
+				delitem->playerid = c->GetID();
+				delitempacket->priority = 6;
+				c->QueuePacket(delitempacket);
+				safe_delete(delitempacket);
+			}
+		}
+	}
+}
 
 void EntityList::SendMerchantInventory(Mob* merchant, int32 slotid, bool isdelete)
 {

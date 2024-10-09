@@ -4,6 +4,7 @@
 #include <list>
 #include <string>
 #include "types.h"
+#include "item_instance.h"
 
 struct LootItem {
 	uint32	item_id;	  // uint32	item_id;
@@ -17,6 +18,10 @@ struct LootItem {
 	bool	forced;
 	uint8	min_looter_level;
 	uint32	item_loot_lockout_timer;
+	EQ::ItemCustomData custom_data;
+
+	uint32 GetSelfFoundCharacterID() const { return EQ::ItemInstance::GetSelfFoundCharacterID(custom_data); }
+
 };
 
 typedef std::list<LootItem* > LootItems;

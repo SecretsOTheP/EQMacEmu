@@ -2351,6 +2351,73 @@ struct TempMerchantList {
 	uint32	charges; //charges/quantity
 	uint32	origslot;
 	uint32  quantity; //This is used to determine how many charged items we have, since the charges clump together
+	std::map<uint32, uint32> self_found_character_purchase_limits; // map of S/SF character IDs and the count of items they are allowed to repurchase.
+
+	uint32 GetSelfFoundPurchaseLimit(uint32 self_found_character_id) const
+	{
+		if (self_found_character_id == 0)
+			return 0;
+
+		auto itr = self_found_character_purchase_limits.find(self_found_character_id);
+		if (itr != self_found_character_purchase_limits.end())
+			return itr->second;
+
+		return 0;
+	}
+
+	uint32 IncreaseSelfFoundPurchaseLimit(uint32 self_found_character_id, uint32 by)
+	{
+		if (self_found_character_id == 0)
+			return 0;
+
+		auto itr = self_found_character_purchase_limits.find(self_found_character_id);
+		if (itr == self_found_character_purchase_limits.end())
+		{
+			if (by > 0)
+				self_found_character_purchase_limits[self_found_character_id] = by;
+			return by;
+		}
+
+		uint32 newval = itr->second + by;
+		if (newval < itr->second) // handle overflow I guess
+			newval = UINT32_MAX;
+		itr->second = newval;
+		return newval;
+	}
+
+	uint32 DecreaseSelfFoundPurchaseLimit(uint32 self_found_character_id, uint32 by)
+	{
+		if (self_found_character_id == 0)
+			return 0;
+
+		auto itr = self_found_character_purchase_limits.find(self_found_character_id);
+		if (itr == self_found_character_purchase_limits.end())
+			return 0;
+
+		if (by >= itr->second) {
+			self_found_character_purchase_limits.erase(itr);
+			return 0;
+		}
+
+		uint32 newval = itr->second - by;
+		itr->second = newval;
+		return newval;
+	}
+
+	void CapSelfFoundPurchaseLimitsByAvailableQuantity(uint32 total_in_stock)
+	{
+		if (total_in_stock == 0)
+		{
+			self_found_character_purchase_limits.clear();
+		}
+		else {
+			for (auto& kv : self_found_character_purchase_limits)
+			{
+				if (kv.second > total_in_stock)
+					kv.second = total_in_stock;
+			}
+		}
+	}
 };
 
 

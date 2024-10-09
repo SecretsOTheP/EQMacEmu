@@ -1219,6 +1219,14 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		RemoveNoRent(false);
 	}
 
+	if (m_epp.solo_only || m_epp.self_found) {
+		if (loaditems) {
+			std::string name = m_pp.name;
+			// Any owned items should be stamped with the cid if it's missing
+			m_inv.RepairMissingSelfFoundCharacter(cid, name);
+		}
+	}
+
 	if (m_pp.platinum_cursor > 0 || m_pp.silver_cursor > 0 || m_pp.gold_cursor > 0 || m_pp.copper_cursor > 0) {
 		bool changed = false;
 		uint64 new_coin = 0;
@@ -2992,15 +3000,18 @@ void Client::Handle_OP_ClickObject(const EQApplicationPacket *app)
 			}
 			else if ((IsSelfFound() || IsSoloOnly()))
 			{
-				// If the client is self found or solo, don't allow them to pick up the item, unless they are the one that dropped it
-				// Also make sure they dropped it while SSF
-				if(object->GetCharacterDropperID() != this->CharacterID())
+				// If the client is self found or solo, don't allow them to pick up the item, unless either:
+				// - They are the one that dropped it and they dropped it while SSF.
+				// - They are the original owner of the item, and it was re-dropped by another character/mule back to them.
+				if (object->GetCharacterDropperID() == this->CharacterID())
 				{
-					msg = "You cannot pick up dropped items because you are performing a self found or solo challenge.";
+					if (!object->IsSSFRuleSet()) {
+						msg = "You cannot pick up dropped items from yourself before you accepted the challenge.";
+					}
 				}
-				else if(!object->IsSSFRuleSet())
+				else if (!RuleB(SelfFound, ItemMulingSupport) || !object->IsMatchingSelfFoundCharacterID(this->CharacterID()))
 				{
-					msg = "You cannot pick up dropped items from yourself before you accepted the challenge.";
+					msg = "You cannot pick up someone else's dropped items because you are performing a self found or solo challenge.";
 				}
 				// The else case does not set a msg because they are allowed to pick it up if they dropped it
 			}
@@ -7966,6 +7977,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	int merchantid;
 	bool tmpmer_used = false;
+	bool sf_tmpmer_used = false;
 	bool reimbursement_used = false;
 
 	Mob* tmp = entity_list.GetMob(mp->npcid);
@@ -8061,7 +8073,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 			}
 		}
 
-		if (!IsSoloOnly() && !IsSelfFound())
+		if ((!IsSoloOnly() && !IsSelfFound()) || RuleB(SelfFound, TempMerchantSupport))
 		{
 			if (item_id == 0)
 			{
@@ -8075,6 +8087,22 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 						item_id = ml.item;
 						tmpmer_used = true;
 						prevcharges = ml.charges;
+						if (IsSoloOnly() || IsSelfFound())
+						{
+							sf_tmpmer_used = true;
+							uint32 purchase_limit = ml.GetSelfFoundPurchaseLimit(CharacterID());
+							if (purchase_limit <= 0)
+							{
+								Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Blocked %s (%i) attempt to purchase item=%i slot=%i that had charges/qty %i/%i",
+									name, CharacterID(), ml.item, ml.slot, ml.charges, ml.quantity);
+								Message(Chat::Red, "You may only repurchase items that belonged to you from merchants. Try selling a copy of this item first.");
+								QueuePacket(returnapp);
+								safe_delete(returnapp);
+								return;
+							}
+							Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Allowing %s (%i) attempt to purchase item=%i slot=%i that had charges/qty %i/%i with SF Buy Limit: %i",
+								name, CharacterID(), ml.item, ml.slot, ml.charges, ml.quantity, purchase_limit);
+						}
 						break;
 					}
 				}
@@ -8137,6 +8165,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	// Temp / reimbursement merchantlist
 	if (reimbursement_used)
 		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
+	else if (sf_tmpmer_used)
+		tmp_qty = 1;
 	else if(tmpmer_used)
 		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
 	// Regular merchantlist with limited supplies
@@ -8189,6 +8219,10 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	int16 freeslotid = INVALID_INDEX;
 
 	EQ::ItemInstance* inst = database.CreateItem(item, quantity);
+	if (inst && (IsSoloOnly() || IsSelfFound()))
+	{
+		inst->SetSelfFoundCharacter(CharacterID(), name); // purchasing the item, they will own it
+	}
 
 	int SinglePrice = 0;
 	float price_mod = CalcPriceMod(tmp);
@@ -8282,6 +8316,12 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 			new_charges = prevcharges - mp->quantity;
 			zone->SaveReimbursementItem(item_reimbursement_list, character_id, item_id, new_charges);
 		}
+		else if (sf_tmpmer_used)
+		{
+			new_charges = prevcharges - mp->quantity;
+			Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: %s (%i) successfully purchased %i count of item %i.", this->name, CharacterID(), mpo->quantity, item_id);
+			zone->SaveTempItem(merchantid, tmp->GetNPCTypeID(), item_id, new_charges, false, CharacterID());
+		}
 		else if(tmpmer_used)
 		{
 			new_charges = prevcharges - mp->quantity;
@@ -8305,6 +8345,16 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 		}
 		else 
 		{
+			if (RuleB(SelfFound, TempMerchantSupport) && RuleB(SelfFound, TempMerchantFiltering)) {
+				// The item isn't fully out of stock, but it could be for SF characters
+				// Hide it from those who cannot buy any quantity
+				if (tmpmer_used && !reimbursement_used && !inst->IsStackable()) {
+					const TempMerchantList* ml = zone->GetTempMerchantListByItemId(tmp->GetNPCTypeID(), item_id);
+					if (ml) {
+						entity_list.SendDeletedSelfFoundMerchantInventory(tmp, mp->itemslot, *ml);
+					}
+				}
+			}
 			inst->SetCharges(new_charges);
 			inst->SetPrice(SinglePrice);
 			inst->SetMerchantSlot(mp->itemslot);
@@ -8477,7 +8527,8 @@ void Client::Handle_OP_ShopPlayerSell(const EQApplicationPacket *app)
 
 	int charges = mp->quantity;
 	int freeslot = 0;
-	if (charges >= 0 && (freeslot = zone->SaveTempItem(vendor->CastToNPC()->MerchantType, vendor->GetNPCTypeID(), itemid, charges, true)) > 0)
+	uint32 self_found_character_id = inst->GetSelfFoundCharacterID();
+	if (charges >= 0 && (freeslot = zone->SaveTempItem(vendor->CastToNPC()->MerchantType, vendor->GetNPCTypeID(), itemid, charges, true, self_found_character_id)) > 0)
 	{
 		EQ::ItemInstance* inst2 = inst->Clone();
 		float merchant_mod = CalcPriceMod(vendor);

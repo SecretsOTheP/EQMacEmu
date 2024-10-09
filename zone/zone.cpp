@@ -160,7 +160,7 @@ bool Zone::LoadZoneObjects() {
 
 	std::string query = StringFormat("SELECT id, zoneid, xpos, ypos, zpos, heading, "
                                     "itemid, charges, objectname, type, icon, size, "
-                                    "solid, incline FROM object "
+                                    "solid, incline, custom_data FROM object "
                                     "WHERE zoneid = %i %s",
                                     zoneid, ContentFilterCriteria::apply().c_str());
     auto results = database.QueryDatabase(query);
@@ -245,7 +245,8 @@ bool Zone::LoadZoneObjects() {
         data.linked_list_addr[1] = 0;
 		data.charges = charges;
 		data.maxcharges = charges;
-			
+		EQ::ItemCustomData custom_data;
+		database.DecodeCustomDataFromString(&custom_data, row[14]); // custom_data
 
         EQ::ItemInstance* inst = nullptr;
         //FatherNitwit: this dosent seem to work...
@@ -256,7 +257,7 @@ bool Zone::LoadZoneObjects() {
         }
         else {
             // Groundspawn object
-            inst = database.CreateItem(itemid);
+            inst = database.CreateItem(itemid, charges, &custom_data);
         }
 
 		// Load child objects if container
@@ -314,7 +315,7 @@ bool Zone::LoadGroundSpawns() {
 	return(true);
 }
 
-int Zone::SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold) {
+int Zone::SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold, uint32 self_found_character_id) {
 	int freeslot = 0;
 	std::list<MerchantList> merlist = merchanttable[merchantid];
 	std::list<MerchantList>::const_iterator itr;
@@ -367,6 +368,19 @@ int Zone::SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charg
 					if(database.ItemQuantityType(item) != EQ::item::Quantity_Stacked)
 					{
 						++ml.quantity;
+						if (RuleB(SelfFound, TempMerchantSupport))
+						{
+							if (self_found_character_id) {
+								uint32 sf_character_purchase_limit = ml.IncreaseSelfFoundPurchaseLimit(self_found_character_id, 1);
+								Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Sale of item %i that belonged to character %i. They may repurchase %i copies.",
+									item, self_found_character_id, sf_character_purchase_limit);
+							}
+							ml.CapSelfFoundPurchaseLimitsByAvailableQuantity(ml.quantity);
+						}
+						else
+						{
+							ml.CapSelfFoundPurchaseLimitsByAvailableQuantity(0);
+						}
 					}
 
 					// The client has an internal limit of items per stack.
@@ -378,9 +392,26 @@ int Zone::SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charg
 					if(database.ItemQuantityType(item) != EQ::item::Quantity_Stacked)
 					{
 						if (ml.quantity > 0)
+						{
 							--ml.quantity;
+							if (RuleB(SelfFound, TempMerchantSupport))
+							{
+								if (self_found_character_id) {
+									uint32 sf_character_purchase_limit = ml.DecreaseSelfFoundPurchaseLimit(self_found_character_id, 1);
+									Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Purchase of item %i by character %i. They may purchase %i more copies.",
+										item, self_found_character_id, sf_character_purchase_limit);
+								}
+								ml.CapSelfFoundPurchaseLimitsByAvailableQuantity(ml.quantity);
+							}
+							else
+							{
+								ml.CapSelfFoundPurchaseLimitsByAvailableQuantity(0);
+							}
+						}
 						else
+						{
 							deleted = true;
+						}
 					}
 					ml.charges = charges;
 				}
@@ -421,6 +452,14 @@ int Zone::SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charg
 		ml2.slot = freeslot;
 		ml2.origslot = ml2.slot;
 		ml2.quantity = 1;
+		if (RuleB(SelfFound, TempMerchantSupport))
+		{
+			if (self_found_character_id && database.ItemQuantityType(item) != EQ::item::Quantity_Stacked)
+			{
+				ml2.IncreaseSelfFoundPurchaseLimit(self_found_character_id, 1);
+				Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Sale of item %i to that belonged to character %i. They may repurchase 1 copy.", item, self_found_character_id);
+			}
+		}
 		tmp_merlist.push_back(ml2);
 		tmpmerchanttable[npcid] = tmp_merlist;
 	}
@@ -599,6 +638,19 @@ int32 Zone::GetTempMerchantQtyNoSlot(uint32 NPCID, int16 itemid) {
 	}
 
 	return -1;
+}
+
+const TempMerchantList* Zone::GetTempMerchantListByItemId(uint32 NPCID, uint16 itemid) const
+{
+	auto it = tmpmerchanttable.find(NPCID);
+	if (it != tmpmerchanttable.end()) {
+		for (const TempMerchantList& ml : it->second) {
+			if (ml.item == itemid) {
+				return &ml;
+			}
+		}
+	}
+	return nullptr;
 }
 
 void Zone::LoadTempMerchantData() {
