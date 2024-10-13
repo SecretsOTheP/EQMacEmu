@@ -8897,16 +8897,7 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 			*c = toupper(*c);
 			first = false;
 		}
-		else if (*c == '`' || *c == '\'') { // if we find a backtick, don't modify the next character's capitalization
-			// If this is the last character, we can break out of the loop
-			if (*(c+1) == '\0')
-				break;
-
-			c++; // Move to the next character
-		}
-		else {
-			*c = tolower(*c);
-		}
+		// Valid captialization will be checked by CheckNameFilter
 	}
 
 	if (strlen(surname->lastname) >= 20) {
@@ -8914,7 +8905,7 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 		return;
 	}
 
-	if (!database.CheckNameFilter(surname->lastname, true))
+	if (strlen(surname->lastname) > 0 && !database.CheckNameFilter(surname->lastname, true))
 	{
 		Message_StringID(Chat::Yellow, SURNAME_REJECTED);
 		return;

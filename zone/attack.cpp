@@ -2004,7 +2004,7 @@ bool NPC::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::SkillTyp
 		}
 	}
 	bool is_majority_ds_damage = (float)ds_damage - (float)ssf_ds_damage > (float)GetMaxHP() * 0.45f;
-	bool is_majority_killer_dmg = (float)ssf_player_damage > (float)GetMaxHP() * 0.45f;
+	bool is_majority_killer_dmg = (float)ssf_player_damage + (float)npc_damage > (float)GetMaxHP() * 0.45f;
 
 	if(killer)
 		LogDeathDetail("{} Before credit. solo_fte_credit = {}, ds damage: {}, is_majority_ds_damage {}, solo damage {}, is_majority_killer_dmg {}", killer->GetName(), solo_fte_charid, ds_damage, is_majority_ds_damage == true ? 1 : 0, ssf_player_damage, is_majority_killer_dmg == true ? 1 : 0);
@@ -2254,7 +2254,7 @@ void NPC::CreateCorpse(Mob* killer, int32 dmg_total, bool &corpse_bool)
 			bool is_raid_solo_fte_credit = raid ? raid->GetID() == CastToNPC()->solo_raid_fte : false;
 			bool is_group_solo_fte_credit = group ? group->GetID() == CastToNPC()->solo_group_fte : false;
 			bool is_majority_ds_damage = (float)ds_damage - (float)ssf_ds_damage > (float)GetMaxHP() * 0.45f;
-			bool is_majority_killer_dmg = (float)ssf_player_damage > (float)GetMaxHP() * 0.45f;
+			bool is_majority_killer_dmg = (float)ssf_player_damage + (float)npc_damage > (float)GetMaxHP() * 0.45f;
 
 			if (is_solo_fte_charid && !is_raid_solo_fte_credit && !is_group_solo_fte_credit)
 			{

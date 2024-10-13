@@ -5243,6 +5243,7 @@ void Mob::ApplyIllusion(const SPDat_Spell_Struct &spell, int i, Mob* caster)
             case 581:
 			case 643:
             case 644:
+			case 1376:
             case 1611:
             {
 				if (GetBaseRace() == IKSAR && spell_base == SKELETON)

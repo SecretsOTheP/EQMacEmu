@@ -36,3 +36,4 @@ protected:
 	std::queue<EmuTCPNetPacket_Struct *> m_InQueue;
 };
 #endif /*EmuTCPSERVER_H_*/
+

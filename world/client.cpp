@@ -672,9 +672,9 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app) {
 		const WorldConfig *Config = WorldConfig::get();
 
 		sprintf(buffer, "%s,%i,%s.%s,%08x",
-			Config->ChatHost.c_str(),
-			Config->ChatPort,
-			Config->ShortName.c_str(),
+			RuleS(Quarm, ChatHostname).c_str(),
+			RuleI(Quarm, ChatPort),
+			RuleS(Quarm, ChatShortName).c_str(),
 			this->GetCharName(), MailKey
 			);
 		outapp2->size = strlen(buffer) + 1;
