@@ -3435,6 +3435,7 @@ bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntr
 		"killedby,		  \n"
 		"rezzable,		  \n"
 		"rez_time		  \n"
+		"guild_id		  \n"
 		"FROM             \n"
 		"character_corpses\n"
 		"WHERE `id` = %u  LIMIT 1\n",
@@ -3477,6 +3478,7 @@ bool ZoneDatabase::LoadCharacterCorpseData(uint32 corpse_id, CharacterCorpseEntr
 		corpse->killedby = atoi(row[i++]);						// killedby
 		corpse->rezzable = atoi(row[i++]);						// rezzable
 		corpse->rez_time = atoul(row[i++]);					// rez_time
+		corpse->guild_id = atoi(row[i++]);						// guild_id  - // TODO Need to add guild id column to the table
 	}
 	query = StringFormat(
 		"SELECT                       \n"
