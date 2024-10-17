@@ -124,9 +124,24 @@ void Lua_ItemInst::SetPrice(uint32 price) {
 	return self->SetPrice(price);
 }
 
+uint32 Lua_ItemInst::GetSelfFoundCharacterID() {
+	Lua_Safe_Call_Int();
+	return self->GetSelfFoundCharacterID();
+}
+
+void Lua_ItemInst::SetSelfFoundCharacter(uint32 self_found_character_id, std::string name) {
+	Lua_Safe_Call_Void();
+	self->SetSelfFoundCharacter(self_found_character_id, name);
+}
+
 std::string Lua_ItemInst::GetCustomDataString() {
 	Lua_Safe_Call_String();
-	return self->GetCustomDataString();
+	return self->GetCustomDataString(true); // We always copy the full map between instances.
+}
+
+std::string Lua_ItemInst::GetCustomDataString(bool include_transient_keys) {
+	Lua_Safe_Call_String();
+	return self->GetCustomDataString(include_transient_keys);
 }
 
 void Lua_ItemInst::SetCustomData(std::string identifier, std::string value) {
@@ -203,7 +218,10 @@ luabind::scope lua_register_iteminst() {
 		.def("SetCharges", (void(Lua_ItemInst::*)(int))&Lua_ItemInst::SetCharges)
 		.def("GetPrice", (uint32(Lua_ItemInst::*)(void))&Lua_ItemInst::GetPrice)
 		.def("SetPrice", (void(Lua_ItemInst::*)(uint32))&Lua_ItemInst::SetPrice)
+		.def("GetSelfFoundCharacterID", (uint32(Lua_ItemInst::*)(void)) & Lua_ItemInst::GetSelfFoundCharacterID)
+		.def("SetSelfFoundCharacter", (void(Lua_ItemInst::*)(uint32,std::string))&Lua_ItemInst::SetSelfFoundCharacter)
 		.def("GetCustomDataString", (std::string(Lua_ItemInst::*)(void))&Lua_ItemInst::GetCustomDataString)
+		.def("GetCustomDataString", (std::string(Lua_ItemInst::*)(bool))&Lua_ItemInst::GetCustomDataString)
 		.def("SetCustomData", (void(Lua_ItemInst::*)(std::string,std::string))&Lua_ItemInst::SetCustomData)
 		.def("SetCustomData", (void(Lua_ItemInst::*)(std::string,int))&Lua_ItemInst::SetCustomData)
 		.def("SetCustomData", (void(Lua_ItemInst::*)(std::string,float))&Lua_ItemInst::SetCustomData)

@@ -1251,3 +1251,31 @@ int16 EQ::InventoryProfile::_HasItemByUse(ItemInstQueue& iqueue, uint8 use, uint
 
 	return INVALID_INDEX;
 }
+
+void EQ::InventoryProfile::RepairMissingSelfFoundCharacter(uint32 self_found_character_id, const std::string& character_name)
+{
+	for (auto& kv : m_worn) {
+		if (kv.second) {
+			kv.second->SetSelfFoundCharacter(self_found_character_id, character_name);
+		}
+	}
+	for (auto& kv : m_inv) {
+		if (kv.second) {
+			kv.second->SetSelfFoundCharacter(self_found_character_id, character_name);
+			kv.second->SetContentsSelfFoundCharacter(self_found_character_id, character_name);
+		}
+	}
+	for (auto& kv : m_bank) {
+		if (kv.second) {
+			kv.second->SetSelfFoundCharacter(self_found_character_id, character_name);
+			kv.second->SetContentsSelfFoundCharacter(self_found_character_id, character_name);
+		}
+	}
+	for (auto iter = m_cursor.cbegin(); iter != m_cursor.cend(); ++iter) {
+		EQ::ItemInstance* inst = *iter;
+		if (inst != nullptr) {
+			inst->SetSelfFoundCharacter(self_found_character_id, character_name);
+			inst->SetContentsSelfFoundCharacter(self_found_character_id, character_name);
+		}
+	}
+}

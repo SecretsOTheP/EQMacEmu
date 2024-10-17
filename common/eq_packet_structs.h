@@ -2353,7 +2353,6 @@ struct TempMerchantList {
 	uint32  quantity; //This is used to determine how many charged items we have, since the charges clump together
 };
 
-
 struct NPC_Emote_Struct {
 	uint32	emoteid;
 	uint8	event_;

@@ -11255,7 +11255,7 @@ void command_viewzoneloot(Client* c, const Seperator* sep)
 			if (search_item_id == 0 || current_item->item_id == search_item_id) {
 				EQ::SayLinkEngine linker;
 				linker.SetLinkType(EQ::saylink::SayLinkLootItem);
-				linker.SetLootData(current_item);
+				linker.SetLootData(current_item.get());
 				c->Message(
 					Chat::Default,
 					fmt::format(
