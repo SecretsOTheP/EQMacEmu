@@ -166,6 +166,9 @@ public:
 	bool IsPlayerDrop() const { return m_is_player_drop; }
 	uint32 GetCharacterDropperID() const { return m_character_id; }
 	bool IsSSFRuleSet() const { return m_ssf_ruleset; }
+	bool IsMatchingSelfFoundCharacterID(uint32 self_found_character_id) {
+		return !m_inst || m_inst->IsMatchingSelfFoundCharacterID(self_found_character_id, true);
+	}
 
 	const char* GetEntityVariable(const char *id);
 	void SetEntityVariable(const char *id, const char *m_var);

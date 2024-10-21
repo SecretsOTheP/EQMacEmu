@@ -91,12 +91,13 @@ class Corpse : public Mob {
 
 	/* Corpse: Items */
 	uint32 GetWornItem(int16 equipSlot) const;
-	LootItem* GetItem(uint16 lootslot, LootItem** bag_item_data = 0); 
+	LootItem* GetItem(uint16 lootslot);
+	LootItem* GetItem(uint16 lootslot, BagLootItems& bag_item_data);
 	void SetPlayerKillItemID(int32 pk_item_id) { player_kill_item = pk_item_id; }
 	int32 GetPlayerKillItem() { return player_kill_item; } 
 	void RemoveItem(uint16 lootslot);
 	void RemoveItem(LootItem* item_data);
-	void AddItem(uint32 itemnum, int8 charges, int16 slot = 0);
+	void AddItem(uint32 itemnum, int8 charges, int16 slot = 0, const EQ::ItemCustomData& item_custom_data = EQ::EmptyItemCustomData);
 	
 	/* Corpse: Coin */
 	void SetCash(uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_platinum);

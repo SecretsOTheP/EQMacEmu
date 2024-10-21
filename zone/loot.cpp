@@ -278,7 +278,8 @@ void NPC::AddLootDrop(
 	bool wearchange, 
 	bool quest, 
 	bool pet, 
-	bool force_equip)
+	bool force_equip,
+	const EQ::ItemCustomData& item_custom_data)
 {
 	if (!item2) {
 		return;
@@ -287,8 +288,6 @@ void NPC::AddLootDrop(
 	if (CountQuestItems() >= MAX_NPC_QUEST_INVENTORY) {
 		return;
 	}
-
-	auto item = new LootItem;
 
 	if (LogSys.log_settings[Logs::Loot].is_category_enabled == 1) {
 		EQ::SayLinkEngine linker;
@@ -308,7 +307,8 @@ void NPC::AddLootDrop(
 	}
 
 	if (quest || pet) {
-		LogLoot("Adding {} to npc: {}. Wearchange: {} Equipit: {} Multiquest: {} Pet: {}", item2->Name, GetName(), wearchange, equipit, quest, pet);
+		uint32 self_found_character_id = EQ::ItemInstance::GetSelfFoundCharacterID(item_custom_data);
+		LogLoot("Adding {} to npc: {}. Wearchange: {} Equipit: {} Multiquest: {} Pet: {} SsfOwner: {}", item2->Name, GetName(), wearchange, equipit, quest, pet, self_found_character_id);
 	}
 
 	EQApplicationPacket* outapp = nullptr;
@@ -320,6 +320,7 @@ void NPC::AddLootDrop(
 		p_wear_change_struct->material = 0;
 	}
 
+	std::shared_ptr<LootItem> item = std::make_shared<LootItem>();
 	item->item_id = item2->ID;
 	item->charges = loot_drop.item_charges;
 	item->min_level = loot_drop.minlevel;
@@ -330,6 +331,7 @@ void NPC::AddLootDrop(
 	item->forced = false;
 	item->item_loot_lockout_timer = loot_drop.item_loot_lockout_timer;
 	item->min_looter_level = loot_drop.min_looter_level;
+	item->custom_data = item_custom_data; // map copy
 
 	// unsure if required to equip, YOLO for now
 	if (item2->ItemType == EQ::item::ItemTypeBow) {
@@ -351,7 +353,8 @@ void NPC::AddLootDrop(
 
 	auto *inst = database.CreateItem(
 		item2->ID,
-		loot_drop.item_charges
+		loot_drop.item_charges,
+		item_custom_data
 	);
 
 	if (!inst && !wearchange) {
@@ -443,7 +446,7 @@ void NPC::AddLootDrop(
 		}
 
 		bool range_forced = false;
-		auto sitem = GetItem(EQ::invslot::slotRange);
+		LootItem* sitem = GetItem(EQ::invslot::slotRange);
 		if (sitem && sitem->forced)	{
 			range_forced = true;
 			sitem = nullptr;
@@ -779,7 +782,7 @@ LootItem* NPC::GetItem(int slot_id, int16 itemid)
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for (; cur != end; ++cur) {
-		LootItem* item = *cur;
+		LootItem* item = cur->get();
 		if (item->equip_slot == slot_id && (itemid == 0 || itemid == item->item_id)) {
 			return item;
 		}
@@ -787,13 +790,13 @@ LootItem* NPC::GetItem(int slot_id, int16 itemid)
 	return(nullptr);
 }
 
-LootItem* NPC::GetItemByID(int16 itemid) 
+LootItem* NPC::GetItemByID(int16 itemid)
 {
 	LootItems::iterator cur, end;
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for (; cur != end; ++cur) {
-		LootItem* item = *cur;
+		LootItem* item = cur->get();
 		if (item->item_id == itemid) {
 			return item;
 		}
@@ -807,7 +810,7 @@ bool NPC::HasQuestLootItem(int16 itemid)
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for(; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if(sitem && sitem->quest == 1 && sitem->item_id == itemid) 
 		{
 			return true;
@@ -823,7 +826,7 @@ bool NPC::HasPetLootItem(int16 itemid)
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for (; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if (sitem && sitem->pet == 1 && sitem->item_id == itemid)
 		{
 			return true;
@@ -887,7 +890,7 @@ bool NPC::HasRequiredQuestLoot(int16 itemid1, int16 itemid2, int16 itemid3, int1
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for(; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if(sitem && sitem->quest == 1) {
 			if (sitem->item_id == itemid1) {
 				++item1npc;
@@ -932,7 +935,7 @@ bool NPC::HasQuestLoot()
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for(; cur != end; ++cur) {
-		LootItem* questitem = *cur;
+		LootItem* questitem = cur->get();
 		if(questitem && questitem->quest == 1) {
 			return true;
 		}
@@ -950,7 +953,7 @@ void NPC::CleanQuestLootItems()
 	end = m_loot_items.end();
 	uint8 count = 0;
 	for(; cur != end; ++cur) {
-		LootItem* quest_item = *cur;
+		LootItem* quest_item = cur->get();
 		if(quest_item && (quest_item->quest == 1 || quest_item->pet == 1)) {
 			uint8 count = CountQuestItem(quest_item->item_id);
 			if(count > 1 && quest_item->pet != 1) {
@@ -975,7 +978,7 @@ uint8 NPC::CountQuestItem(uint16 itemid)
 	end = m_loot_items.end();
 	uint8 count = 0;
 	for(; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if(sitem && sitem->item_id == itemid) {
 			++count;
 		}
@@ -991,7 +994,7 @@ uint8 NPC::CountQuestItems()
 	end = m_loot_items.end();
 	uint8 count = 0;
 	for(; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if(sitem && sitem->quest == 1) {
 			++count;
 		}
@@ -1006,7 +1009,7 @@ bool NPC::RemoveQuestLootItems(int16 itemid)
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for (; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if (sitem && sitem->quest == 1) {
 			if(itemid == 0 || itemid == sitem->item_id) {
 				RemoveItem(sitem);
@@ -1024,7 +1027,7 @@ bool NPC::RemovePetLootItems(int16 itemid)
 	cur = m_loot_items.begin();
 	end = m_loot_items.end();
 	for (; cur != end; ++cur) {
-		LootItem* sitem = *cur;
+		LootItem* sitem = cur->get();
 		if (sitem && sitem->pet == 1) {
 			if (itemid == 0 || itemid == sitem->item_id) {
 				RemoveItem(sitem);
@@ -1082,7 +1085,7 @@ void NPC::RemoveItem(LootItem* item_data, uint8 quantity) {
 	}
 
 	for (auto iter = m_loot_items.begin(); iter != m_loot_items.end(); ++iter) {
-		LootItem* sitem = *iter;
+		LootItem* sitem = iter->get();
 		if (sitem != item_data) { continue; }
 
 		if (!sitem)
@@ -1221,7 +1224,7 @@ void NPC::QueryLoot(Client* to)
 
 			EQ::SayLinkEngine linker;
 			linker.SetLinkType(EQ::saylink::SayLinkLootItem);
-			linker.SetLootData(current_item);
+			linker.SetLootData(current_item.get());
 
 			to->Message(
 				Chat::White,
@@ -1291,14 +1294,14 @@ void NPC::RemoveLootCash() {
 	m_loot_platinum = 0;
 }
 
-bool NPC::AddQuestLoot(int16 itemid, int8 charges) {
+bool NPC::AddQuestLoot(int16 itemid, int8 charges, const EQ::ItemCustomData& item_custom_data) {
 	auto l = LootdropEntriesRepository::NewNpcEntity();
 
 	const EQ::ItemData* item = database.GetItem(itemid);
 	if (item) {
 		l.item_charges = charges;
 		l.equip_item = 0;
-		AddLootDrop(item,l, false, false, true);
+		AddLootDrop(item, l, false, false, true, false, false, item_custom_data);
 		Log(Logs::General, Logs::Trading, "Adding item %d to the NPC's loot marked as quest.", itemid);
 		if (itemid > 0 && HasPetLootItem(itemid)) {
 			Log(Logs::General, Logs::Trading, "Deleting quest item %d from NPC's pet loot.", itemid);
@@ -1311,7 +1314,7 @@ bool NPC::AddQuestLoot(int16 itemid, int8 charges) {
 	return true;
 }
 
-bool NPC::AddPetLoot(int16 itemid, int8 charges, bool fromquest) {
+bool NPC::AddPetLoot(int16 itemid, int8 charges, bool fromquest, const EQ::ItemCustomData& item_custom_data) {
 	auto l = LootdropEntriesRepository::NewNpcEntity();
 
 	const EQ::ItemData* item = database.GetItem(itemid);
@@ -1324,7 +1327,7 @@ bool NPC::AddPetLoot(int16 itemid, int8 charges, bool fromquest) {
 	if (!fromquest || valid) {
 		if (item) {
 			l.item_charges = charges;
-			AddLootDrop(item, l, true, true, false, true);
+			AddLootDrop(item, l, true, true, false, true, false, item_custom_data);
 			Log(Logs::General, Logs::Trading, "Adding item %d to the NPC's loot marked as pet.", itemid);
 			return true;
 		}
