@@ -46,7 +46,7 @@ class Corpse : public Mob {
 	static void SendLootReqErrorPacket(Client* client, uint8 response = 2);
 	Corpse(NPC* in_npc, LootItems *in_itemlist, uint32 in_npctypeid, uint32 in_decaytime = 600000, bool is_client_pet = false);
 	Corpse(Client* client, int32 in_rezexp, uint8 killedby = 0);
-	Corpse(uint32 in_corpseid, uint32 in_charid, const char* in_charname, LootItems* in_itemlist, uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_plat, const glm::vec4& position, float in_size, uint8 in_gender, uint16 in_race, uint8 in_class, uint8 in_deity, uint8 in_level, uint8 in_texture, uint8 in_helmtexture, uint32 in_rezexp, uint32 in_gmrezexp, uint8 in_killedby, bool in_rezzable, uint32 in_rez_time, bool wasAtGraveyard = false);
+	Corpse(uint32 in_corpseid, uint32 in_charid, const char* in_charname, LootItems* in_itemlist, uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_plat, const glm::vec4& position, float in_size, uint8 in_gender, uint16 in_race, uint8 in_class, uint8 in_deity, uint8 in_level, uint8 in_texture, uint8 in_helmtexture, uint32 in_rezexp, uint32 in_gmrezexp, uint8 in_killedby, bool in_rezzable, uint32 in_rez_time, uint32 in_guild_id, bool wasAtGraveyard = false);
 	~Corpse();
 	static Corpse* LoadCharacterCorpseEntity(uint32 in_dbid, uint32 in_charid, std::string in_charname, const glm::vec4& position, uint32 time_of_death, bool rezzed, bool was_at_graveyard);
 
@@ -204,6 +204,7 @@ private:
 	bool		rezzable; /* Determines if the corpse is still rezzable */
 	EQ::TintProfile item_tint;
 	uint32		rez_time; /* How much of the rez timer remains */
+	uint32		guild_id; /* The guild id the character of this corpse was in */
 	bool		is_owner_online;
 	uint32		time_of_death;
 	std::string npc_clean_name;

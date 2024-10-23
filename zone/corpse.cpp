@@ -112,6 +112,7 @@ Corpse* Corpse::LoadCharacterCorpseEntity(uint32 in_dbid, uint32 in_charid, std:
 		ce->killedby,		   // uint8 in_killedby
 		ce->rezzable,		   // bool rezzable
 		ce->rez_time,		   // uint32 rez_time
+		ce->guild_id,		   // uint32 guild_id
 		was_at_graveyard	   // bool wasAtGraveyard
 	);
 
@@ -544,7 +545,7 @@ std::list<uint32> Corpse::MoveItemToCorpse(Client *client, EQ::ItemInstance *ite
 
 /* Called from Database Load */
 
-Corpse::Corpse(uint32 in_dbid, uint32 in_charid, const char* in_charname, LootItems* in_itemlist, uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_plat, const glm::vec4& position, float in_size, uint8 in_gender, uint16 in_race, uint8 in_class, uint8 in_deity, uint8 in_level, uint8 in_texture, uint8 in_helmtexture, uint32 in_rezexp, uint32 in_gmrezexp, uint8 in_killedby, bool in_rezzable, uint32 in_rez_time, bool wasAtGraveyard)
+Corpse::Corpse(uint32 in_dbid, uint32 in_charid, const char* in_charname, LootItems* in_itemlist, uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_plat, const glm::vec4& position, float in_size, uint8 in_gender, uint16 in_race, uint8 in_class, uint8 in_deity, uint8 in_level, uint8 in_texture, uint8 in_helmtexture, uint32 in_rezexp, uint32 in_gmrezexp, uint8 in_killedby, bool in_rezzable, uint32 in_rez_time, uint32 in_guild_id, bool wasAtGraveyard)
 	: Mob("Unnamed_Corpse", // const char* in_name,
 	"",						// const char* in_lastname,
 	0,						// int32		in_cur_hp,
@@ -640,6 +641,7 @@ Corpse::Corpse(uint32 in_dbid, uint32 in_charid, const char* in_charname, LootIt
 	killedby = in_killedby;
 	rezzable = in_rezzable;
 	rez_time = in_rez_time;
+	guild_id = in_guild_id;
 	is_owner_online = false;
 
 	owner_online_timer.Start(RuleI(Character, CorpseOwnerOnlineTimeMS));
@@ -2089,6 +2091,32 @@ bool Corpse::Summon(Client* client, bool spell, bool CheckDistance) {
 	if (this->GetCharID() != client->CharacterID())
 	{
 		bool consented = spell; // Conjure Corpse does not require consent.  Target restrictions are checked in spell code, not here.
+		// TODO: If in the same guild as the corpse person and their consent is on, then allow
+		// Corpse will need a guild id registered to it. 
+		// Will also need to know if the corpse owner has consented the guild or not
+		// Idea 1: I think EntityList will only contain clients that are in the same zone, so can't check that
+		// Idea 2: Maybe the client or player class has a reference to their guild and the players in it, actually we won't need that
+		//		- Actually this could work bc the guild itself could know who has consented the guild if this is the case
+		//		- Client does have guild_id
+		//		- There's both guildmgr.cpp and guild.cpp and guild_base.cpp so one of those hopefully the client can access
+		//			- Player can access guild.cpp - Client::RefreshGuildInfo() might be a good place for it
+		//			- ZoneGuildManager::ProcessWorldPacket() does a refresh of the guild info when asked by the world server, so if we need to do it on a zonewide basis then maybe
+		// Idea 3: WorldServer's entity list has all clients, so we could ask it, but I suppose that would only work if they are online & i think corpse dragging
+		//		is supposed to work if you are offline too, which is why its stored in the DB
+		//		- So idea 2 is probably better
+		// Idea 4: Idea 2 fleshed out more
+		//		- Corpse::Summon() is called on the zone server
+		//		- Zone server has guild info from ZoneGuildManager::ProcessWorldPacket() - need to find out when this is called
+		//		- Guild can have a list of players that consent to being dragged 
+		// Idea 5: Need more generic version of Idea 4 so it can be used for guild, raid, and group
+		//		- Existing implementation - every client has a consent_list of player names they can drag
+		//		- We could check the DB directly when /drag is used and then cache that info, could also have a cooldown if needed to prevent DB overload
+		//		- This would check a new table called character_consent_multiple
+		//			- This will have columns: player_id and then 3 bool columns: consent_guild, consent_group, consent_raid
+		//		- Will look up player_id using this->GetCharID() on the corpse
+		//		- Will update Client consent_list with the player's name
+		//		- All of this will run only if they aren't currently in the consent list
+		// Consent for guild / raid / group can be handled in its own table and loaded to the client when the consent list is loaded
 		std::list<CharacterConsent>::iterator itr;
 		for (itr = client->consent_list.begin(); itr != client->consent_list.end(); ++itr)
 		{
