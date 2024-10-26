@@ -393,7 +393,7 @@ int command_init(void)
 		command_add("showhelm", "on/off [all] Toggles displaying of player helms (including your own.) Specifying 'all' toggles every character currently on your account", AccountStatus::Player, command_showhelm) ||
 		command_add("showlootlockouts", "- Shows your currently active loot lockouts. These do not apply to earthquake creatures.", AccountStatus::Player, command_showlootlockouts) ||
 		command_add("showpetspell", "[spellid/searchstring] - search pet summoning spells.", AccountStatus::Guide, command_showpetspell) ||
-		command_add("showquake", "- Shows current earthquake timer. Requires you to be a guild officer or leader.", AccountStatus::Player, command_showquake) ||
+		command_add("showquake", "- Shows current earthquake timer.", AccountStatus::Player, command_showquake) ||
 		command_add("showregen", "- Shows information about your target's regen.", AccountStatus::GMAdmin, command_showregen) ||
 		command_add("showskills", "- Show the values of your skills if no target, or your target's skills.", AccountStatus::Guide, command_showskills) ||
 		command_add("showspellslist", "Shows spell list of targeted NPC.", AccountStatus::GMStaff, command_showspellslist) ||
@@ -4204,23 +4204,10 @@ void command_showquake(Client *c, const Seperator *sep)
 {
 	if (!c)
 		return;
-	
-	if (c->GuildID() == GUILD_NONE)
-	{
-		c->Message(Chat::Default, "You must be part of a guild to use this command.");
-		return;
-	}
-
-	if (c->GuildRank() == 0)
-	{
-		c->Message(Chat::Default, "You must be an officer rank or higher to use this command.");
-		return;
-	}
 
 	if (zone)
 	{
 		ServerEarthquakeImminent_Struct quake_struct;
-		memset(&quake_struct, 0, sizeof(ServerEarthquakeImminent_Struct));
 		database.LoadQuakeData(quake_struct);
 		int64 nextQuakeTime = quake_struct.next_start_timestamp;
 		int64 curTime = Timer::GetTimeSeconds();

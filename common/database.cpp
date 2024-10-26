@@ -2335,32 +2335,14 @@ struct TimeOfDay_Struct Database::LoadTime(time_t &realtime)
 	return eqTime;
 }
 
-
 void Database::LoadQuakeData(ServerEarthquakeImminent_Struct& earthquake_struct)
 {
-
 	memset(&earthquake_struct, 0, sizeof(ServerEarthquakeImminent_Struct));
-
-	std::string query = StringFormat("SELECT start_timestamp, next_timestamp, ruleset FROM quake_data");
-	auto results = QueryDatabase(query);
-
-	if (!results.Success() || results.RowCount() == 0)
-	{
-		return;
-	}
-
-	auto row = results.begin();
-	uint32 realtime_ = atoi(row[0]);
-	uint32 next_realtime_ = atoi(row[1]);
-	earthquake_struct.start_timestamp = realtime_;
-	earthquake_struct.next_start_timestamp = next_realtime_;
-	earthquake_struct.quake_type = (QuakeType)atoi(row[2]);
+	earthquake_struct = quake_time_cache;
 }
 
 bool Database::LoadNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_struct)
 {
-
-
 	std::string query = StringFormat("SELECT start_timestamp, next_timestamp, ruleset FROM quake_data");
 	auto results = QueryDatabase(query);
 	EQ::Random random;
@@ -2374,11 +2356,8 @@ bool Database::LoadNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_str
 		earthquake_struct.next_start_timestamp = earthquake_struct.start_timestamp + random_timestamp;
 		earthquake_struct.quake_type = QuakeNormal;
 
-		std::string query1 = StringFormat("DELETE FROM quake_data");
-		auto results1 = QueryDatabase(query1);
+		UpdateQuakeTime(earthquake_struct);
 
-		std::string query2 = StringFormat("REPLACE INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%i, %i, %i)", earthquake_struct.start_timestamp, earthquake_struct.next_start_timestamp, earthquake_struct.quake_type);
-		auto results2 = QueryDatabase(query2);
 		return false;
 	}
 
@@ -2401,15 +2380,13 @@ bool Database::LoadNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_str
 			earthquake_struct.quake_type = ruleset;
 			earthquake_struct.next_start_timestamp = earthquake_struct.start_timestamp + random_timestamp;
 
+			UpdateQuakeTime(earthquake_struct);
 
-			std::string query1 = StringFormat("DELETE FROM quake_data");
-			auto results1 = QueryDatabase(query1);
-
-			std::string query2 = StringFormat("REPLACE INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%i, %i, %i)", earthquake_struct.start_timestamp, earthquake_struct.next_start_timestamp, earthquake_struct.quake_type);
-			auto results2 = QueryDatabase(query2);
 			return false;
 		}
 	}
+
+	quake_time_cache = earthquake_struct;
 
 	//Don't act on this data. Keep timer as-is.
 	return true;
@@ -2425,13 +2402,22 @@ bool Database::SaveNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_str
 	earthquake_struct.next_start_timestamp = earthquake_struct.start_timestamp + random_timestamp;
 	earthquake_struct.quake_type = in_quake_type;
 
+	auto results = UpdateQuakeTime(earthquake_struct);
 
+	return results.Success();
+}
+
+bool Database::UpdateQuakeTime(const ServerEarthquakeImminent_Struct& earthquake_struct)
+{
 	std::string query1 = StringFormat("DELETE FROM quake_data");
 	auto results1 = QueryDatabase(query1);
 
-	std::string query = StringFormat("REPLACE INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%i, %i, %i)", earthquake_struct.start_timestamp, earthquake_struct.next_start_timestamp, earthquake_struct.quake_type);
-	auto results = QueryDatabase(query);
-	return results.Success();
+	std::string query2 = StringFormat("REPLACE INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%i, %i, %i)", earthquake_struct.start_timestamp, earthquake_struct.next_start_timestamp, earthquake_struct.quake_type);
+	auto results2 = QueryDatabase(query2);
+
+	quake_time_cache = earthquake_struct;
+
+	return results2;
 }
 
 bool Database::SaveTime(int8 minute, int8 hour, int8 day, int8 month, int16 year)

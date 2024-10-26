@@ -232,6 +232,7 @@ public:
 	void LoadQuakeData(ServerEarthquakeImminent_Struct & earthquake_struct);
 	bool LoadNextQuakeTime(ServerEarthquakeImminent_Struct &realtime);
 	bool SaveNextQuakeTime(ServerEarthquakeImminent_Struct & earthquake_struct, QuakeType in_quake_type = QuakeType::QuakeNormal);
+	bool UpdateQuakeTime(const ServerEathquakeImminent_Struct& earthquake_struct);
 	bool	SaveTime(int8 minute, int8 hour, int8 day, int8 month, int16 year);
 	bool	AdjustSpawnTimes();
 	uint8   GetZoneRandomLoc(uint32 zoneid);
@@ -242,6 +243,7 @@ private:
 	std::map<std::string, std::string>	zonename_filename_array;
 	Mutex Mvarcache;
 	VarCache_Struct varcache;
+	ServerEarthquakeImminent_Struct quake_time_cache;
 
 	/* Groups, utility methods. */
 	void    ClearAllGroupLeaders();
