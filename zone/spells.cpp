@@ -2433,7 +2433,7 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 
 	if (caster && formula != DF_Permanent)
 	{
-		res = CalcBuffDuration_modification(spell_id, duration, caster->IsClient());
+		res = CalcBuffDuration_modification(spell_id, res, caster->IsClient());
 		
 		if (caster->IsClient() && IsBeneficialSpell(spell_id))
 		{	
@@ -4094,12 +4094,12 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	// NPCs use special rules for rain spells in our era.
 	if (IsNPC() && IsRainSpell(spell_id)) {
 		// 20% innate resist
-		if (zone->random.Roll(20)) {
+		if (RuleB(Spells, RainResist) && zone->random.Roll(20)) {
 			return 0;
 		}
 
 		uint8 hp_percent = (uint8)((float)GetHP() / (float)GetMaxHP() * 100.0f);
-		if(target_level > 20 && hp_percent < 10) {
+		if(RuleB(Spells, RainPreventKill) && target_level > 20 && hp_percent < 10) {
 			return 0;
 		}
 	}

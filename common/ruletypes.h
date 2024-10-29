@@ -381,6 +381,8 @@ RULE_INT ( Spells, SpellRecoveryTimer, 3500, "Begins when a cast is complete, an
 RULE_BOOL ( Spells, JamFestAAOnlyAffectsBard, true, "Bard Jam Fest AA only worked on bards themselves but was changed after AK's era.  Changing this to false will put the client stats out of sync with the server.")
 RULE_BOOL ( Spells, ReducePacifyDuration, false, "AK and the eqmac client have 60 tick Pacify (spell 45) duration.  This rule reduces the duration to 7 ticks without desyncing the cast bar and focus effects for custom servers that want this.")
 RULE_BOOL(Spells, ShowDotDmgMessages, false, "Enables LoY-era DoT damage messages. Disabled by default since this didn't exist on Al'Kabor.")
+RULE_BOOL(Spells, RainResist, false, "Enables 20% resist chance for rain spells")
+RULE_BOOL(Spells, RainPreventKill, false, "Enables blocking rain spells from killing npcs")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Combat )
