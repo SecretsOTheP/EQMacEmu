@@ -391,7 +391,7 @@ void ChatChannel::SendMessageToChannel(std::string Message, Client* Sender) {
 	}
 	ChatMessagesSent++;
 
-	if(Message.length() && Sender->GetName().length() && GetName().c_str())
+	if(Message.length() && Sender->GetName().length() && GetName().length())
 		database.LogUCSPlayerSpeech(Sender->GetName().c_str(), GetName().c_str(), Message.c_str(), Sender->GetAccountStatus(), 0, 200, Sender->GetCharID(), 0);
 	
 	LinkedListIterator<Client*> iterator(ClientsInChannel);
