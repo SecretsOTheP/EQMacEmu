@@ -52,7 +52,9 @@ public:
 	void SetMessageStatus(int MessageNumber, int Status);
 	void AddFriendOrIgnore(int CharID, int Type, std::string Name);
 	void RemoveFriendOrIgnore(int CharID, int Type, std::string Name);
-	void GetFriendsAndIgnore(int CharID, std::vector<std::string> &Friends, std::vector<std::string> &Ignorees); 
+	void GetFriendsAndIgnore(int CharID, std::vector<std::string> &Friends, std::vector<std::string> &Ignorees);
+	void LogUCSPlayerSpeech(const char* from, const char* to, uint32 charcterid, uint32 groupid);
+
 
 protected:
 	void HandleMysqlError(uint32 errnum);

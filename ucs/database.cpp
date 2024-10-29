@@ -316,3 +316,8 @@ void Database::GetFriendsAndIgnore(int charID, std::vector<std::string> &friends
 	}
 
 }
+
+void Database::LogUCSPlayerSpeech(const char* from, const char* to, uint32 charcterid, uint32 groupid)
+{
+
+}

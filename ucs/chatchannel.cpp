@@ -386,6 +386,8 @@ void ChatChannel::SendMessageToChannel(std::string Message, Client* Sender) {
 
 	ChatMessagesSent++;
 
+	database.LogPlayerSpeech(tmp1.c_str(), tmp2.c_str(), SSS->message, SSS->minstatus, SSS->guilddbid, SSS->type, SSS->characterid, SSS->groupid);
+
 	LinkedListIterator<Client*> iterator(ClientsInChannel);
 
 	iterator.Reset();
