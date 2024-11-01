@@ -935,6 +935,7 @@ int EQ::InventoryProfile::GetSlotByItemInst(ItemInstance* inst) {
 uint8 EQ::InventoryProfile::FindBrightestLightType()
 {
 	uint8 brightest_light_type = 0;
+	Log(Logs::General, Logs::Inventory, "FindBrightestLightType");
 
 	for (auto iter = m_worn.begin(); iter != m_worn.end(); ++iter) {
 		if ((iter->first < invslot::EQUIPMENT_BEGIN || iter->first > invslot::EQUIPMENT_END)) { continue; }
@@ -950,6 +951,7 @@ uint8 EQ::InventoryProfile::FindBrightestLightType()
 	}
 
 	uint8 general_light_type = 0;
+	bool log_item = false;
 	for (auto iter = m_inv.begin(); iter != m_inv.end(); ++iter) {
 		if (iter->first < invslot::GENERAL_BEGIN || iter->first > invslot::GENERAL_END) { continue; }
 
@@ -958,15 +960,45 @@ uint8 EQ::InventoryProfile::FindBrightestLightType()
 		auto item = inst->GetItem();
 		if (item == nullptr) { continue; }
 
-		if (item->ItemClass != item::ItemClassCommon) { continue; }
-		if (item->Light < 9 || item->Light > 13) { continue; }
+		if (item->ID == 24628)
+		{
+			log_item = true;
+			Log(Logs::General, Logs::Inventory, "Checking Staff of Null");
+		}
+
+		if (item->ItemClass != item::ItemClassCommon) { 
+			if(log_item)
+			{
+				Log(Logs::General, Logs::Inventory, "Skipping bc its not common class?");
+			}
+			continue; 
+		}
+		if (item->Light == 0) { 
+			if(log_item)
+			{
+				Log(Logs::General, Logs::Inventory, "Skipping bc light is 0");
+			}
+			continue; 
+		}
 
 		if (lightsource::TypeToLevel(item->Light))
+		{
 			general_light_type = item->Light;
+			if(log_item)
+			{
+				Log(Logs::General, Logs::Inventory, "Set general_light_type to this item");
+			}
+		}
 	}
 
 	if (lightsource::IsLevelGreater(general_light_type, brightest_light_type))
+	{
 		brightest_light_type = general_light_type;
+		if(log_item)
+		{
+			Log(Logs::General, Logs::Inventory, "Overwrote light with general light");
+		}
+	}
 
 	return brightest_light_type;
 }

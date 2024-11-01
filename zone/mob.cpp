@@ -1716,6 +1716,7 @@ void Mob::SetAppearance(EmuAppearance app, bool iIgnoreSelf)
 
 bool Mob::UpdateActiveLight()
 {
+	Log(Logs::General, Logs::Inventory, "Mob::UpdateActiveLight");
 	uint8 old_light_level = m_Light.Level[EQ::lightsource::LightActive];
 
 	m_Light.Type[EQ::lightsource::LightActive] = 0;

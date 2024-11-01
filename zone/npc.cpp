@@ -621,6 +621,7 @@ uint32 NPC::CountLoot() {
 
 void NPC::UpdateEquipmentLight()
 {
+	Log(Logs::General, Logs::Inventory, "NPC::UpdateEquipmentLight");
 	m_Light.Type[EQ::lightsource::LightEquipment] = 0;
 	m_Light.Level[EQ::lightsource::LightEquipment] = 0;
 	

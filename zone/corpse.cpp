@@ -2183,6 +2183,7 @@ uint32 Corpse::GetEquipmentColor(uint8 material_slot) const {
 
 void Corpse::UpdateEquipmentLight()
 {
+	Log(Logs::General, Logs::Inventory, "Corpse::UpdateEquipmentLight");
 	m_Light.Type[EQ::lightsource::LightEquipment] = 0;
 	m_Light.Level[EQ::lightsource::LightEquipment] = 0;
 
