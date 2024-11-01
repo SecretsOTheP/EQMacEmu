@@ -1240,6 +1240,33 @@ bool Zone::LoadZoneCFG(const char* filename, bool DontLoadDefault)
 	strcpy(newzone_data.zone_long_name, GetLongName());
 	strcpy(newzone_data.zone_short_name2, GetShortName());
 
+	// TODO: 
+	// Load rotating ZEM data from DB
+	//    - Include total_weeks = COUNT(DISTINCT(week_id)) so we know how many weeks of data there are
+	// If there's any data for this zone:
+	//   - Figure out which week it is
+	//   - Update newzone_data->zone_exp_multiplier accordingly
+
+	// Proposed Table structure
+	// TableName: zone_rotating_zems
+	// zone_id: int, week_id: smallint, zone_exp_multiplier: float
+
+	// Calculate current week
+	//  - Use current weeks since epoch modulo total_weeks
+	//  - Can offset the current weeks number by a certain number of days so the rotation always happens on a specific day like Monday
+
+	// Since zones don't come down for maintenance on the same schedule, we'll need a way to refresh this data on a weekly basis
+	// Maybe doing something like the timer for weather when the zone starts up
+	// This is in milliseconds, so for one hour it would be 3600000ms
+	// Rotating_Zem_Timer = new Timer(3600000);
+	// Rotating_Zem_Timer->Start();
+	// Check the timer in the Process() function
+
+	// If this causes too much overhead, we could just hack it to piggyback on the WeatherTimer which runs every 1 minute
+
+	// DB Table notes
+	// - Would only contain zones that are commonly used for XP
+
 	LogInfo("Successfully loaded Zone Config.");
 	return true;
 }
