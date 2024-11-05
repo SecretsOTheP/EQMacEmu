@@ -572,12 +572,9 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 	{
 		if (new_spelldata->goodEffect
 			&& GetSpellEffectIndex(new_spelldata->id, SE_MovementSpeed) != -1
-			&& GetSpellEffectIndex(old_spelldata->id, SE_MovementSpeed) != -1
-			|| new_spelldata->goodEffect
-			&& GetSpellEffectIndex(new_spelldata->id, SE_MovementSpeed) != -1
 			&& GetSpellEffectIndex(old_spelldata->id, SE_Root) != -1)
 		{
-			goto BLOCKED_BUFF;                        // Bard Selos can't overwrite regular SoW type spell or rooting illusion
+			goto BLOCKED_BUFF;                        // Bard Selos can't overwrite rooting illusion
 		}
 
 		// generally, bard songs stack with anything that's not a bard song
