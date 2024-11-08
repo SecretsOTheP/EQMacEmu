@@ -78,25 +78,26 @@ public:
 	virtual bool Save() { return true; }
 	virtual void Depop(bool StartSpawnTimer = false) {}
 
-	Client	*CastToClient();
-	NPC		*CastToNPC();
-	Mob		*CastToMob();
-	Corpse	*CastToCorpse();
-	Object	*CastToObject();
-	Doors	*CastToDoors();
-	Trap	*CastToTrap();
-	Beacon	*CastToBeacon();
-	Encounter *CastToEncounter();
+	Client          *CastToClient();
+	NPC             *CastToNPC();
+	Mob             *CastToMob();
+	Corpse          *CastToCorpse();
+	Object          *CastToObject();
+	Doors           *CastToDoors();
+	Trap            *CastToTrap();
+	Beacon          *CastToBeacon();
+	Encounter       *CastToEncounter();
 
-	const Client	*CastToClient() const;
-	const NPC		*CastToNPC() const;
-	const Mob		*CastToMob() const;
-	const Corpse	*CastToCorpse() const;
-	const Object	*CastToObject() const;
-	const Doors		*CastToDoors() const;
-	const Trap		*CastToTrap() const;
-	const Beacon	*CastToBeacon() const;
-	const Encounter *CastToEncounter() const;
+	const Client        *CastToClient() const;
+	const NPC           *CastToNPC() const;
+	const Mob           *CastToMob() const;
+	const HardcoreGhost *CastToHardcoreGhost() const;
+	const Corpse        *CastToCorpse() const;
+	const Object        *CastToObject() const;
+	const Doors         *CastToDoors() const;
+	const Trap          *CastToTrap() const;
+	const Beacon        *CastToBeacon() const;
+	const Encounter     *CastToEncounter() const;
 
 	inline const uint16& GetID() const { return id; }
 
