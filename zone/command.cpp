@@ -68,6 +68,7 @@
 #include "worldserver.h"
 #include "queryserv.h"
 #include "zonedb.h"
+#include "hardcoreghost.h"
 
 extern WorldServer worldserver;
 extern QueryServ* QServ;
@@ -404,6 +405,7 @@ int command_init(void)
 		command_add("skills", "List skill difficulty.", AccountStatus::GMAdmin, command_skilldifficulty) ||
 		command_add("spawn", "[name] [race] [level] [material] [hp] [gender] [class] [priweapon] [secweapon] [merchantid] - Spawn an NPC.", AccountStatus::GMImpossible, command_spawn) ||
 		command_add("spawnfix", "- Find targeted NPC in database based on its X/Y/heading and update the database to make it spawn at your current location/heading.", AccountStatus::GMImpossible, command_spawnfix) ||
+		command_add("spawnhardcoreghost", "- Spawns a hardcore ghost at your location.", AccountStatus::GMImpossible, command_spawnhardcoreghost) ||
 		command_add("spawnstatus", "[a|u|s|d|e|spawnid|help] - Show respawn timer status.", AccountStatus::GMStaff, command_spawnstatus) ||
 		command_add("spellinfo", "[spellid] - Get detailed info about a spell.", AccountStatus::Guide, command_spellinfo) ||
 		command_add("starve", "Sets hunger and thirst to 0.", AccountStatus::GMCoder, command_starve) ||
@@ -2023,8 +2025,11 @@ void command_manastat(Client *c, const Seperator *sep){
 void command_npcstats(Client *c, const Seperator *sep){
 	if (c->GetTarget() == 0)
 		c->Message(Chat::Default, "ERROR: No target!");
-	else if (!c->GetTarget()->IsNPC())
-		c->Message(Chat::Default, "ERROR: Target is not a NPC!");
+	else if (!c->GetTarget()->IsNPC() && !c->GetTarget()->IsHardcoreGhost())
+		c->Message(Chat::Default, "ERROR: Target is not a NPC or Hardcore Ghost!");
+	else if (c->GetTarget()->IsHardcoreGhost()){
+		c->GetTarget()->CastToHardcoreGhost()->ShowQuickStats(c);
+	}
 	else {
 		c->GetTarget()->CastToNPC()->ShowQuickStats(c);
 	}
@@ -5218,6 +5223,12 @@ void command_repopclose(Client *c, const Seperator *sep)
 void command_rewind(Client *c, const Seperator *sep){
 	c->RewindCommand();
 	return;
+}
+
+void command_spawnhardcoreghost(Client *c, const Seperator *sep)
+{
+	// TODO Add usage instructions
+	HardcoreGhost::Spawn(c);
 }
 
 void command_spawnstatus(Client *c, const Seperator *sep)
