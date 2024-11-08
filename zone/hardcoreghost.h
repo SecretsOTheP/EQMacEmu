@@ -28,6 +28,7 @@ public:
 	bool IsNPC() const override { return false; }
 	bool IsHardcoreGhost()	const override { return true; }
 	void ShowQuickStats(Client* client);
+	static void ProcessBotInspectionRequest(HardcoreGhost* inspectedBot, Client* client);
 
 	// TODO for adding items
 	// void AddBotItem(

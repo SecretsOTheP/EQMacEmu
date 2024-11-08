@@ -162,6 +162,50 @@ void HardcoreGhost::ShowQuickStats(Client* c)
     c->Message(Chat::White, "Hidden: %i", hidden);
 }
 
+void HardcoreGhost::ProcessBotInspectionRequest(HardcoreGhost* inspectedBot, Client* client) 
+{
+    if (inspectedBot && client) 
+    {
+        EQApplicationPacket* outapp = new EQApplicationPacket(OP_InspectAnswer, sizeof(InspectResponse_Struct));
+        InspectResponse_Struct* insr = (InspectResponse_Struct*) outapp->pBuffer;
+        insr->TargetID = inspectedBot->GetNPCTypeID();
+        insr->PlayerID = inspectedBot->GetID();
+
+        //const EQ::ItemData* item = nullptr;
+        //const EQ::ItemInstance* inst = nullptr;
+
+        for (int16 L = EQ::invslot::EQUIPMENT_BEGIN; L <= EQ::invslot::EQUIPMENT_END; L++) 
+        {
+            //inst = inspectedBot->GetBotItem(L);
+
+            //if (inst) {
+            //item = inst->GetItem();
+
+            // For now hardcode one just for testing
+            if (L == 1) 
+            {
+                strcpy(insr->itemnames[L], "Silver Earring");
+                insr->itemicons[L] = 544;
+            }
+            else 
+            {
+                insr->itemnames[L][0] = '\0';
+                //insr->itemicons[L] = 0xFFFFFFFF;
+            }
+            // else {
+            //  insr->itemnames[L][0] = '\0';
+            //  insr->itemicons[L] = 0xFFFFFFFF;
+            // }
+        }
+
+        //strcpy(insr->text, inspectedBot->GetInspectMessage().text);
+        Log(Logs::General, Logs::Info, "Sending InspectAnswer to client from HardcoreGhost");
+
+        client->QueuePacket(outapp); // Send answer to requester
+        safe_delete(outapp);
+    }
+}
+
 // Define the pure virtual functions from the Mob class
 bool HardcoreGhost::Death(Mob* killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, uint8 killedby, bool bufftic) {
     // Implement the function

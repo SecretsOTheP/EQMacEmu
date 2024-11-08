@@ -1661,9 +1661,13 @@ struct Inspect_Struct {
 
 struct InspectResponse_Struct 
 { 
-	int16 TargetID;			// Comment: ? 
-	int16 PlayerID;			// Comment: ?
-	int8  unknown[1740];	// Comment: ?
+	/*000*/ int16 TargetID;			// Comment: ? 2 bytes
+	/*002*/ int16 PlayerID;			// Comment: ? 2 bytes
+	/*004*/ char itemnames[21][64];	// 1344 bytes
+	/*1348*/ char unknown_zero[64]; //fill with zero's.
+	/*1412*/ int16 itemicons[21]; 
+	/*1454*/ int8  unknown[290];
+	/*1744*/ 
 }; 
 
 //OP_SetDataRate
