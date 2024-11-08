@@ -38,6 +38,7 @@
 #include "raids.h"
 #include "string_ids.h"
 #include "worldserver.h"
+#include "hardcoreghost.h"
 
 #ifdef _WINDOWS
 	#define snprintf	_snprintf
@@ -101,6 +102,18 @@ Mob *Entity::CastToMob()
 #endif
 	return static_cast<Mob *>(this);
 }
+
+HardcoreGhost *Entity::CastToHardcoreGhost()
+{
+#ifdef _EQDEBUG
+	if (!IsMob()) {
+		std::cout << "CastToMob error" << std::endl;
+		return 0;
+	}
+#endif
+	return static_cast<HardcoreGhost *>(this);
+}
+
 
 
 Trap *Entity::CastToTrap()
@@ -688,6 +701,23 @@ void EntityList::AddCorpse(Corpse *corpse, uint32 in_id)
 		corpse_timer.Start();
 		corpse_depop_timer.Start();
 	}
+}
+
+void EntityList::AddHardcoreGhost(HardcoreGhost *ghost)
+{
+	ghost->SetID(GetFreeID());
+	ghost_list.insert(std::pair<uint16, HardcoreGhost *>(ghost->GetID(), ghost));
+	mob_list.insert(std::pair<uint16, Mob*>(ghost->GetID(), ghost));
+
+	ghost->SetSpawned();
+
+	EQApplicationPacket app;
+	ghost->CreateSpawnPacket(&app, ghost);
+	QueueClients(ghost, &app);
+	safe_delete_array(app.pBuffer);
+	ghost->SpawnPacketSent(true);
+	// TODO: Later for quests?
+	//parse->EventNPC(EVENT_SPAWN, npc, nullptr, "", 0);
 }
 
 void EntityList::AddNPC(NPC *npc, bool SendSpawnPacket, bool dontqueue)
