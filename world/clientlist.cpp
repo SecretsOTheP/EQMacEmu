@@ -908,9 +908,9 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 					appendStr += "-";
 
 					// Calculate the remaining space in the buffer
-					size_t remainingSpace = 63 - strlen(plname); // 63 because we need one char for null-terminator
+					size_t remainingSpace = sizeof(plname) - strlen(plname) - 1; // sizeof(plname) - strlen(plname) - 1 for better clarity
 					// Append appendStr to plname if there's enough space
-					if (remainingSpace >= appendStr.length()) {
+					if (remainingSpace > appendStr.length()) {
 						// Append should look like this:
 						strncat(plname, appendStr.c_str(), remainingSpace);
 
