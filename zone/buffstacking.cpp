@@ -938,6 +938,8 @@ bool Mob::AssignBuffSlot(Mob *caster, uint16 spell_id, int &buffslot, int &caste
 		int mod = caster->GetInstrumentMod(spell_id);
 		if (mod > 10)
 			buffs[emptyslot].instrumentmod = mod;
+		
+		buffs[emptyslot].UpdateClient = true;
 	}
 
 	Log(Logs::Detail, Logs::Spells, "Buff %d added to slot %d with caster level %d", spell_id, emptyslot, caster_level);

@@ -538,6 +538,7 @@ public:
 	uint32 GetIgnoreStuckCount() { return hate_list.GetIgnoreStuckCount(); }	// return how many times the NPC ignored all haters so we can unstick them if they get stuck
 	bool HateSummon(Mob* summoned = nullptr);
 	bool CheckHateSummon(Mob* summoned);
+	bool BardHateSummon(Mob* summoned);
 	void FaceTarget(Mob* MobToFace = 0);
 	void SetHeading(float iHeading) { if(m_Position.w != iHeading) { m_Position.w = iHeading;} }
 	void WipeHateList(bool from_memblur = false);
@@ -585,6 +586,7 @@ public:
 	void ShowBuffList(Client* client);
 	bool PlotPositionAroundTarget(Mob* target, float &x_dest, float &y_dest, float &z_dest,
 		bool lookForAftArc = true);
+	bool CheckBardHateSummon(Mob* summoned);
 	int32  GetSkillStat(EQ::skills::SkillType skillid);	
 	bool IsPlayerOwned();
 

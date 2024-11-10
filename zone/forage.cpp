@@ -215,11 +215,15 @@ bool Client::CanFish() {
 		const float LineExtension = RuleR(Watermap, FishingLineExtension);
 		int HeadingDegrees;
 
-		HeadingDegrees = (int)((GetHeading() * 360) / 512);
+		// The heading for quarm client goes from 0 - 256
+		// This calculation turns a 0-256 rotation into 0-365
+		HeadingDegrees = (int)((GetHeading() * 360) / 256);
 		HeadingDegrees = HeadingDegrees % 360;
 
 		rodPosition.x = m_Position.x + RodLength * sin(HeadingDegrees * M_PI / 180.0f);
 		rodPosition.y = m_Position.y + RodLength * cos(HeadingDegrees * M_PI / 180.0f);
+
+		Log(Logs::General, Logs::Maps, "Heading is at %d, GetHeading() is %4.3f", HeadingDegrees, GetHeading());
 
 		glm::vec3 dest;
 		dest.x = rodPosition.x;
@@ -227,6 +231,7 @@ bool Client::CanFish() {
 		dest.z = m_Position.z;
 
 		if (!CheckLosFN(dest.x, dest.y, dest.z, 0.0f)) {
+			Log(Logs::General, Logs::Maps, "Failing to fish because of CheckLosFN");
 			// fishing into a wall to reach water on other side?
 			Message_StringID(Chat::Skills, FISHING_LAND);	//Trying to catch land sharks perhaps?
 			return false;
@@ -277,6 +282,7 @@ bool Client::CanFish() {
 				Log(Logs::General, Logs::Maps, "Trying again with new Z %4.3f InWater now says %d", rodPosition.z, in_water);
 
 				if (!in_water) {
+					Log(Logs::General, Logs::Maps, "Failing to fish because of !in_water");
 					Message_StringID(Chat::Skills, FISHING_LAND);	//Trying to catch land sharks perhaps?
 					return false;
 				}

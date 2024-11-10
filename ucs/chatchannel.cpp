@@ -384,8 +384,16 @@ void ChatChannel::SendMessageToChannel(std::string Message, Client* Sender) {
 
 	if(!Sender) return;
 
+	if (Sender->GetLevel() < RuleI(Quarm, AllianceChannelLevelRequirement) && CapitaliseName(GetName()).compare(RuleS(Quarm, AllianceChannelReplacementName)) == 0)
+	{
+		Sender->GeneralChannelMessage("Channel " + GetName() + " requires level " + std::to_string(RuleI(Quarm, AllianceChannelLevelRequirement)) + " to participate in chat.");
+		return;
+	}
 	ChatMessagesSent++;
 
+	if(Message.length() && Sender->GetName().length() && GetName().length())
+		database.LogUCSPlayerSpeech(Sender->GetName().c_str(), GetName().c_str(), Message.c_str(), Sender->GetAccountStatus(), 0, 200, Sender->GetCharID(), 0);
+	
 	LinkedListIterator<Client*> iterator(ClientsInChannel);
 
 	iterator.Reset();
@@ -469,6 +477,12 @@ ChatChannel *ChatChannelList::AddClientToChannel(std::string ChannelName, Client
 		NormalisedName = CapitaliseName(ChannelName.substr(0, Colon));
 
 		Password = ChannelName.substr(Colon + 1);
+	}
+
+	if (NormalisedName.compare(RuleS(Quarm, AllianceChannelName)) == 0 || NormalisedName.compare(RuleS(Quarm, AllianceChannelReplacementName)) == 0)
+	{
+		NormalisedName = RuleS(Quarm, AllianceChannelReplacementName);
+		Password = "";
 	}
 
 	if((NormalisedName.length() > 64) || (Password.length() > 64)) {

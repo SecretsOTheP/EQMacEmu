@@ -125,10 +125,82 @@ void Database::GetAccountStatus(Client *client) {
 	client->SetAccountStatus(atoi(row[0]));
 	client->SetHideMe(atoi(row[1]) != 0);
 	client->SetKarma(atoi(row[2]));
-	client->SetRevoked((atoi(row[3])));
+
+	uint8 revoked = CheckUCSRevoked(client->GetAccountID());
+	client->SetRevoked(revoked);
 
 	LogDebug("Set account status to [{0}], hideme to [{1}] and karma to [{2}] for [{3}]", client->GetAccountStatus(), client->GetHideMe(), client->GetKarma(), client->GetName().c_str());
 
+}
+
+void Database::LogUCSPlayerSpeech(
+	const char* from,
+	const char* to,
+	const char* message,
+	uint16 minstatus,
+	uint32 guilddbid,
+	uint8 type,
+	uint32 characterid,
+	uint32 groupid
+)
+{
+
+	auto escapedFrom = new char[strlen(from) * 2 + 1];
+	auto escapedTo = new char[strlen(to) * 2 + 1];
+	auto escapedMessage = new char[strlen(message) * 2 + 1];
+	DoEscapeString(escapedFrom, from, strlen(from));
+	DoEscapeString(escapedTo, to, strlen(to));
+	DoEscapeString(escapedMessage, message, strlen(message));
+
+	std::string query = StringFormat(
+		"INSERT INTO `qs_player_speech` "
+		"SET `from` = '%s', `to` = '%s', `message`='%s', "
+		"`minstatus`='%i', `guilddbid`='%i', `type`='%i', "
+		"`characterid`='%i', `groupid`='%i'",
+		escapedFrom, escapedTo, escapedMessage, minstatus, guilddbid, type, characterid, groupid
+	);
+	safe_delete_array(escapedFrom);
+	safe_delete_array(escapedTo);
+	safe_delete_array(escapedMessage);
+	auto results = QueryDatabase(query);
+	if (!results.Success()) {
+		LogInfo("Failed Speech Entry Insert: [{}]", results.ErrorMessage().c_str());
+		LogInfo("[{}]", query.c_str());
+	}
+
+
+}
+
+uint8 Database::CheckUCSRevoked(uint32 account_id) {
+	auto query = fmt::format(
+		"SELECT `revoked`, UNIX_TIMESTAMP(`revokeduntil`) as `revokeduntil`, UNIX_TIMESTAMP() as `current` FROM `account` WHERE `id` = {} ",
+		account_id
+	);
+
+	auto results = QueryDatabase(query);
+	if (!results.Success() || results.RowCount() != 1) {
+		return 0;
+	}
+
+
+	auto row = results.begin();
+	uint8 status = std::stoi(row[0]);
+	int32 suspendeduntil = 0;
+
+	// MariaDB initalizes with NULL if unix_timestamp() is out of range
+	if (row[1] != nullptr) {
+		suspendeduntil = std::stoi(row[1]);
+	}
+
+	if (suspendeduntil == 0) // legacy behavior. Don't use timestamp in this case
+		return status;
+
+	int32 current = atoi(row[2]);
+
+	if (suspendeduntil > current)
+		return status;
+
+	return 0;
 }
 
 int Database::FindAccount(const char *characterName, Client *client) {

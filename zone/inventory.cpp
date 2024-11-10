@@ -1723,7 +1723,8 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 	} 
 	else
 	{
-		database.SaveInventory(character_id, m_inv.GetItem(dst_slot_id), dst_slot_id);
+		const EQ::ItemInstance* dst_item_instance = m_inv.GetItem(dst_slot_id);
+		database.SaveInventory(character_id, dst_item_instance, dst_slot_id);
 
 		// When we have a bag on the cursor filled with items that is new (zoned with it, summoned it, picked it up from the ground)
 		// the client is only aware of the bag. So, we have to send packets for each item within the bag once it is placed in the inventory.
@@ -1741,6 +1742,15 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 					SendItemPacket(trade_bag_slot, inst, ItemPacketTrade);
 				}
 			}
+		}
+
+		// My attempt to get the lighting update to be pushed to the client
+		// However, it doesn't seem to work, so I think there may be client changes required for this
+		if(dst_item_instance->GetItem()->Light > 0)
+		{
+			UpdateEquipmentLight();
+			UpdateActiveLight();
+			SendAppearancePacket(AppearanceType::Light, GetActiveLightType());
 		}
 	}
 

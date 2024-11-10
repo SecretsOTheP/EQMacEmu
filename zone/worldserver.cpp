@@ -1732,21 +1732,25 @@ void WorldServer::Process() {
 		}
 
 		case ServerOP_ReloadRules: {
+			/*
 			worldserver.SendEmoteMessage(
 				0, 0, 0, 15,
 				"Rules reloaded for Zone: '%s'",
 				zone->GetLongName()
 			);
+			*/
 			RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
 			break;
 		}
 		
 		case ServerOP_ReloadSpellModifiers: {
+			/*
 			worldserver.SendEmoteMessage(
 				0, 0, 0, 15,
 				"Spell modifiers reloaded for Zone: '%s'",
 				zone->GetLongName()
 			);
+			*/
 			database.LoadSpellModifiers(spellModifiers);
 			break;
 		}

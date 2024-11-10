@@ -4099,11 +4099,19 @@ bool ZoneDatabase::ResetStartingItems(Client* c, uint32 si_race, uint32 si_class
 
 	return_zone_id = starting_zone_id;
 
-	std::string query = StringFormat("SELECT itemid, item_charges, slot FROM starting_items "
+	std::string query = StringFormat(
+		"SELECT itemid, item_charges, slot FROM starting_items "
 		"WHERE (race = %i or race = 0) AND (class = %i or class = 0) AND "
 		"(deityid = %i or deityid = 0) AND (zoneid = %i or zoneid = 0) AND "
-		"gm <= %i ORDER BY id",
-		si_race, si_class, si_deity, starting_zone_id, admin_level);
+		"gm <= %i %s ORDER BY id",
+		si_race,
+		si_class,
+		si_deity,
+		starting_zone_id,
+		admin_level,
+		ContentFilterCriteria::apply().c_str()
+	);
+
 	auto results = QueryDatabase(query);
 	if (!results.Success())
 		return false;

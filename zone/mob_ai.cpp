@@ -1632,7 +1632,7 @@ void Mob::AI_Process() {
 			}
 
 			// max mobs in kite code
-			if (ai_think && GetTarget() && GetTarget()->IsClient() && (zone->GetNumAggroedNPCs() > zone->GetPullLimit()) && entity_list.GetTopHateCount(GetTarget()) >= zone->GetPullLimit())
+			if (ai_think && GetTarget() && GetTarget()->IsClient() && (zone->GetNumAggroedNPCs() > zone->GetPullLimit()) && entity_list.GetTopHateCount(GetTarget()) >= zone->GetPullLimit() && zone->GetGuildID() == GUILD_NONE)
 			{
 				int limit = zone->GetPullLimit();
 				int limit2 = limit * 15 / 10;
@@ -1664,6 +1664,10 @@ void Mob::AI_Process() {
 				if (CheckHateSummon(GetTarget()))
 				{
 					HateSummon(GetTarget());
+				}
+				else if (RuleB(Quarm, EnableBardInstagibLimit) && GetTarget()->IsClient() && GetTarget()->GetClass() == BARD && CheckBardHateSummon(GetTarget()))
+				{
+					BardHateSummon(GetTarget());
 				}
 				else if (!IsBlind())
 				{

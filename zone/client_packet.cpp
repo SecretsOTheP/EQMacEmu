@@ -5504,12 +5504,23 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 					memcpy(outapp->pBuffer, app->pBuffer, outapp->size);
 					Invitee->CastToClient()->QueuePacket(outapp);
 					safe_delete(outapp);
-					return;
 				}
 				else
 				{
 					//The correct opcode, no reason to bother wasting time reconstructing the packet
 					Invitee->CastToClient()->QueuePacket(app);
+				}
+
+				// TODO: Send message to all group members that the invite happened
+				Group* group = GetGroup();
+				if(group != nullptr) 
+				{
+					uint8 language = 0;
+					uint8 lang_skill = 100;
+					std::string message = StringFormat("Invited %s to the group.", Invitee->CastToClient()->GetCleanName());
+					group->GroupMessage(this, language, lang_skill, message.c_str());
+					message = StringFormat("You tell your party, '%s'", message.c_str());
+					Message(Chat::White, message.c_str());
 				}
 			}
 			else if (Invitee->IsRaidGrouped())
@@ -6765,6 +6776,10 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 				if (!mypet->UseBardSpellLogic())	//maybe we can have a bard pet
 					mypet->InterruptSpell(); //No cast 4 u. //i guess the pet should start casting
 				mypet->SendAppearancePacket(AppearanceType::Animation, Animation::Sitting);
+				mypet->StopNavigation();
+				glm::vec3 petloc = glm::vec3(mypet->GetPosition().x, mypet->GetPosition().y, mypet->GetPosition().z);
+				mypet->Teleport(petloc);
+				mypet->FixZ();
 		}
 		break;
 	}
@@ -8894,16 +8909,7 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 			*c = toupper(*c);
 			first = false;
 		}
-		else if (*c == '`' || *c == '\'') { // if we find a backtick, don't modify the next character's capitalization
-			// If this is the last character, we can break out of the loop
-			if (*(c+1) == '\0')
-				break;
-
-			c++; // Move to the next character
-		}
-		else {
-			*c = tolower(*c);
-		}
+		// Valid captialization will be checked by CheckNameFilter
 	}
 
 	if (strlen(surname->lastname) >= 20) {
@@ -8911,7 +8917,7 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 		return;
 	}
 
-	if (!database.CheckNameFilter(surname->lastname, true))
+	if (strlen(surname->lastname) > 0 && !database.CheckNameFilter(surname->lastname, true))
 	{
 		Message_StringID(Chat::Yellow, SURNAME_REJECTED);
 		return;

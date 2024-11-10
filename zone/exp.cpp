@@ -394,10 +394,17 @@ void Client::AddQuestEXP(uint32 in_add_exp, bool bypass_cap) {
 		}
 	}
 
-
 	this->EVENT_ITEM_ScriptStopReturn();
 
 	uint32 add_exp = in_add_exp;
+
+	if (RuleB(Quarm, EnableQuestExpMultiplier))
+	{
+		if (in_add_exp > 0)
+		{
+			add_exp = (uint32)((float)in_add_exp * (float)RuleR(Quarm, QuestExpMultiplier));
+		}
+	}
 
 	if (m_epp.perAA<0 || m_epp.perAA>100)
 		m_epp.perAA=0;	// stop exploit with sanity check

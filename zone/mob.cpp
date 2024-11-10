@@ -2062,6 +2062,45 @@ bool Mob::PlotPositionAroundTarget(Mob* target, float &x_dest, float &y_dest, fl
 	return Result;
 }
 
+bool Mob::CheckBardHateSummon(Mob* summoned) {
+
+	// check if mob has ability to summon
+	// 97% is the offical % that summoning starts on live, not 94
+	if (!summoned) {
+		return false;
+	}
+
+	if (zone->GetGuildID() != GUILD_NONE)
+		return false;
+
+	if (summoned->GetClass() != BARD || IsCharmedPet() || !summoned->IsClient() || summoned->PermaRooted() || (summoned->IsNPC() && summoned->GetMaxHP() > 300000)) { // raid bosses may not have been summonable
+		return false;
+	}
+
+	if(GetHPRatio() >= RuleR(Quarm, BardInstagibHPRatio))
+		return false;
+
+	if (entity_list.GetTopHateCount(summoned) < RuleI(Quarm, BardInstagibPullLimit))
+		return false;
+
+	// now validate the timer
+	Timer* timer = GetSpecialAbilityTimer(SPECATK_SUMMON);
+	if (!timer) {
+		// dont currently have a timer going, so we are going to summon
+		return true;
+	}
+	else {
+		// we have a timer going, so see if its ready to use.
+		if (timer->Check(false))
+			return true;
+	}
+
+
+	// no go, aren't going to summon someone this time.
+	return false;
+
+}
+
 bool Mob::CheckHateSummon(Mob* summoned) {
 	// check if mob has ability to summon
 	// 97% is the offical % that summoning starts on live, not 94
@@ -2103,6 +2142,69 @@ bool Mob::CheckHateSummon(Mob* summoned) {
 	}
 
 	// no go, aren't going to summon someone this time.
+	return false;
+}
+
+bool Mob::BardHateSummon(Mob* summoned) {
+	// check if mob has ability to summon
+	// 97% is the offical % that summoning starts on live, not 94
+	if (!summoned)
+		summoned = GetTarget();
+
+	if (!summoned)
+		return false;
+
+	if (IsCharmedPet())
+		return false;
+
+	if (zone->GetGuildID() != GUILD_NONE)
+		return false;
+
+	// now validate the timer
+	int summon_timer_duration = RuleI(Quarm, BardInstagibResummonTimerMS);
+	Timer* timer = GetSpecialAbilityTimer(SPECATK_SUMMON);
+	if (!timer)
+	{
+		StartSpecialAbilityTimer(SPECATK_SUMMON, summon_timer_duration);
+	}
+	else {
+		if (!timer->Check())
+			return false;
+
+		timer->Start(summon_timer_duration);
+	}
+
+	// get summon target
+	SetTarget(summoned);
+	if (target)
+	{
+			entity_list.MessageClose(this, true, 500, Chat::Say, "%s says,'You will not evade me, %s!' ", GetCleanName(), target->GetCleanName());
+			glm::vec3 dest(m_Position.x, m_Position.y, m_Position.z);
+			// this will ensure that the player is summoned very slightly in front of the NPC
+			if (GetHeading() < 43.0f || GetHeading() > 212.0f)
+				dest.y += 1.0f;
+			else if (GetHeading() > 85.0f && GetHeading() < 171.0f)
+				dest.y -= 1.0f;
+			if (GetHeading() > 21.0f && GetHeading() < 107.0f)
+				dest.x += 1.0f;
+			else if (GetHeading() > 149.0f && GetHeading() < 234.0f)
+				dest.x -= 1.0f;
+
+			float newz = zone->zonemap->FindBestZ(dest, nullptr);
+			if (newz != BEST_Z_INVALID)
+				newz = target->SetBestZ(newz);
+			bool in_liquid = zone->HasWaterMap() && zone->watermap->InLiquid(glm::vec3(m_Position.x, m_Position.y, newz)) || zone->IsWaterZone(newz);
+			if (newz != BEST_Z_INVALID && !in_liquid)
+				dest.z = newz;
+			if (target->IsClient()) {
+				target->CastToClient()->MovePC(zone->GetZoneID(), dest.x, dest.y, dest.z, target->GetHeading(), 0, SummonPC);
+			}
+			else {
+				target->GMMove(dest.x, dest.y, dest.z, target->GetHeading());
+			}
+
+			return true;
+	}
 	return false;
 }
 
@@ -5141,6 +5243,7 @@ void Mob::ApplyIllusion(const SPDat_Spell_Struct &spell, int i, Mob* caster)
             case 581:
 			case 643:
             case 644:
+			case 1376:
             case 1611:
             {
 				if (GetBaseRace() == IKSAR && spell_base == SKELETON)

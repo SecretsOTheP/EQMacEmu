@@ -455,7 +455,7 @@ bool Database::SetMule(const char* charname) {
 	uint32 account_id = std::stoul(row[0]);
 	
 	// iterate over every character associated with account and verify they're all level 1 (exclude char with charname)
-	query = StringFormat("SELECT `account_id` FROM `character_data` WHERE `account_id` = %u", account_id);
+	query = StringFormat("SELECT `account_id` FROM `character_data` WHERE `account_id` = %u and `is_deleted` = 0 ", account_id);
 	results = QueryDatabase(query);
 	if (results.RowCount() != 1) {
 		Log(Logs::General, Logs::WorldServer, "Can not set mule status on account because more than one character exists on account.");
@@ -1346,6 +1346,7 @@ bool Database::CheckNameFilter(const char* name, bool surname) {
 
 	// Rule 2: Check for allowed characters and optional backtick for surnames.
 	bool special_char_found = false;
+	bool second_uppercase_used = false; // Surnames may contain 2 uppercase letters
 	for (size_t i = 0; i < str_name.size(); i++) {
 		if (str_name[i] == '`' || str_name[i] == '\'') {
 			// For non-surnames, if special char already found, or if it's at the start/end of the string.
@@ -1356,6 +1357,11 @@ bool Database::CheckNameFilter(const char* name, bool surname) {
 		}
 		else if (!isalpha(str_name[i])) {
 			return false;
+		}
+		else if (i > 0 && isupper(str_name[i])) {
+			if (!surname || second_uppercase_used)
+				return false;
+			second_uppercase_used = true;
 		}
 	}
 

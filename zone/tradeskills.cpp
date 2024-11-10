@@ -391,6 +391,15 @@ void Client::CheckIncreaseTradeskill(bool isSuccessfulCombine, EQ::skills::Skill
 
 	double tradeDifficulty = zone->skill_difficulty[tradeskill].difficulty;
 
+	if (RuleB(Quarm, EnableGlobalSkillupDifficultyAdjustments))
+	{
+		float global_skillup_mod = RuleR(Quarm, GlobalTradeSkillupDifficultyAdjustment);
+		tradeDifficulty *= global_skillup_mod;
+		if (tradeDifficulty < 1.0f) {
+			tradeDifficulty = 1.0f;
+		}
+	}
+
 	int tradeStat = 0;
 	if (tradeskill == EQ::skills::SkillFletching || tradeskill == EQ::skills::SkillMakePoison)
 	{
