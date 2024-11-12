@@ -40,6 +40,7 @@ class EQApplicationPacket;
 class Entity;
 class EntityList;
 class Group;
+class HardcoreGhost;
 class Mob;
 class NPC; 
 class Object;
@@ -64,6 +65,7 @@ public:
 	virtual bool IsClient()			const { return false; }
 	virtual bool IsNPC()			const { return false; }
 	virtual bool IsMob()			const { return false; }
+	virtual bool IsHardcoreGhost()	const { return false; }
 	virtual bool IsCorpse()			const { return false; }
 	virtual bool IsPlayerCorpse()	const { return false; }
 	virtual bool IsNPCCorpse()		const { return false; }
@@ -81,6 +83,7 @@ public:
 	Client          *CastToClient();
 	NPC             *CastToNPC();
 	Mob             *CastToMob();
+	HardcoreGhost   *CastToHardcoreGhost();
 	Corpse          *CastToCorpse();
 	Object          *CastToObject();
 	Doors           *CastToDoors();
@@ -237,6 +240,7 @@ public:
 	void	HideHelms(Client* client); // This hides other player's helms for this character.
 	void	HideMyHelm(Client* client); // This hides the current character's helm for other players if they have #showhelm off.
 	void	AddClient(Client*);
+	void    AddHardcoreGhost(HardcoreGhost *ghost);
 	void	AddNPC(NPC*, bool SendSpawnPacket = true, bool dontqueue = false);
 	void	AddCorpse(Corpse* pc, uint32 in_id = 0xFFFFFFFF);
 	void	AddObject(Object*, bool SendSpawnPacket = true);
@@ -481,6 +485,7 @@ private:
 
 	std::unordered_map<uint16, Client *> client_list;
 	std::unordered_map<uint16, Mob *> mob_list;
+	std::unordered_map<uint16, HardcoreGhost *> ghost_list;
 	std::unordered_map<uint16, NPC *> npc_list;
 	std::unordered_map<uint16, Corpse *> corpse_list;
 	std::unordered_map<uint16, Object *> object_list;

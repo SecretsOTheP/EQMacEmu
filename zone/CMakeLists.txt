@@ -26,6 +26,7 @@ SET(zone_sources
 	guild.cpp
 	guild_mgr.cpp
 	hardcoreghost_database.cpp
+	hardcoreghost.cpp
 	hate_list.cpp
 	horse.cpp
 	inventory.cpp
@@ -114,6 +115,7 @@ SET(zone_headers
 	groups.h
 	guild_mgr.h
 	hardcoreghost_database.h
+	hardcoreghost.h
 	hate_list.h
 	horse.h
 	lua_bit.h
