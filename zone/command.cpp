@@ -392,6 +392,7 @@ int command_init(void)
 		command_add("showfilters", "- list client serverfilter settings.", AccountStatus::GMCoder, command_showfilters) ||
 		command_add("showhelm", "on/off [all] Toggles displaying of player helms (including your own.) Specifying 'all' toggles every character currently on your account", AccountStatus::Player, command_showhelm) ||
 		command_add("showlootlockouts", "- Shows your currently active loot lockouts. These do not apply to earthquake creatures.", AccountStatus::Player, command_showlootlockouts) ||
+		command_add("enterzonelockout", "- Confirms access to an instanced raid zone that is pending, if any.", AccountStatus::Player, command_enterzonelockout) ||
 		command_add("showpetspell", "[spellid/searchstring] - search pet summoning spells.", AccountStatus::Guide, command_showpetspell) ||
 		command_add("showquake", "- Shows current earthquake timer. Requires you to be a guild officer or leader.", AccountStatus::Player, command_showquake) ||
 		command_add("showregen", "- Shows information about your target's regen.", AccountStatus::GMAdmin, command_showregen) ||
@@ -4311,6 +4312,14 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 		{
 			c->Message(Chat::Lime, "== %s: Available", item->Name);
 		}
+	}
+}
+
+void command_enterzonelockout(Client* c, const Seperator* sep)
+{
+	if (c)
+	{
+		c->EnterPendingInstanceDoor();
 	}
 }
 

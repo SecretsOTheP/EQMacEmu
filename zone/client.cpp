@@ -335,6 +335,8 @@ Client::Client(EQStreamInterface* ieqs)
 	poison_spell_id = 0;
 	drowning = false;
 	pClientSideTarget = 0;
+	memset(&pending_instance_lockout, 0, sizeof(CharacterInstanceLockout));
+	pending_instance_door_id = -1;
 
 	if (!zone->CanDoCombat())
 	{
@@ -4543,6 +4545,31 @@ void Client::GarbleMessage(char *message, uint8 variance)
 			message[i] = alpha_list[rand_char];
 		}
 	}
+}
+
+void Client::EnterPendingInstanceDoor()
+{
+	if (pending_instance_door_id == -1)
+	{
+		Message(Chat::Red, "You do not have a pending instance join request.");
+		return;
+	}
+	Doors* door = entity_list.GetDoorsByDoorID(pending_instance_door_id);
+	if (!door)
+	{
+		pending_instance_door_id = -1;
+		Message(Chat::Red, "The door you previously clicked on is now invalid.");
+		return;
+	}
+
+	bool bSuccess = door->EnterPendingGuildInstance(this);
+
+	if (!bSuccess)
+	{
+		Message(Chat::Red, "You failed to enter an instance.");
+	}
+
+	pending_instance_door_id = -1;
 }
 
 // returns what Other thinks of this

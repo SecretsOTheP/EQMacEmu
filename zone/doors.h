@@ -24,6 +24,7 @@ public:
 	bool IsInstanceOnly() { return instance_only; }
 	bool IsTeleport() { return teleport; }
 	bool Process();
+	bool EnterPendingGuildInstance(Client* sender);
 	bool triggered;
 	char *GetDestinationZone() { return destination_zone_name; }
 	char *GetDoorName() { return door_name; }

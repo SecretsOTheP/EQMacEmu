@@ -439,15 +439,19 @@ void WorldServer::Process() {
 				Client* c = entity_list.GetClientByCharID(zulc->CharId);
 				if (c && c->IsClient())
 				{
-					CharacterInstanceLockout instanceLockout;
-					memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
-					instanceLockout.character_id = zulc->CharId;
-					instanceLockout.expirydate = zulc->Expiry;
-					instanceLockout.zone_id = zulc->ZoneId;
-					instanceLockout.zone_instance_id = zulc->ZoneInstanceId;
-					c->CastToClient()->character_instance_lockouts[zulc->ZoneId] = instanceLockout;
+					auto charInstanceLockoutItr = c->CastToClient()->character_instance_lockouts.find(zulc->ZoneId);
+					if (charInstanceLockoutItr == c->CastToClient()->character_instance_lockouts.end())
+					{
+						CharacterInstanceLockout instanceLockout;
+						memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+						instanceLockout.character_id = zulc->CharId;
+						instanceLockout.expirydate = zulc->Expiry;
+						instanceLockout.zone_id = zulc->ZoneId;
+						instanceLockout.zone_instance_id = zulc->ZoneInstanceId;
+						c->CastToClient()->character_instance_lockouts[zulc->ZoneId] = instanceLockout;
+						zone->ReplaceZoneInstanceIDCache(zulc->CharId, zone->GetZoneID(), zone->GetGuildID(), zulc->Expiry);
+					}
 				}
-				zone->ReplaceZoneInstanceIDCache(zulc->CharId, zone->GetZoneID(), zone->GetGuildID(), zulc->Expiry);
 			}
 			break;
 		}

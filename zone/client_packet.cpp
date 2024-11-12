@@ -5259,12 +5259,12 @@ void Client::Handle_OP_GroupFollow(const EQApplicationPacket *app)
 		return;
 	}
 
-	if (Admin() > 0)
-	{
-		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
-		return;
-	}
+	//if (Admin() > 0)
+	//{
+	//	Message(Chat::Red, "You are a GM. Do not join raids or groups.");
+	//	database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
+	//	return;
+	//}
 
 	// If we've received the packet and it's valid, then we're either going to join the group or fail in some way. 
 	// In either case, the invite should be cleared so just do it now.
@@ -5456,12 +5456,12 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 		return;
 	}
 
-	if (Admin() > 0)
-	{
-		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
-		return;
-	}
+	//if (Admin() > 0)
+	//{
+	//	Message(Chat::Red, "You are a GM. Do not join raids or groups.");
+	//	database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
+	//	return;
+	//}
 
 	if (Invitee == this)
 	{
@@ -7089,12 +7089,12 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 		return;
 	}
 
-	if (Admin() > 0)
-	{
-		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
-		return;
-	}
+	//if (Admin() > 0)
+	//{
+	//	Message(Chat::Red, "You are a GM. Do not join raids or groups.");
+	//	database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
+	//	return;
+	//}
 
 	RaidGeneral_Struct *ri = (RaidGeneral_Struct*)app->pBuffer;
 	//Say("RaidCommand(action) %d leader_name(68): %s, player_name(04) %s param(132) %d", ri->action, ri->leader_name, ri->player_name, ri->parameter);
@@ -7113,11 +7113,11 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 				return;
 			}
 
-			if (i->Admin() > 0)
-			{
-				Message(Chat::Red, "This player is a GM and cannot join your raid.");
-				return;
-			}
+			//if (i->Admin() > 0)
+			//{
+			//	Message(Chat::Red, "This player is a GM and cannot join your raid.");
+			//	return;
+			//}
 
 			if (IsSelfFound() != i->IsSelfFound())
 			{

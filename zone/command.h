@@ -267,6 +267,7 @@ void command_showbuffs(Client* c, const Seperator* sep);
 void command_showfilters(Client* c, const Seperator* sep);
 void command_showhelm(Client* c, const Seperator* sep);
 void command_showlootlockouts(Client* c, const Seperator* sep);
+void command_enterzonelockout(Client* c, const Seperator* sep);
 void command_showpetspell(Client* c, const Seperator* sep);
 void command_showquake(Client* c, const Seperator* sep);
 void command_showregen(Client* c, const Seperator* sep);

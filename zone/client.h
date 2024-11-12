@@ -169,16 +169,16 @@ class Client : public Mob
 {
 public:
 	//pull in opcode mappings:
-	#include "client_packet.h"
+#include "client_packet.h"
 
-	Client(EQStreamInterface * ieqs);
+	Client(EQStreamInterface* ieqs);
 	~Client();
 
 	bool is_client_moving;
-	
+
 	DBGrid_Struct* gm_grid;
 	std::vector<wplist> gm_grid_waypoint_list;
-	
+
 	bool IsDevToolsEnabled() const;
 	void SetDevToolsEnabled(bool in_dev_tools_enabled);
 
@@ -202,7 +202,7 @@ public:
 	int GetHandToHandDamage();
 	int GetHandToHandDelay();
 	uint16 GetWeaponEffectID(int slot = EQ::invslot::slotPrimary);
-	
+
 	void PermaGender(uint32 gender);
 
 	float GetQuiverHaste();
@@ -216,8 +216,8 @@ public:
 	void	AI_Process();
 	void	AI_SpellCast();
 	void	Trader_ShowItems();
-	void	Trader_CustomerBrowsing(Client *Customer);
-	void	Trader_CustomerBought(Client *Customer, uint32 Price, uint32 ItemID, uint32 Quantity, const char* ItemName, uint8 SlotID);
+	void	Trader_CustomerBrowsing(Client* Customer);
+	void	Trader_CustomerBought(Client* Customer, uint32 Price, uint32 ItemID, uint32 Quantity, const char* ItemName, uint8 SlotID);
 	void	Trader_EndTrader();
 	void	Trader_StartTrader();
 	void	KeyRingLoad();
@@ -239,33 +239,33 @@ public:
 	uint16	GrabStackedCharges(uint16 item_id);
 	void	SendBazaarWelcome();
 	void	Message_StringID(uint32 type, uint32 string_id, uint32 distance = 0);
-	void	Message_StringID(uint32 type, uint32 string_id, const char* message,const char* message2=0,const char* message3=0,const char* message4=0,const char* message5=0,const char* message6=0,const char* message7=0,const char* message8=0,const char* message9=0, uint32 distance = 0);
-	bool	FilteredMessageCheck(Mob *sender, eqFilterType filter);
-	void	FilteredMessage_StringID(Mob *sender, uint32 type, eqFilterType filter, uint32 string_id);
-	void	FilteredMessage_StringID(Mob *sender, uint32 type, eqFilterType filter,
-			uint32 string_id, const char *message1, const char *message2 = nullptr,
-			const char *message3 = nullptr, const char *message4 = nullptr,
-			const char *message5 = nullptr, const char *message6 = nullptr,
-			const char *message7 = nullptr, const char *message8 = nullptr,
-			const char *message9 = nullptr);
-	void Tell_StringID(uint32 string_id, const char *who, const char *message);
-	void	SendBazaarResults(uint32 trader_id,uint32 class_,uint32 race,uint32 stat,uint32 slot,uint32 type,char name[64],uint32 minprice,uint32 maxprice);
-	void	SendTraderItem(uint32 item_id,uint16 quantity);
+	void	Message_StringID(uint32 type, uint32 string_id, const char* message, const char* message2 = 0, const char* message3 = 0, const char* message4 = 0, const char* message5 = 0, const char* message6 = 0, const char* message7 = 0, const char* message8 = 0, const char* message9 = 0, uint32 distance = 0);
+	bool	FilteredMessageCheck(Mob* sender, eqFilterType filter);
+	void	FilteredMessage_StringID(Mob* sender, uint32 type, eqFilterType filter, uint32 string_id);
+	void	FilteredMessage_StringID(Mob* sender, uint32 type, eqFilterType filter,
+		uint32 string_id, const char* message1, const char* message2 = nullptr,
+		const char* message3 = nullptr, const char* message4 = nullptr,
+		const char* message5 = nullptr, const char* message6 = nullptr,
+		const char* message7 = nullptr, const char* message8 = nullptr,
+		const char* message9 = nullptr);
+	void Tell_StringID(uint32 string_id, const char* who, const char* message);
+	void	SendBazaarResults(uint32 trader_id, uint32 class_, uint32 race, uint32 stat, uint32 slot, uint32 type, char name[64], uint32 minprice, uint32 maxprice);
+	void	SendTraderItem(uint32 item_id, uint16 quantity);
 	EQ::ItemInstance* FindTraderItemByIDAndSlot(int32 ItemID, int16 slotid);
-	void	FindAndNukeTraderItem(int32 item_id,uint16 quantity,Client* customer,uint16 slot, int8 traderslot);
-	void	NukeTraderItem(uint16 slot, int16 charges,uint16 quantity,Client* customer,uint16 traderslot,uint32 sellerid);
-	void	ReturnTraderReq(const EQApplicationPacket* app,int16 traderitemcharges, int TraderSlot,uint32 price);
+	void	FindAndNukeTraderItem(int32 item_id, uint16 quantity, Client* customer, uint16 slot, int8 traderslot);
+	void	NukeTraderItem(uint16 slot, int16 charges, uint16 quantity, Client* customer, uint16 traderslot, uint32 sellerid);
+	void	ReturnTraderReq(const EQApplicationPacket* app, int16 traderitemcharges, int TraderSlot, uint32 price);
 	void	TradeRequestFailed(const EQApplicationPacket* app);
-	void	BuyTraderItem(TraderBuy_Struct* tbs,Client* trader,const EQApplicationPacket* app);
+	void	BuyTraderItem(TraderBuy_Struct* tbs, Client* trader, const EQApplicationPacket* app);
 	void	FinishTrade(Mob* with, bool finalizer = false, void* event_entry = nullptr);
 	void	SendZonePoints();
 
 	void FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho);
 	virtual bool Process();
 	void LogMerchant(Client* player, Mob* merchant, uint32 quantity, uint32 price, const EQ::ItemData* item, bool buying);
-	void QueuePacket(const EQApplicationPacket* app, bool ack_req = true, CLIENT_CONN_STATUS = CLIENT_CONNECTINGALL, eqFilterType filter=FilterNone);
+	void QueuePacket(const EQApplicationPacket* app, bool ack_req = true, CLIENT_CONN_STATUS = CLIENT_CONNECTINGALL, eqFilterType filter = FilterNone);
 	void FastQueuePacket(EQApplicationPacket** app, bool ack_req = true, CLIENT_CONN_STATUS = CLIENT_CONNECTINGALL);
-	void ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_skill, const char* orig_message, const char* targetname=nullptr);
+	void ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_skill, const char* orig_message, const char* targetname = nullptr);
 	void ChannelMessageSend(const char* from, const char* to, uint8 chan_num, uint8 language, uint8 lang_skill, const char* message, ...);
 	void Message(uint32 type, const char* message, ...);
 	void SendSound(uint16 soundID);
@@ -285,7 +285,7 @@ public:
 	bool Save(uint8 iCommitNow); // 0 = delayed, 1=async now, 2=sync now
 
 	/* New PP Save Functions */
-	bool SaveCurrency(){ return database.SaveCharacterCurrency(this->CharacterID(), &m_pp); }
+	bool SaveCurrency() { return database.SaveCharacterCurrency(this->CharacterID(), &m_pp); }
 	bool SaveAA();
 
 	inline bool ClientDataLoaded() const { return client_data_loaded; }
@@ -297,20 +297,20 @@ public:
 	inline void SetZoningState() { client_state = ZONING; }
 	inline void	PreDisconnect() { client_state = PREDISCONNECTED; }
 	inline void	Reconnect() { client_state = CLIENT_CONNECTED; }
-	inline bool IsLD() const { return (bool) (client_state == CLIENT_LINKDEAD); }
+	inline bool IsLD() const { return (bool)(client_state == CLIENT_LINKDEAD); }
 	void WorldKick();
 	inline uint8 GetAnon() const { return m_pp.anon; }
 	inline PlayerProfile_Struct& GetPP() { return m_pp; }
 	inline ExtendedProfile_Struct& GetEPP() { return m_epp; }
 	inline EQ::InventoryProfile& GetInv() { return m_inv; }
 	inline const EQ::InventoryProfile& GetInv() const { return m_inv; }
-	inline PetInfo* GetPetInfo(uint16 pet) { return (pet==1)?&m_suspendedminion:&m_petinfo; }
+	inline PetInfo* GetPetInfo(uint16 pet) { return (pet == 1) ? &m_suspendedminion : &m_petinfo; }
 
 	bool CheckAccess(int16 iDBLevel, int16 iDefaultLevel);
 
 	bool	AutoAttackEnabled() const { return auto_attack; }
 
-	bool ChangeFirstName(const char* in_firstname,const char* gmname);
+	bool ChangeFirstName(const char* in_firstname, const char* gmname);
 
 	void Duck();
 	void Stand();
@@ -324,10 +324,10 @@ public:
 	inline uint8 GetPVP() const { return m_pp.pvp; }
 	inline bool GetGM() const { return m_pp.gm != 0; }
 
-	inline void SetBaseClass(uint32 i) { m_pp.class_=i; }
-	inline void SetBaseRace(uint32 i) { m_pp.race=i; }
-	inline void SetBaseGender(uint32 i) { m_pp.gender=i; }
-	inline void SetDeity(uint32 i) {m_pp.deity=i;deity=i;}
+	inline void SetBaseClass(uint32 i) { m_pp.class_ = i; }
+	inline void SetBaseRace(uint32 i) { m_pp.race = i; }
+	inline void SetBaseGender(uint32 i) { m_pp.gender = i; }
+	inline void SetDeity(uint32 i) { m_pp.deity = i; deity = i; }
 
 	inline uint8 GetLevel2() const { return m_pp.level2; }
 	inline uint16 GetBaseRace() const { return m_pp.race; }
@@ -345,7 +345,7 @@ public:
 	inline const float GetBindHeading(uint32 index = 0) const { return m_pp.binds[index].heading; }
 	inline uint32 GetBindZoneID(uint32 index = 0) const { return m_pp.binds[index].zoneId; }
 	inline uint32 GetZoneChangeCount() const { return m_pp.zone_change_count; }
-	
+
 	inline uint8 IsHardcore() const { return m_epp.hardcore; }
 	inline uint8 IsSoloOnly() const { return m_epp.solo_only; }
 	inline uint8 IsSelfFound() const { return m_epp.self_found; }
@@ -374,7 +374,7 @@ public:
 
 	inline uint8 GetLanguageSkill(uint16 n) const { return m_pp.languages[n]; }
 
-	void SendPickPocketResponse(Mob *from, uint32 amt, int type, int16 slotid = 0, EQ::ItemInstance* inst = nullptr, bool skipskill = false);
+	void SendPickPocketResponse(Mob* from, uint32 amt, int type, int16 slotid = 0, EQ::ItemInstance* inst = nullptr, bool skipskill = false);
 	bool GetPickPocketSlot(EQ::ItemInstance* inst, int16& slotid);
 
 	inline const char* GetLastName() const { return lastname; }
@@ -394,7 +394,7 @@ public:
 	inline float ProximityX() const { return m_Proximity.x; }
 	inline float ProximityY() const { return m_Proximity.y; }
 	inline float ProximityZ() const { return m_Proximity.z; }
-	inline void ClearAllProximities() { entity_list.ProcessMove(this, glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX)); m_Proximity = glm::vec3(FLT_MAX,FLT_MAX,FLT_MAX); }
+	inline void ClearAllProximities() { entity_list.ProcessMove(this, glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX)); m_Proximity = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX); }
 
 	/*
 			Begin client modifiers
@@ -418,7 +418,7 @@ public:
 	int GetAvoidance() { return GetAvoidance(false); }
 	static int GetAvoidance(int16 defense_skill_value, int16 agi, uint8 level, uint8 intoxication, int combat_agility_percent);
 	inline virtual int GetHaste() const { return Haste; }
-	int GetRawACNoShield(int &shield_ac, int spell_mod = 1) const;
+	int GetRawACNoShield(int& shield_ac, int spell_mod = 1) const;
 
 	inline virtual int32 GetSTR() const { return STR; }
 	inline virtual int32 GetSTA() const { return STA; }
@@ -488,7 +488,7 @@ public:
 	int GetDiscBuffSlot() { return 15; }
 	virtual void InitializeBuffSlots();
 	virtual void UninitializeBuffSlots();
-	void ApplyDurationFocus(uint16 spell_id, uint16 buffslot, Mob* spelltar = nullptr, int spell_level=-1);
+	void ApplyDurationFocus(uint16 spell_id, uint16 buffslot, Mob* spelltar = nullptr, int spell_level = -1);
 	bool RestictedManastoneClick(int16 zone_id);
 
 	inline const int32 GetBaseHP() const { return base_hp; }
@@ -522,13 +522,13 @@ public:
 	inline uint32 GetEXP() const { return m_pp.exp; }
 
 	void	AddEXP(uint32 in_add_exp, uint8 conlevel = 0xFF, Mob* killed_mob = nullptr, int16 avg_level = 0, bool is_split = false, int16 highest_level = 0);
-	void	SetEXP(uint32 set_exp, uint32 set_aaxp, bool resexp=false, bool is_split = false);
+	void	SetEXP(uint32 set_exp, uint32 set_aaxp, bool resexp = false, bool is_split = false);
 	void	AddQuestEXP(uint32 in_add_exp, bool bypass_cap = false);
 	void	AddEXPPercent(uint8 percent, uint8 level = 1);
-	void	AddLevelBasedExp(uint8 exp_percentage, uint8 max_level=0);
+	void	AddLevelBasedExp(uint8 exp_percentage, uint8 max_level = 0);
 	void	InspectBuffs(Client* Inspector, int Rank);
 	virtual void SetLevel(uint8 set_level, bool command = false);
-	void	GetExpLoss(Mob* attacker, uint16 spell, int &exploss, uint8 killedby = 0);
+	void	GetExpLoss(Mob* attacker, uint16 spell, int& exploss, uint8 killedby = 0);
 	uint32  GetEXPForLevel(uint16 level, bool aa = false);
 	bool	IsInExpRange(Mob* defender);
 	bool	IsInLevelRange(uint8 maxlevel);
@@ -553,6 +553,13 @@ public:
 	void GoToDeath();
 	void ForceGoToDeath();
 	void SetZoning(bool in) { zoning = in; }
+	CharacterInstanceLockout& GetPendingCharacterInstanceInfo() { return pending_instance_lockout; }
+	void SetPendingCharacterInstanceInfo(CharacterInstanceLockout& pendingInstanceLockout) { pending_instance_lockout = pendingInstanceLockout; }
+
+	int32 GetPendingInstanceDoorID() { return pending_instance_door_id; }
+	void SetPendingInstanceDoorID(int32 pending_door_id) { pending_instance_door_id = pending_door_id; }
+
+	void EnterPendingInstanceDoor();
 
 	FACTION_VALUE GetReverseFactionCon(Mob* iOther);
 	FACTION_VALUE GetFactionLevel(uint32 char_id, uint32 p_race, uint32 p_class, uint32 p_deity, int32 pFaction, Mob* tnpc, bool lua = false);
@@ -1236,6 +1243,8 @@ private:
 	Object*						m_tradeskill_object;
 	PetInfo						m_petinfo; // current pet data, used while loading from and saving to DB
 	PetInfo						m_suspendedminion; // pet data for our suspended minion.
+	CharacterInstanceLockout	pending_instance_lockout;
+	int32 pending_instance_door_id;
 
 	void SendLogoutPackets();
 	bool AddPacket(const EQApplicationPacket *, bool);
