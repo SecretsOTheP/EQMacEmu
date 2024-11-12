@@ -146,6 +146,8 @@ SET(repositories
 	repositories/base/base_guild_members_repository.h
 	repositories/base/base_guild_ranks_repository.h
 	repositories/base/base_guilds_repository.h
+	repositories/base/base_hardcore_ghost_inventory_repository.h
+	repositories/base/base_hardcoreghost_repository.h
 	repositories/base/base_item_tick_repository.h
 	repositories/base/base_items_repository.h
 	repositories/base/base_level_exp_mods_repository.h
