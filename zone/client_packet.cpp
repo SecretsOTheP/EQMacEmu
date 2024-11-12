@@ -55,6 +55,7 @@
 #include "event_codes.h"
 #include "guild_mgr.h"
 #include "mob.h"
+#include "hardcoreghost.h"
 #include "petitions.h"
 #include "pets.h"
 #include "queryserv.h"
@@ -6144,7 +6145,9 @@ void Client::Handle_OP_InspectRequest(const EQApplicationPacket *app)
 
 	if (tmp != 0 && tmp->IsClient()) {
 		tmp->CastToClient()->QueuePacket(app);
-	} // Send request to target
+	} // Send request to target 
+
+	if (tmp != 0 && tmp->IsHardcoreGhost()) { HardcoreGhost::ProcessGhostInspectionRequest(tmp->CastToHardcoreGhost(), this); }
 
 	return;
 }

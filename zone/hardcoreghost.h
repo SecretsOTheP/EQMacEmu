@@ -33,6 +33,7 @@ public:
     bool IsNPC() const override { return false; }
     bool IsHardcoreGhost() const override { return true; }
     void ShowQuickStats(Client* client);
+    static void ProcessGhostInspectionRequest(HardcoreGhost* inspectedGhost, Client* client);
 
     // Static methods to create and fill NPCType structures
     static NPCType* CreateDefaultNPCTypeStructForGhost(

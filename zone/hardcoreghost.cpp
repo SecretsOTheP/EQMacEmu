@@ -145,6 +145,51 @@ void HardcoreGhost::ShowQuickStats(Client* c)
     c->Message(Chat::White, "Hidden: %i", hidden);
 }
 
+void HardcoreGhost::ProcessGhostInspectionRequest(HardcoreGhost* inspectedGhost, Client* client) 
+{
+    if (inspectedGhost && client) 
+    {
+        EQApplicationPacket* outapp = new EQApplicationPacket(OP_InspectAnswer, sizeof(InspectResponse_Struct));
+        InspectResponse_Struct* insr = (InspectResponse_Struct*) outapp->pBuffer;
+        insr->TargetID = inspectedGhost->GetNPCTypeID();
+        insr->PlayerID = inspectedGhost->GetID();
+
+        const EQ::ItemData* item = nullptr;
+        const EQ::ItemInstance* inst = nullptr;
+
+        for (int16 L = EQ::invslot::EQUIPMENT_BEGIN; L <= EQ::invslot::EQUIPMENT_END; L++) 
+        {
+            inst = inspectedGhost->GetGhostItem(L);
+
+            if (inst) 
+            {
+                item = inst->GetItem();
+                if (item) 
+                {
+                    strcpy(insr->itemnames[L], item->Name);
+                    insr->itemicons[L] = item->Icon;
+                }
+                else 
+                {
+                    insr->itemnames[L][0] = '\0';
+                    insr->itemicons[L] = 0xFFFFFFFF;
+                }
+            }
+            else 
+            {
+                insr->itemnames[L][0] = '\0';
+                insr->itemicons[L] = 0xFFFFFFFF;
+            }
+        }
+
+        //strcpy(insr->text, inspectedGhost->GetInspectMessage().text);
+        Log(Logs::General, Logs::Info, "Sending InspectAnswer to client from HardcoreGhost");
+
+        client->QueuePacket(outapp); // Send answer to requester
+        safe_delete(outapp);
+    }
+}
+
 NPCType *HardcoreGhost::FillNPCTypeStruct(
     const std::string& ghostName,
     const std::string& ghostLastName,
