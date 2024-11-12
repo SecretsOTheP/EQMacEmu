@@ -455,7 +455,7 @@ bool Database::SetMule(const char* charname) {
 	uint32 account_id = std::stoul(row[0]);
 	
 	// iterate over every character associated with account and verify they're all level 1 (exclude char with charname)
-	query = StringFormat("SELECT `account_id` FROM `character_data` WHERE `account_id` = %u", account_id);
+	query = StringFormat("SELECT `account_id` FROM `character_data` WHERE `account_id` = %u and `is_deleted` = 0 ", account_id);
 	results = QueryDatabase(query);
 	if (results.RowCount() != 1) {
 		Log(Logs::General, Logs::WorldServer, "Can not set mule status on account because more than one character exists on account.");

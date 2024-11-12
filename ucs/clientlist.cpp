@@ -1083,6 +1083,15 @@ void Client::SendChannelMessage(std::string Message)
 					if(AttemptedMessages > RuleI(Chat, MaxMessagesBeforeKick))
 					{
 						ForceDisconnect = true;
+						if (!IsRevoked())
+						{
+							std::string query = StringFormat("UPDATE account SET revoked = 1 WHERE id = %i", GetAccountID());
+							database.QueryDatabase(query);
+
+							std::string query2 = StringFormat("UPDATE `account` SET `revokeduntil` = DATE_ADD(NOW(), INTERVAL %i SECOND) WHERE `id` = %i", RuleI(Quarm, AntiSpamMuteInSeconds), GetAccountID());
+							auto results2 = database.QueryDatabase(query2);
+							SetRevoked(1);
+						}
 					}
 					if(GlobalChatLimiterTimer)
 					{
@@ -1197,6 +1206,16 @@ void Client::SendChannelMessageByNumber(std::string Message) {
 					if(AttemptedMessages > RuleI(Chat, MaxMessagesBeforeKick))
 					{
 						ForceDisconnect = true;
+						if (!IsRevoked())
+						{
+							std::string query = StringFormat("UPDATE account SET revoked = 1 WHERE id = %i", GetAccountID());
+							database.QueryDatabase(query);
+
+							std::string query2 = StringFormat("UPDATE `account` SET `revokeduntil` = DATE_ADD(NOW(), INTERVAL %i SECOND) WHERE `id` = %i", RuleI(Quarm, AntiSpamMuteInSeconds), GetAccountID());
+							auto results2 = database.QueryDatabase(query2);
+							SetRevoked(1);
+						}
+
 					}
 					if(GlobalChatLimiterTimer)
 					{

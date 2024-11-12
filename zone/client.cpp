@@ -1422,6 +1422,10 @@ void Client::UpdateWho(uint8 remove) {
 	scl->Trader = this->IsTrader();
 	scl->Revoked = this->GetRevoked();
 
+	scl->selffound = this->IsSelfFound();
+	scl->hardcore = this->IsHardcore();
+	scl->solo = this->IsSoloOnly();
+
 	worldserver.SendPacket(pack);
 	safe_delete(pack);
 }

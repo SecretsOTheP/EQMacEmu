@@ -1,6 +1,6 @@
 INSERT INTO `tradeskill_recipe` VALUES 
 (100074, '5 Dose Cloudy Potion', 59, 0, 0, 1, 0, NULL, 0, 1, -1, -1, NULL, NULL),
-(100075, '10 Dose Cloudy Potion', 0, 0, 0, 1, 0, NULL, 0, 1, -1, -1, NULL, NULL);
+(100075, '10 Dose Cloudy Potion', 59, 0, 0, 1, 0, NULL, 0, 1, -1, -1, NULL, NULL);
 
 INSERT INTO `tradeskill_recipe_entries` VALUES 
 (1000220, 100074, 14514, 0, 0, 5, 0),

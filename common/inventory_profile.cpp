@@ -959,7 +959,9 @@ uint8 EQ::InventoryProfile::FindBrightestLightType()
 		if (item == nullptr) { continue; }
 
 		if (item->ItemClass != item::ItemClassCommon) { continue; }
-		if (item->Light < 9 || item->Light > 13) { continue; }
+
+		// Custom Quarm - Allow any item with a light on it to shine light from general inventory slots
+		if (item->Light == 0) { continue; }
 
 		if (lightsource::TypeToLevel(item->Light))
 			general_light_type = item->Light;

@@ -2786,7 +2786,14 @@ void Mob::BuffProcess()
 			{
 				if(buffs[buffs_i].UpdateClient == true)
 				{
-					CastToClient()->SendBuffDurationPacket(buffs[buffs_i].spellid, buffs[buffs_i].ticsremaining, buffs[buffs_i].casterlevel, buffs_i, buffs[buffs_i].instrumentmod);
+					int client_packet_duration = buffs[buffs_i].ticsremaining;
+					if (IsShortDurationBuff(buffs[buffs_i].spellid)) {
+						// This packet adjustment fixes the client so songs expire consistently on the server tick, rather than on the desync'd client tick.
+						// This was cutting nearly every song duration short by a fixed 0-6s amount until you zone, depending how desync'd the client tick was.
+						// Can eventually remove this if we can get Zeal to implement way to sync client ticks to the server.
+						client_packet_duration++;
+					}
+					CastToClient()->SendBuffDurationPacket(buffs[buffs_i].spellid, client_packet_duration, buffs[buffs_i].casterlevel, buffs_i, buffs[buffs_i].instrumentmod);
 					buffs[buffs_i].UpdateClient = false;
 				}
 			}
