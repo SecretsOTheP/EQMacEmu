@@ -377,8 +377,8 @@ void WorldDatabase::GetLauncherList(std::vector<std::string> &rl) {
 
 }
 
-void WorldDatabase::SetMailKey(int CharID, int IPAddress, int MailKey) {
-
+void WorldDatabase::SetMailKey(int CharID, int IPAddress, int MailKey) 
+{
 	char MailKeyString[17];
 
 	if(RuleB(Chat, EnableMailKeyIPVerification) == true)

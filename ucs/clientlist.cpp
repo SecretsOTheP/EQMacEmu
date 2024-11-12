@@ -433,12 +433,12 @@ void Clientlist::Process()
 				LogInfo("Received login for user [{0}] with key [{1}]",
 					Chatlist, Key);
 
-				/*if (!database.VerifyMailKey(CharacterName, (*it)->ClientStream->GetRemoteIP(), Key)) {
+				if (!database.VerifyMailKey(CharacterName, (*it)->ClientStream->GetRemoteIP(), Key)) {
 					Log(Logs::Detail, Logs::UCSServer,
 						"Chat Key for %s does not match, closing connection.", Chatlist);
 					KeyValid = false;
 					break;
-				}*/
+				}
 
 				(*it)->SetAccountID(database.FindAccount(CharacterName.c_str(), (*it)));
 
