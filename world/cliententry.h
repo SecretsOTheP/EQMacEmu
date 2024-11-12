@@ -95,9 +95,6 @@ public:
 	inline bool		AFK() const { return pAFK;  }
 	inline bool		Trader() const { return pTrader; }
 	inline int8		Revoked() const { return pRevoked; }
-	inline bool		IsSelfFound() const { return pSelfFound; }
-	inline bool		IsHardcore() const { return pHardcore; }
-	inline bool		IsSolo() const { return pSolo; }
 
 	inline bool TellQueueFull() const { return tell_queue.size() >= RuleI(World, TellQueueSize); }
 	inline bool TellQueueEmpty() const { return tell_queue.empty(); }
@@ -155,9 +152,6 @@ private:
 	bool	pAFK;
 	bool	pTrader;
 	int8	pRevoked;
-	bool	pSelfFound;
-	bool	pHardcore;
-	bool	pSolo;
 
 	// Tell Queue -- really a vector :D
 	std::vector<ServerChannelMessage_Struct *> tell_queue;

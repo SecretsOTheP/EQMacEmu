@@ -214,9 +214,6 @@ void ClientListEntry::Update(ZoneServer* iZS, ServerClientList_Struct* scl, int8
 	pAFK = scl->AFK;
 	pTrader = scl->Trader;
 	pRevoked = scl->Revoked;
-	pSelfFound = scl->selffound;
-	pHardcore = scl->hardcore;
-	pSolo = scl->solo;
 
 	// Fields from the LFG Window
 	if((scl->LFGFromLevel != 0) && (scl->LFGToLevel != 0)) {

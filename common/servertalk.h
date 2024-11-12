@@ -415,9 +415,6 @@ struct ServerClientList_Struct {
 	bool	AFK;
 	bool	Trader;
 	int8	Revoked;
-	bool	selffound;
-	bool	hardcore;
-	bool	solo;
 };
 
 struct ServerClientListKeepAlive_Struct {
