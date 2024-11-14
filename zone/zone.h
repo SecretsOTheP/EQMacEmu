@@ -174,6 +174,8 @@ public:
 
 	uint32 GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zone_id);
 
+	int64 GetZoneInstanceLockoutByCharacterAndZone(uint32 character_id, uint32 zone_id);
+
 	void ReplaceZoneInstanceIDCache(uint32 character_id, uint32 zone_id, uint32 zone_instance_id, int64 expiry);
 
 	bool RemoveSpawnEntry(uint32 spawnid);

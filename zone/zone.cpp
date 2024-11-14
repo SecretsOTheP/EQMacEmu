@@ -2821,11 +2821,8 @@ bool Zone::CanClientEngage(Client* initiator, Mob* target)
 	if (GetGuildID() == GUILD_NONE)
 		return true;
 
-	Raid* raid = initiator->GetRaid();
-	if (!raid)
+	if (!initiator->IsLockedOutOfInstance(zone->GetZoneID()))
 		return false;
-
-	return raid->GetEngageCachedResult();
 }
 
 bool Zone::CanDoCombat(Mob* current, Mob* other, bool process)
@@ -2933,6 +2930,36 @@ uint32 Zone::GetZoneInstanceIDByCharacterAndZone(uint32 character_id, uint32 zon
 	}
 
 	return GUILD_NONE;
+
+}
+
+
+int64 Zone::GetZoneInstanceLockoutByCharacterAndZone(uint32 character_id, uint32 zone_id)
+{
+	std::pair<uint32, uint32> charzonePair = std::make_pair(character_id, zone_id);
+
+	auto itr = zone_character_instance_cache.find(charzonePair);
+
+	if (itr != zone_character_instance_cache.end())
+	{
+		if (itr->second.HasLockout(Timer::GetTimeSeconds()))
+		{
+			return itr->second.expirydate;
+		}
+		else
+		{
+			itr = zone_character_instance_cache.erase(itr);
+		}
+	}
+	else
+	{
+		CharacterInstanceLockout zone_instance_lockout = database.GetZoneInstanceIDByCharacterID(character_id, zone_id);
+		zone_character_instance_cache[charzonePair] = zone_instance_lockout;
+
+		return zone_instance_lockout.expirydate;
+	}
+
+	return RuleI(Quarm, InstanceMinimumLockoutTime);
 
 }
 

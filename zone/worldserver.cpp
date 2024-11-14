@@ -442,15 +442,26 @@ void WorldServer::Process() {
 					auto charInstanceLockoutItr = c->CastToClient()->character_instance_lockouts.find(zulc->ZoneId);
 					if (charInstanceLockoutItr == c->CastToClient()->character_instance_lockouts.end())
 					{
-						CharacterInstanceLockout instanceLockout;
-						memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
-						instanceLockout.character_id = zulc->CharId;
-						instanceLockout.expirydate = zulc->Expiry;
-						instanceLockout.zone_id = zulc->ZoneId;
-						instanceLockout.zone_instance_id = zulc->ZoneInstanceId;
-						c->CastToClient()->character_instance_lockouts[zulc->ZoneId] = instanceLockout;
-						zone->ReplaceZoneInstanceIDCache(zulc->CharId, zone->GetZoneID(), zone->GetGuildID(), zulc->Expiry);
+						int64 curzoneLockout = zone->GetZoneInstanceLockoutByCharacterAndZone(c->CharacterID(), zulc->ZoneId);
+						auto cur_time = time(nullptr);
+						int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
+						if (curzoneLockout <= end_time)
+						{
+							CharacterInstanceLockout instanceLockout;
+							memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+							instanceLockout.character_id = zulc->CharId;
+							instanceLockout.expirydate = zulc->Expiry;
+							instanceLockout.zone_id = zulc->ZoneId;
+							instanceLockout.zone_instance_id = zulc->ZoneInstanceId;
+							c->CastToClient()->character_instance_lockouts[zulc->ZoneId] = instanceLockout;
+							zone->ReplaceZoneInstanceIDCache(zulc->CharId, zulc->ZoneId, zulc->ZoneInstanceId, zulc->Expiry);
+							c->Message(Chat::Lime, "You have been re-locked to %s (#%i).", database.GetZoneName(zulc->ZoneId), zulc->ZoneInstanceId );
+						}
 					}
+				}
+				else
+				{
+					zone->ReplaceZoneInstanceIDCache(zulc->CharId, zulc->ZoneId, zulc->ZoneInstanceId, zulc->Expiry);
 				}
 			}
 			break;

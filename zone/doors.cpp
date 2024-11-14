@@ -195,7 +195,7 @@ bool Doors::EnterPendingGuildInstance(Client* sender)
 	if (!sender)
 		return false;
 
-	if (DistanceNoZ(this->GetPosition(), sender->GetPosition()) > RuleI(Quarm, AcceptableDistanceFromInstanceBook))
+	if (Distance(this->GetPosition(), sender->GetPosition()) > RuleI(Quarm, AcceptableDistanceFromInstanceBook))
 	{
 		sender->Message(Chat::Red, "You are unable to enter an instance because you are too far away from the instance entrance.");
 		return false;
@@ -246,20 +246,26 @@ bool Doors::EnterPendingGuildInstance(Client* sender)
 			if (ourZoneInstanceID == GUILD_NONE && leader_instanceid != GUILD_NONE)
 			{
 				zoneguildid = leader_instanceid;
+
+				int64 curzoneLockout = zone->GetZoneInstanceLockoutByCharacterAndZone(sender->CharacterID(), zoneid);
 				//TODO: hardcode, retrieve from db later
 				int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
+
 				auto cur_time = time(nullptr);
 
 				int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
-				zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
-				database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
-				CharacterInstanceLockout instanceLockout;
-				memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
-				instanceLockout.character_id = sender->CharacterID();
-				instanceLockout.expirydate = end_time;
-				instanceLockout.zone_id = zoneid;
-				instanceLockout.zone_instance_id = zoneguildid;
-				sender->character_instance_lockouts[zoneid] = instanceLockout;
+				if (curzoneLockout <= end_time)
+				{
+					zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
+					database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+					CharacterInstanceLockout instanceLockout;
+					memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+					instanceLockout.character_id = sender->CharacterID();
+					instanceLockout.expirydate = end_time;
+					instanceLockout.zone_id = zoneid;
+					instanceLockout.zone_instance_id = zoneguildid;
+					sender->character_instance_lockouts[zoneid] = instanceLockout;
+				}
 			}
 			else
 			{
@@ -278,15 +284,19 @@ bool Doors::EnterPendingGuildInstance(Client* sender)
 				int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
 				auto cur_time = time(nullptr);
 				int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
-				zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
-				database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
-				CharacterInstanceLockout instanceLockout;
-				memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
-				instanceLockout.character_id = sender->CharacterID();
-				instanceLockout.expirydate = end_time;
-				instanceLockout.zone_id = zoneid;
-				instanceLockout.zone_instance_id = zoneguildid;
-				sender->character_instance_lockouts[zoneid] = instanceLockout;
+				int64 curzoneLockout = zone->GetZoneInstanceLockoutByCharacterAndZone(sender->CharacterID(), zoneid);
+				if (curzoneLockout <= end_time)
+				{
+					zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
+					database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+					CharacterInstanceLockout instanceLockout;
+					memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+					instanceLockout.character_id = sender->CharacterID();
+					instanceLockout.expirydate = end_time;
+					instanceLockout.zone_id = zoneid;
+					instanceLockout.zone_instance_id = zoneguildid;
+					sender->character_instance_lockouts[zoneid] = instanceLockout;
+				}
 			}
 		}
 	}
@@ -474,7 +484,8 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			if (sender->IsLockedOutOfInstance(zoneid))
 			{
 				int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
-				sender->Message(Chat::Red, "Please [%s] re-entry to the zone. This will re-engage your lockout of %s from %s.", Saylink::Create("#enterzonelockout", true, "create").c_str(), Strings::SecondsToTime((int)zonelockout / 1000).c_str(), database.GetZoneName(zoneid));
+				uint32 instanceToDisplay = sender->GetTargetZoneInstanceID(zoneid);
+				sender->Message(Chat::Red, "Please [%s] re-entry to instance #%i. This will re-engage your lockout of %s from %s ( #%i ).", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), instanceToDisplay, Strings::SecondsToTime((int)zonelockout).c_str(), database.GetZoneName(zoneid), instanceToDisplay);
 				sender->SetPendingInstanceDoorID(door_id);
 				return;
 			}
@@ -503,7 +514,7 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 					if (ourZoneInstanceID == GUILD_NONE && leader_instanceid != GUILD_NONE)
 					{
 						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
-						sender->Message(Chat::Red, "Please [%s] entry to the zone. This will lock you out for %s from %s.", Saylink::Create("#enterzonelockout", true, "create").c_str(), Strings::SecondsToTime((int)zonelockout / 1000).c_str(), database.GetZoneName(zoneid));
+						sender->Message(Chat::Red, "Please [%s] entry to the zone. This will lock you out for %s from %s.", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), Strings::SecondsToTime((int)zonelockout).c_str(), database.GetZoneName(zoneid));
 						sender->SetPendingInstanceDoorID(door_id);
 						return;
 					}
@@ -520,7 +531,7 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 					{
 
 						int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
-						sender->Message(Chat::Red, "Please [%s] entry to the zone. This will create a new instance for your raid, lasting %s from %s.", Saylink::Create("#enterzonelockout", true, "create").c_str(), Strings::SecondsToTime((int)zonelockout / 1000).c_str(), database.GetZoneName(zoneid));
+						sender->Message(Chat::Red, "Please [%s] entry to the zone. This will create a new instance for your raid, lasting %s from %s.", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), Strings::SecondsToTime((int)zonelockout).c_str(), database.GetZoneName(zoneid));
 						sender->SetPendingInstanceDoorID(door_id);
 						return;
 					}

@@ -4246,7 +4246,7 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 
 	c->Message(Chat::Lime, "=== Current Loot Lockouts ===");
 
-	for (auto lockout : c->loot_lockouts)
+	for (auto& lockout : c->loot_lockouts)
 	{
 		int64_t time_remaining = lockout.second.expirydate - curTime;
 		if (time_remaining >= 1)
@@ -4264,18 +4264,21 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 
 	c->Message(Chat::Lime, "=== Current Instance Lockouts ===");
 
-	for (auto lockout : c->character_instance_lockouts)
+	for (auto& lockout : c->character_instance_lockouts)
 	{
 		int64_t time_remaining = lockout.second.expirydate - curTime;
 		if (time_remaining >= 1)
 		{
-			c->Message(Chat::Red, "== %s (Instance #%s): Expires in %s", database.GetZoneName(lockout.second.zone_id), lockout.second.zone_instance_id, Strings::SecondsToTime((int)time_remaining).c_str());
+			const char* zonename = database.GetZoneName(lockout.second.zone_id);
+			std::string timeStr = Strings::SecondsToTime((int)time_remaining);
+			c->Message(Chat::Red, "== %s (Instance #%i): Expires in %s", zonename, lockout.second.zone_instance_id, timeStr.c_str());
 		}
 		else
 		{
 			if (time_remaining <= 1)
 			{
-				c->Message(Chat::Lime, "== %s (Instance): Available", database.GetZoneName(lockout.second.zone_id));
+				const char* zonename = database.GetZoneName(lockout.second.zone_id);
+				c->Message(Chat::Lime, "== %s (Not Locked to Instance): Available", zonename);
 			}
 		}
 	}
@@ -4283,7 +4286,7 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 
 	c->Message(Chat::Lime, "=== Current Legacy Item Lockouts ===");
 
-	for (auto legacyitem : c->looted_legacy_items)
+	for (auto& legacyitem : c->looted_legacy_items)
 	{
 		const EQ::ItemData* item = database.GetItem(legacyitem.first);
 
