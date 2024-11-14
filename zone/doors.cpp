@@ -218,8 +218,47 @@ bool Doors::EnterPendingGuildInstance(Client* sender)
 
 	if (sender->IsLockedOutOfInstance(zoneid))
 	{
+
+		// TODO: GetTargetZoneInstanceID / Get raid leader's instance ID if not leader / if leader and not locked out, issue new ID, if not, message
+		Raid* player_raid = sender->GetRaid();
+
+		if (!player_raid)
+		{
+			sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid.");
+			return false;
+		}
+
+		if (player_raid->MeetsInstancedRaidRequirements() < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
+		{
+			sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid with %i players at or above level %i present total.",
+				RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
+				RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
+			return false;
+		}
+
 		ourZoneInstanceID = sender->GetTargetZoneInstanceID(zoneid);
 		zoneguildid = ourZoneInstanceID;
+
+		int64 curzoneLockout = zone->GetZoneInstanceLockoutByCharacterAndZone(sender->CharacterID(), zoneid);
+		//TODO: hardcode, retrieve from db later
+		int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
+
+		auto cur_time = time(nullptr);
+
+		int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
+		if (curzoneLockout <= end_time)
+		{
+			zone->ReplaceZoneInstanceIDCache(sender->CharacterID(), zoneid, zoneguildid, end_time);
+			database.SaveCharacterInstanceLockout(sender->CharacterID(), end_time, zoneid, zoneguildid);
+			CharacterInstanceLockout instanceLockout;
+			memset(&instanceLockout, 0, sizeof(CharacterInstanceLockout));
+			instanceLockout.character_id = sender->CharacterID();
+			instanceLockout.expirydate = end_time;
+			instanceLockout.zone_id = zoneid;
+			instanceLockout.zone_instance_id = zoneguildid;
+			sender->character_instance_lockouts[zoneid] = instanceLockout;
+		}
+
 	}
 	else
 	{
@@ -483,10 +522,43 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 
 			if (sender->IsLockedOutOfInstance(zoneid))
 			{
+
+				// TODO: GetTargetZoneInstanceID / Get raid leader's instance ID if not leader / if leader and not locked out, issue new ID, if not, message
+				Raid* player_raid = sender->GetRaid();
+
+				if (!player_raid)
+				{
+					sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid.");
+					return;
+				}
+
+				if (player_raid->MeetsInstancedRaidRequirements() < RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement))
+				{
+					sender->Message(Chat::Red, "You are unable to enter an instance because you are not a part of a raid with %i players at or above level %i present total.",
+						RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
+						RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
+					return;
+				}
+
 				int64 zonelockout = RuleI(Quarm, InstanceMinimumLockoutTime);
-				uint32 instanceToDisplay = sender->GetTargetZoneInstanceID(zoneid);
-				sender->Message(Chat::Red, "Please [%s] re-entry to instance #%i. This will re-engage your lockout of %s from %s ( #%i ).", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), instanceToDisplay, Strings::SecondsToTime((int)zonelockout).c_str(), database.GetZoneName(zoneid), instanceToDisplay);
-				sender->SetPendingInstanceDoorID(door_id);
+
+				int64 curzoneLockout = zone->GetZoneInstanceLockoutByCharacterAndZone(sender->CharacterID(), zoneid);
+				auto cur_time = time(nullptr);
+				int64 end_time = cur_time + RuleI(Quarm, InstanceMinimumLockoutTime);
+				if (curzoneLockout <= end_time)
+				{
+					uint32 instanceToDisplay = sender->GetTargetZoneInstanceID(zoneid);
+					sender->Message(Chat::Red, "Please [%s] re-entry to instance #%i. This will re-engage your lockout of %s from %s ( #%i ).", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), instanceToDisplay, Strings::SecondsToTime((int)zonelockout).c_str(), database.GetZoneName(zoneid), instanceToDisplay);
+					sender->SetPendingInstanceDoorID(door_id);
+				}
+				else
+				{
+
+					int64 adjusted_end_time = curzoneLockout - cur_time;
+					uint32 instanceToDisplay = sender->GetTargetZoneInstanceID(zoneid);
+					sender->Message(Chat::Red, "Please [%s] re-entry to instance #%i. This will keep your lockout of %s from %s ( #%i ).", Saylink::Create("#enterzonelockout", true, "confirm").c_str(), instanceToDisplay, Strings::SecondsToTime((int)adjusted_end_time).c_str(), database.GetZoneName(zoneid), instanceToDisplay);
+					sender->SetPendingInstanceDoorID(door_id);
+				}
 				return;
 			}
 			else
