@@ -310,6 +310,7 @@ RULE_STRING(Quarm, ChatShortName, "takp", "")
 RULE_STRING(Quarm, AllianceChannelName, "Alliance", "")
 RULE_STRING(Quarm, AllianceChannelReplacementName, "General", "")
 RULE_INT(Quarm, AllianceChannelLevelRequirement, 10, "")
+RULE_BOOL(Quarm, AutoRaidConsent, false, "Enable automatic granting of temporary corpse consent if in the same raid")
 RULE_CATEGORY_END()
 RULE_CATEGORY( Map )
 //enable these to help prevent mob hopping when they are pathing

@@ -2098,6 +2098,10 @@ bool Corpse::Summon(Client* client, bool spell, bool CheckDistance) {
 				break;
 			}
 		}
+		if (!consented && client->GetRaid() && RuleB(Quarm, AutoRaidConsent)) {
+			Client* corpse_owner = entity_list.GetClientByName(this->GetOwnerName());
+			consented = (corpse_owner && corpse_owner->GetRaid() == client->GetRaid());
+		}
 		if (!consented) {
 			client->Message_StringID(Chat::White, CONSENT_NONE);
 			return false;
