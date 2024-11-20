@@ -3116,9 +3116,15 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app)
 				BoatID = 0;
 				return;
 			}
+
+			auto outapp = new EQApplicationPacket(OP_MobUpdate, sizeof(SpawnPositionUpdates_Struct));
+			SpawnPositionUpdates_Struct* ppus = (SpawnPositionUpdates_Struct*)outapp->pBuffer;
+			boat->SetSpawnUpdate(ppu, &ppus->spawn_update);
+			ppus->num_updates = 1;
+			entity_list.QueueCloseClients(boat, outapp, true, 1000, this, false);
+			safe_delete(outapp);
+					
 			boat->GMMove(ppu->x_pos, ppu->y_pos, ppu->z_pos / 10.f, boat->GetHeading(), false);
-			boat->SendRealPosition();
-			boat->CastToNPC()->SaveGuardSpot();
 			return;
 		}
 		else return;	// if not a boat, do nothing
