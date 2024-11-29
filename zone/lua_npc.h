@@ -127,8 +127,10 @@ public:
 	void MerchantCloseShop();
 	void AddQuestLoot(int itemid);
 	void AddQuestLoot(int itemid, int charges);
+	void AddQuestLoot(int itemid, int charges, std::string item_custom_data_string);
 	void AddPetLoot(int itemid);
 	void AddPetLoot(int itemid, int charges);
+	void AddPetLoot(int itemid, int charges, std::string item_custom_data_string);
 	bool GetQuestLoot(int itemid);
 	bool GetPetLoot(int itemid);
 	bool HasQuestLoot();

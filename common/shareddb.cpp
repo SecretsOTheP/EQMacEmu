@@ -253,13 +253,15 @@ bool SharedDatabase::UpdateInventorySlot(uint32 char_id, const EQ::ItemInstance*
 	else
 		charges = 0x7FFF;
 
+	std::string custom_data_str = Strings::Escape(inst->GetCustomDataString(false));
+
 	// Update/Insert item
 	std::string query = StringFormat("REPLACE INTO character_inventory "
 		"(id, slotid, itemid, charges, custom_data)"
 		" VALUES(%lu,%lu,%lu,%lu,'%s')",
 		(unsigned long)char_id, (unsigned long)slot_id, (unsigned long)inst->GetItem()->ID,
 		(unsigned long)charges,
-		inst->GetCustomDataString().c_str());
+		custom_data_str.length() ? custom_data_str.c_str() : "");
 	auto results = QueryDatabase(query);
 
     // Save bag contents, if slot supports bag contents
@@ -377,31 +379,7 @@ bool SharedDatabase::GetInventory(uint32 char_id, EQ::InventoryProfile* inv)
 		if (inst == nullptr)
 			continue;
 
-        if(row[3]) {
-            std::string data_str(row[3]);
-            std::string idAsString;
-            std::string value;
-            bool use_id = true;
-
-            for(int i = 0; i < data_str.length(); ++i) {
-                if(data_str[i] == '^') {
-                    if(!use_id) {
-                        inst->SetCustomData(idAsString, value);
-                        idAsString.clear();
-                        value.clear();
-                    }
-
-                    use_id = !use_id;
-                    continue;
-                }
-
-                char v = data_str[i];
-                if(use_id)
-                    idAsString.push_back(v);
-                else
-                    value.push_back(v);
-            }
-        }
+		InitializeCustomDataFromString(inst->GetCustomData(), row[3]);
 
         if(charges==0x7FFF)
             inst->SetCharges(-1);
@@ -458,32 +436,7 @@ bool SharedDatabase::GetInventory(uint32 account_id, char* name, EQ::InventoryPr
 		if (inst == nullptr)
 			continue;
 
-        if(row[3]) {
-            std::string data_str(row[3]);
-            std::string idAsString;
-            std::string value;
-            bool use_id = true;
-
-            for(int i = 0; i < data_str.length(); ++i) {
-                if(data_str[i] == '^') {
-                    if(!use_id) {
-                        inst->SetCustomData(idAsString, value);
-                        idAsString.clear();
-                        value.clear();
-                    }
-
-                    use_id = !use_id;
-                    continue;
-                }
-
-                char v = data_str[i];
-                if(use_id)
-                    idAsString.push_back(v);
-                else
-                    value.push_back(v);
-
-            }
-        }
+		InitializeCustomDataFromString(inst->GetCustomData(), row[3]);
 
         inst->SetCharges(charges);
 
@@ -1086,14 +1039,14 @@ bool SharedDatabase::LoadNPCFactionLists(const std::string &prefix)
 }
 
 // Create appropriate ItemInst class
-EQ::ItemInstance* SharedDatabase::CreateItem(uint32 item_id, int8 charges)
+EQ::ItemInstance* SharedDatabase::CreateItem(uint32 item_id, int8 charges, const EQ::ItemCustomData& item_custom_data)
 {
 	const EQ::ItemData* item = nullptr;
 	EQ::ItemInstance* inst = nullptr;
 
 	item = GetItem(item_id);
 	if (item) {
-		inst = CreateBaseItem(item, charges);
+		inst = CreateBaseItem(item, charges, item_custom_data);
 
 		if (inst == nullptr) {
 			LogError("Error: valid item data returned a null reference for EQ::ItemInstance creation in SharedDatabase::CreateItem()");
@@ -1107,11 +1060,11 @@ EQ::ItemInstance* SharedDatabase::CreateItem(uint32 item_id, int8 charges)
 
 
 // Create appropriate ItemInst class
-EQ::ItemInstance* SharedDatabase::CreateItem(const EQ::ItemData* item, int8 charges)
+EQ::ItemInstance* SharedDatabase::CreateItem(const EQ::ItemData* item, int8 charges, const EQ::ItemCustomData& item_custom_data)
 {
 	EQ::ItemInstance* inst = nullptr;
 	if (item) {
-		inst = CreateBaseItem(item, charges);
+		inst = CreateBaseItem(item, charges, item_custom_data);
 
 		if (inst == nullptr) {
 			LogError("Error: valid item data returned a null reference for EQ::ItemInstance creation in SharedDatabase::CreateItem()");
@@ -1123,7 +1076,7 @@ EQ::ItemInstance* SharedDatabase::CreateItem(const EQ::ItemData* item, int8 char
 	return inst;
 }
 
-EQ::ItemInstance* SharedDatabase::CreateBaseItem(const EQ::ItemData* item, int8 charges)
+EQ::ItemInstance* SharedDatabase::CreateBaseItem(const EQ::ItemData* item, int8 charges, const EQ::ItemCustomData& item_custom_data)
 {
 	EQ::ItemInstance* inst = nullptr;
 	if (item) {
@@ -1132,7 +1085,7 @@ EQ::ItemInstance* SharedDatabase::CreateBaseItem(const EQ::ItemData* item, int8 
 		if (charges == 0 && item->MaxCharges == -1)
 			charges = 1;
 
-		inst = new EQ::ItemInstance(item, charges);
+		inst = new EQ::ItemInstance(item, charges, item_custom_data);
 
 		if (inst == nullptr) {
 			LogError("Error: valid item data returned a null reference for EQ::ItemInstance creation in SharedDatabase::CreateBaseItem()");
@@ -1143,6 +1096,71 @@ EQ::ItemInstance* SharedDatabase::CreateBaseItem(const EQ::ItemData* item, int8 
 		inst->Initialize(this);
 	}
 	return inst;
+}
+
+std::string SharedDatabase::EncodeCustomDataToString(const EQ::ItemCustomData& custom_data, bool include_transient_keys)
+{
+	if (custom_data.empty())
+		return "";
+
+	std::string ret_val;
+
+	for(auto iter = custom_data.cbegin(); iter != custom_data.cend(); ++iter) {
+		// keys starting with '#' will be treated as transient data and do not get encoded unless include_transient_keys==true.
+		if (!iter->first.empty() && (include_transient_keys || iter->first[0] != '#')) {
+			ret_val += iter->first;
+			ret_val += "^";
+			ret_val += iter->second;
+			ret_val += "^";
+		}
+	}
+	return ret_val;
+}
+
+void SharedDatabase::ParseCustomDataFromString(EQ::ItemCustomData& dst, const char* src)
+{
+	if (!src)
+		return;
+
+	std::string key;
+	std::string value;
+	bool parsing_key = true;
+
+	for (int i = 0; src[i] != 0; i++)
+	{
+		if (src[i] == '^') {
+			if (!parsing_key) {
+				dst[key] = value;
+				key.clear();
+				value.clear();
+			}
+
+			parsing_key = !parsing_key;
+			continue;
+		}
+		if (parsing_key)
+			key.push_back(src[i]);
+		else
+			value.push_back(src[i]);
+	}
+}
+
+void SharedDatabase::InitializeCustomDataFromString(EQ::ItemCustomData& dst, const char* src)
+{
+	ParseCustomDataFromString(dst, src);
+
+	// If personalized item names are enabled, also load the character name and cache it in a transient key (not saved to DB)
+	if (RuleB(SelfFound, PersonalizedItemNames)) {
+		uint32 sf_character_id = EQ::ItemInstance::GetSelfFoundCharacterID(dst);
+		if (sf_character_id && dst.find(CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME) == dst.end()) {
+			char char_name[64]{ 0 };
+			GetCharName(sf_character_id, char_name);
+			if (char_name[0] != 0) {
+				std::string name_str = char_name;
+				dst[CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME] = name_str;
+			}
+		}
+	}
 }
 
 int32 SharedDatabase::DeleteStalePlayerCorpses() 

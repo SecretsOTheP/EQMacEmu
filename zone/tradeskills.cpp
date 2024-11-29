@@ -322,6 +322,10 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 
 			if (returneditem)
 			{
+				if (IsSoloOnly() || IsSelfFound()) {
+					returneditem->SetSelfFoundCharacter(CharacterID(), name);
+				}
+
 				PushItemOnCursorWithoutQueue(returneditem);
 
 				if (this->GetGroup()) {
@@ -370,6 +374,9 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 
 			if (returneditem)
 			{
+				if (IsSoloOnly() || IsSelfFound()) {
+					returneditem->SetSelfFoundCharacter(CharacterID(), name); // returned items
+				}
 				PushItemOnCursorWithoutQueue(returneditem);
 				safe_delete(returneditem);
 			}

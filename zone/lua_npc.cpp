@@ -521,6 +521,14 @@ void Lua_NPC::AddQuestLoot(int itemid, int charges)
 	self->AddQuestLoot(itemid, charges);
 }
 
+void Lua_NPC::AddQuestLoot(int itemid, int charges, std::string item_custom_data_string)
+{
+	Lua_Safe_Call_Void();
+	EQ::ItemCustomData item_custom_data;
+	SharedDatabase::ParseCustomDataFromString(item_custom_data, item_custom_data_string.c_str());
+	self->AddQuestLoot(itemid, charges, item_custom_data);
+}
+
 void Lua_NPC::AddPetLoot(int itemid)
 {
 	Lua_Safe_Call_Void();
@@ -531,6 +539,14 @@ void Lua_NPC::AddPetLoot(int itemid, int charges)
 {
 	Lua_Safe_Call_Void();
 	self->AddPetLoot(itemid, charges, true);
+}
+
+void Lua_NPC::AddPetLoot(int itemid, int charges, std::string item_custom_data_string)
+{
+	Lua_Safe_Call_Void();
+	EQ::ItemCustomData item_custom_data;
+	SharedDatabase::ParseCustomDataFromString(item_custom_data, item_custom_data_string.c_str());
+	self->AddPetLoot(itemid, charges, true, item_custom_data);
 }
 
 bool Lua_NPC::GetQuestLoot(int itemid)
@@ -738,8 +754,10 @@ luabind::scope lua_register_npc() {
 		.def("MerchantCloseShop", (void(Lua_NPC::*)(void))&Lua_NPC::MerchantCloseShop)
 		.def("AddQuestLoot", (void(Lua_NPC::*)(int))&Lua_NPC::AddQuestLoot)
 		.def("AddQuestLoot", (void(Lua_NPC::*)(int,int))&Lua_NPC::AddQuestLoot)
+		.def("AddQuestLoot", (void(Lua_NPC::*)(int,int,std::string))&Lua_NPC::AddQuestLoot)
 		.def("AddPetLoot", (void(Lua_NPC::*)(int))&Lua_NPC::AddPetLoot)
 		.def("AddPetLoot", (void(Lua_NPC::*)(int,int))&Lua_NPC::AddPetLoot)
+		.def("AddPetLoot", (void(Lua_NPC::*)(int,int,std::string))&Lua_NPC::AddPetLoot)
 		.def("GetQuestLoot", (bool(Lua_NPC::*)(int))&Lua_NPC::GetQuestLoot)
 		.def("GetPetLoot", (bool(Lua_NPC::*)(int))&Lua_NPC::GetPetLoot)
 		.def("HasQuestLoot", (bool(Lua_NPC::*)(void))&Lua_NPC::HasQuestLoot)

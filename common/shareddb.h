@@ -68,9 +68,15 @@ public:
 	/*
 	* Item Methods
 	*/
-	EQ::ItemInstance* CreateItem(uint32 item_id, int8 charges=0);
-	EQ::ItemInstance* CreateItem(const EQ::ItemData* item, int8 charges=0);
-	EQ::ItemInstance* CreateBaseItem(const EQ::ItemData* item, int8 charges=0);
+	EQ::ItemInstance* CreateItem(uint32 item_id, int8 charges=0, const EQ::ItemCustomData& item_custom_data = EQ::EmptyItemCustomData);
+	EQ::ItemInstance* CreateItem(const EQ::ItemData* item, int8 charges=0, const EQ::ItemCustomData& item_custom_data = EQ::EmptyItemCustomData);
+	EQ::ItemInstance* CreateBaseItem(const EQ::ItemData* item, int8 charges=0, const EQ::ItemCustomData& item_custom_data = EQ::EmptyItemCustomData);
+
+	static std::string EncodeCustomDataToString(const EQ::ItemCustomData& item_custom_data, bool include_transient_key);
+	// Parses custom_data from an existing custom_data string. Use InitializeCustomDataFromString instead if loading from the DB.
+	static void ParseCustomDataFromString(EQ::ItemCustomData& dst, const char* src);
+	// Initializes custom_data from a database column.
+	void InitializeCustomDataFromString(EQ::ItemCustomData& dst, const char* src);
 
 		// Web Token Verification
 		bool VerifyToken(std::string token, int& status);

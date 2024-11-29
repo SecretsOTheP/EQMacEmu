@@ -33,6 +33,7 @@ class ItemParse;			// Parses item packets
 
 #include <list>
 #include <map>
+#include <unordered_map>
 
 
 // Specifies usage type for item inside EQ::ItemInstance
@@ -51,6 +52,9 @@ typedef enum {
 
 class SharedDatabase;
 
+const std::string CUSTOM_DATA_SELF_FOUND_CHARACTER_ID = "SFCID";
+const std::string CUSTOM_DATA_CACHED_SELF_FOUND_CHARACTER_NAME = "#SFN"; // not saved to DB
+
 // ########################################
 // Class: EQ::ItemInstance
 //	Base class for an instance of an item
@@ -60,6 +64,9 @@ namespace EQ
 {
 	class InventoryProfile;
 
+	typedef std::unordered_map<std::string, std::string> ItemCustomData;
+	const ItemCustomData EmptyItemCustomData;
+
 	class ItemInstance
 	{
 	public:
@@ -68,9 +75,9 @@ namespace EQ
 		/////////////////////////
 
 		// Constructors/Destructor
-		ItemInstance(const EQ::ItemData* item = nullptr, int8 charges = 0);
+		ItemInstance(const EQ::ItemData* item = nullptr, int8 charges = 0, const ItemCustomData& custom_data = EmptyItemCustomData);
 
-		ItemInstance(SharedDatabase* db, int16 item_id, int8 charges = 0);
+		ItemInstance(SharedDatabase* db, int16 item_id, int8 charges = 0, const ItemCustomData& custom_data = EmptyItemCustomData);
 
 		ItemInstance(ItemInstTypes use_type);
 
@@ -142,13 +149,49 @@ namespace EQ
 		bool IsOnCursorQueue() const { return m_cursorqueue; }
 		void SetCursorQueue(bool val) { m_cursorqueue = val; }
 
-		std::string GetCustomDataString() const;
+		ItemCustomData& GetCustomData() { return m_custom_data; }
+		const ItemCustomData& GetCustomData() const { return m_custom_data; }
+		std::string GetCustomDataString(bool include_transient_keys) const;
 		std::string GetCustomData(std::string identifier);
 		void SetCustomData(std::string identifier, std::string value);
 		void SetCustomData(std::string identifier, int value);
 		void SetCustomData(std::string identifier, float value);
 		void SetCustomData(std::string identifier, bool value);
 		void DeleteCustomData(std::string identifier);
+
+		void GetName(char* buf, size_t buf_len) const; // Automatically applies rule SelfFound:PersonalizedItemNames
+
+		// Did a SF character originally acquire this item.
+		bool HasSelfFoundCharacterID() const;
+
+		// Get the SF Character ID that originally found this time.
+		static uint32 GetSelfFoundCharacterID(const ItemCustomData& custom_data);
+
+		// Get the SF Character ID that originally found this time.
+		uint32 GetSelfFoundCharacterID() const { return GetSelfFoundCharacterID(m_custom_data); }
+
+		// returns a pointer to their name string, or null if unknown
+		const std::string* GetSelfFoundCharacterName() const;
+
+		// Copies their self found name to the target buffer, if known
+		size_t GetSelfFoundCharacterName(char* out) const;
+
+		// Marks the SF character ID that found this item. Only updates if not already set. Setting 0 will not clear this field.
+		static void SetSelfFoundCharacter(const EQ::ItemData* item_data, EQ::ItemCustomData& custom_data, uint32 self_found_character_id, const char* name);
+		// Marks the SF character ID that found this item. Only updates if not already set. Setting 0 will not clear this field.
+		static void SetSelfFoundCharacter(const EQ::ItemData* item_data, EQ::ItemCustomData& custom_data, uint32 self_found_character_id, const std::string& name);
+
+		// Marks the SF character ID that found this item. Only updates if not already set. Setting 0 will not clear this field.
+		void SetSelfFoundCharacter(uint32 self_found_character_id, const char* name) { SetSelfFoundCharacter(m_item, m_custom_data, self_found_character_id, name); }
+		// Marks the SF character ID that found this item. Only updates if not already set. Setting 0 will not clear this field.
+		void SetSelfFoundCharacter(uint32 self_found_character_id, const std::string& name) { SetSelfFoundCharacter(m_item, m_custom_data, self_found_character_id, name); }
+
+		// Marks the SF character ID to all contents in this bag. Only updates if not already set.
+		// Setting 0 will not clear this field.
+		void SetContentsSelfFoundCharacter(uint32 self_found_character_id, const std::string& name);
+
+		// Is this item (and its contents, if a bag) all tags with this SF character id.
+		bool IsMatchingSelfFoundCharacterID(uint32 self_found_character_id, bool check_all_bag_contents) const;
 
 		// Allows treatment of this object as though it were a pointer to m_item
 		operator bool() const { return (m_item != nullptr); }
@@ -202,7 +245,7 @@ namespace EQ
 		//
 		// Items inside of this item (augs or contents);
 		std::map<uint8, ItemInstance*>			m_contents; // Zero-based index: min=0, max=9
-		std::map<std::string, std::string>	m_custom_data;
+		ItemCustomData				m_custom_data;
 		std::map<std::string, Timer>		m_timers;
 	};
 }

@@ -434,13 +434,6 @@ NPC::~NPC()
 	}
 
 	{
-	LootItems::iterator cur,end;
-	cur = m_loot_items.begin();
-	end = m_loot_items.end();
-	for(; cur != end; ++cur) {
-		LootItem* item = *cur;
-		safe_delete(item);
-	}
 	m_loot_items.clear();
 	}
 
@@ -1341,7 +1334,7 @@ void NPC::PickPocket(Client* thief)
 		cur = m_loot_items.begin();
 		end = m_loot_items.end();
 		for(; cur != end && x < 49; ++cur) {
-			LootItem* citem = *cur;
+			LootItem* citem = cur->get();
 			const EQ::ItemData* item = database.GetItem(citem->item_id);
 			if (item)
 			{
@@ -1365,6 +1358,10 @@ void NPC::PickPocket(Client* thief)
 			inst = database.CreateItem(steal_items[random], charges[random]);
 			if (inst)
 			{
+				if (thief->IsSoloOnly() || thief->IsSelfFound())
+				{
+					inst->SetSelfFoundCharacter(thief->CharacterID(), thief->GetName());
+				}
 				const EQ::ItemData* item = inst->GetItem();
 				if (item)
 				{
