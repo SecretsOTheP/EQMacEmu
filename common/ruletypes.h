@@ -314,6 +314,17 @@ RULE_INT(Quarm, RebirthTitleLevel, 50, "The minimum level before we add a title 
 RULE_BOOL(Quarm, DruidEpicAppliesEnsnare, true, "")
 RULE_BOOL(Quarm, PreNerfSneakHide, true, "This should be false during Luclin.")
 RULE_CATEGORY_END()
+
+RULE_CATEGORY( SelfFound )
+RULE_BOOL(SelfFound, IdentifyOwner, true, "Casting identify on a self-found item will send a message showing who it belongs to.")
+RULE_BOOL(SelfFound, PetLootSupport, true, "Allow solo/self-found players to loot their own SF items back from pet/npc corpses. This allows SF players to recover their items they gave to charmed pets.")
+RULE_BOOL(SelfFound, ItemMulingSupport, true, "Allow solo/self-found players to pickup their own SF items off the ground. This allows muling of SF items onto alts, and the alt can drop the item back later.")
+RULE_BOOL(SelfFound, TempMerchantSupport, true, "Allow solo/self-found players to repurchase their own SF Items sold to Merchant temp inventory, up to the amount of SF items sold that belonged to them. This allows SF players to vendor recharge their own items. Also makes temp inventory visible, but will get an error message if trying purchase items they are not permitted to buy.")
+RULE_BOOL(SelfFound, TempMerchantFiltering, false, "Make solo/self-found players only see merchant temp inventory for their own purchasable items, hiding the rest. If disabled, they can see the whole temp inventory, but can still only purchase their valid SF items back.")
+RULE_BOOL(SelfFound, PersonalizedItemNames, true, "Makes self-found items easily distinguishable by seeing the owner's name prefixed on their self-found items. Helps players intuitively understad which items are officially supported for self-found features like muling, charm petting, recharging, etc. It's also really cool. Character names are cached in the item instance (not saved to DB). Generally requires a logout/login/zone to start showing up if players were online while this was enabled.")
+RULE_STRING(SelfFound, PersonalizedItemNameFormat, "%1$s`s %2$s", "The format for personalized item names. Default: Soando`s Short Sword. Arg1=CharacterName, Arg2=ItemName.")
+RULE_CATEGORY_END()
+
 RULE_CATEGORY( Map )
 //enable these to help prevent mob hopping when they are pathing
 RULE_BOOL ( Map, FixPathingZWhenLoading, true, "increases zone boot times a bit to reduce hopping.")

@@ -1086,10 +1086,17 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 					// Destroy duplicate items on charmed pets and nodrop items.
 					if (item->NoDrop != 0 && (!IsCharmedPet() || (IsCharmedPet() && CastToNPC()->CountQuestItem(item->ID) == 0)))
 					{
+
+						// If the item was summoned by a self-found player, mark the item as owned by them
+						EQ::ItemCustomData item_custom_data;
+						if (caster && caster->IsClient() && (caster->CastToClient()->IsSelfFound() || caster->CastToClient()->IsSoloOnly())) {
+							EQ::ItemInstance::SetSelfFoundCharacter(item, item_custom_data, caster->CastToClient()->CharacterID(), caster->CastToClient()->name);
+						}
+
 						// For pets, all items are added to inventory, even if the
 						// item is summoned into a bag so that the pet can equip
 						// the item, if possible.
-						CastToNPC()->AddPetLoot(item->ID, quantity);
+						CastToNPC()->AddPetLoot(item->ID, quantity, false, item_custom_data);
 					}
 				} else if (caster) {
 					caster->Message_StringID(Chat::SpellFailure, SPELL_NO_EFFECT);
@@ -2184,6 +2191,44 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 				break;
 			}
 
+			case SE_Identify:
+			{
+				if (RuleB(SelfFound, IdentifyOwner))
+				{
+					if (IsClient())
+					{
+						// For self found items, also print the Self Found status of the item.
+						// Note: This is too long to save to a rule (max 21 chars), so hardcoded here.
+						// Self Found Item: Soandso`s Shord Sword
+						static const std::string SF_IDENTIFY_MESSAGE_FORMAT = "Self Found Item: %1$s`s %2$s.";
+
+						EQ::ItemInstance* cursor_item = CastToClient()->GetInv().GetItem(EQ::invslot::slotCursor);
+						if (cursor_item && cursor_item->HasSelfFoundCharacterID())
+						{
+							const uint32 self_found_character_id = cursor_item->GetSelfFoundCharacterID();
+							const std::string* cached_name = cursor_item->GetSelfFoundCharacterName();
+							if (CastToClient()->CharacterID() == self_found_character_id)
+							{
+								Message(Chat::Spells, SF_IDENTIFY_MESSAGE_FORMAT.c_str(), CastToClient()->name, cursor_item->GetItem()->Name);
+							}
+							else if (cached_name && !cached_name->empty())
+							{
+								Message(Chat::Spells, SF_IDENTIFY_MESSAGE_FORMAT.c_str(), cached_name->c_str(), cursor_item->GetItem()->Name);
+							}
+							else
+							{
+								char char_name[64]{ 0 };
+								database.GetCharName(self_found_character_id, char_name);
+								if (char_name[0])
+								{
+									Message(Chat::Spells, SF_IDENTIFY_MESSAGE_FORMAT.c_str(), char_name, cursor_item->GetItem()->Name);
+								}
+							}
+						}
+					}
+				}
+				break;
+			}
 			// Handled Elsewhere
 			case SE_ReduceReuseTimer:
 			case SE_ExtraAttackChance:
@@ -2241,7 +2286,6 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 			case SE_ManaPool:
 			case SE_TotalHP:
 			case SE_ChangeAggro:
-			case SE_Identify:
 			case SE_InstantHate:
 			case SE_SpellDamageShield:
 			case SE_ReverseDS:

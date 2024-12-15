@@ -154,7 +154,7 @@ bool Client::CheckLoreConflict(const EQ::ItemData* item) {
 
 }
 
-bool Client::SummonItem(uint32 item_id, int8 quantity, uint16 to_slot, bool force_charges) {
+bool Client::SummonItem(uint32 item_id, int8 quantity, uint16 to_slot, bool force_charges, const EQ::ItemCustomData& item_custom_data) {
 	this->EVENT_ITEM_ScriptStopReturn();
 
 	// TODO: update calling methods and script apis to handle a failure return
@@ -226,11 +226,10 @@ bool Client::SummonItem(uint32 item_id, int8 quantity, uint16 to_slot, bool forc
 				quantity = item->StackSize;
 			}
 		}
-	}	
+	}
 	// in any other situation just use quantity as passed
 
-	EQ::ItemInstance* inst = database.CreateItem(item, quantity);
-
+	EQ::ItemInstance* inst = database.CreateItem(item, quantity, item_custom_data);
 	if(inst == nullptr) {
 		Message(Chat::Red, "An unknown server error has occurred and your item was not created.");
 		// this goes to logfile since this is a major error
@@ -238,6 +237,10 @@ bool Client::SummonItem(uint32 item_id, int8 quantity, uint16 to_slot, bool forc
 			GetName(), account_name, item->ID);
 
 		return false;
+	}
+
+	if (IsSoloOnly() || IsSelfFound()) {
+		inst->SetSelfFoundCharacter(CharacterID(), name);
 	}
 
 	// check to see if item is usable in requested slot
@@ -933,7 +936,7 @@ bool Client::PutItemInInventory(int16 slot_id, const EQ::ItemInstance& inst, boo
 	CalcBonuses();
 }
 
-void Client::PutLootInInventory(int16 slot_id, const EQ::ItemInstance &inst, LootItem** bag_item_data)
+void Client::PutLootInInventory(int16 slot_id, const EQ::ItemInstance &inst, const BagLootItems& bag_item_data)
 {
 	Log(Logs::Detail, Logs::Inventory, "Putting loot item %s (%d) into slot %d", inst.GetItem()->Name, inst.GetItem()->ID, slot_id);
 	m_inv.PutItem(slot_id, inst);
@@ -946,20 +949,26 @@ void Client::PutLootInInventory(int16 slot_id, const EQ::ItemInstance &inst, Loo
 	} else
 		database.SaveInventory(this->CharacterID(), &inst, slot_id);
 
-	if(bag_item_data)	// bag contents
+	if(!bag_item_data.empty())	// bag contents
 	{
 		int16 interior_slot;
 		// solar: our bag went into slot_id, now let's pack the contents in
 		for(int i = EQ::invbag::SLOT_BEGIN; i <= EQ::invbag::SLOT_END; i++)
 		{
-			if(bag_item_data[i] == nullptr)
+			auto it = bag_item_data.find(i);
+			if(it == bag_item_data.end())
 				continue;
 
-			const EQ::ItemData* sub_item_item_data = database.GetItem(bag_item_data[i]->item_id);
+			LootItem* bag_item_data_i = it->second.get();
+			const EQ::ItemData* sub_item_item_data = database.GetItem(bag_item_data_i->item_id);
 			if (sub_item_item_data == nullptr)
 				continue;
 
-			const EQ::ItemInstance *bagitem = database.CreateItem(bag_item_data[i]->item_id, bag_item_data[i]->charges);
+			EQ::ItemInstance* bagitem = database.CreateItem(bag_item_data_i->item_id, bag_item_data_i->charges, bag_item_data_i->custom_data);
+			if (bagitem && (IsSoloOnly() || IsSelfFound())) {
+				bagitem->SetSelfFoundCharacter(CharacterID(), name);
+			}
+
 			interior_slot = EQ::InventoryProfile::CalcSlotId(slot_id, i);
 			Log(Logs::Detail, Logs::Inventory, "Putting bag loot item %s (%d) into slot %d (bag slot %d)", inst.GetItem()->Name, inst.GetItem()->ID, interior_slot, i);
 			PutLootInInventory(interior_slot, *bagitem);
@@ -1002,7 +1011,7 @@ bool Client::TryStacking(EQ::ItemInstance* item, uint8 type, bool try_worn, bool
 							MoveItemCharges(*item, slotid, type);
 							CalcBonuses();
 							if(item->GetCharges())	// we didn't get them all
-								return AutoPutLootInInventory(*item, try_worn, try_cursor, 0);
+								return AutoPutLootInInventory(*item, try_worn, try_cursor);
 							return true;
 						}
 					}
@@ -1023,7 +1032,7 @@ bool Client::TryStacking(EQ::ItemInstance* item, uint8 type, bool try_worn, bool
 			MoveItemCharges(*item, i, type);
 			CalcBonuses();
 			if(item->GetCharges())	// we didn't get them all
-				return AutoPutLootInInventory(*item, try_worn, try_cursor, 0);
+				return AutoPutLootInInventory(*item, try_worn, try_cursor);
 			return true;
 		}
 	}
@@ -1038,7 +1047,7 @@ bool Client::TryStacking(EQ::ItemInstance* item, uint8 type, bool try_worn, bool
 				MoveItemCharges(*item, slotid, type);
 				CalcBonuses();
 				if(item->GetCharges())	// we didn't get them all
-					return AutoPutLootInInventory(*item, try_worn, try_cursor, 0);
+					return AutoPutLootInInventory(*item, try_worn, try_cursor);
 				return true;
 			}
 		}
@@ -1112,7 +1121,7 @@ int16 Client::GetStackSlot(EQ::ItemInstance* item, bool try_worn, bool try_curso
 // Locate an available space in inventory to place an item
 // and then put the item there
 // The change will be saved to the database
-bool Client::AutoPutLootInInventory(EQ::ItemInstance& inst, bool try_worn, bool try_cursor, LootItem** bag_item_data)
+bool Client::AutoPutLootInInventory(EQ::ItemInstance& inst, bool try_worn, bool try_cursor, const BagLootItems& bag_item_data)
 {
 	// #1: Try to auto equip
 	if (try_worn && inst.IsEquipable(GetBaseRace(), GetClass()) && inst.GetItem()->ReqLevel<=level)
