@@ -2545,7 +2545,7 @@ void Client::Handle_OP_Buff(const EQApplicationPacket *app)
 		int buff_count = GetMaxTotalSlots();
 		for (int j = 0; j < buff_count; j++)
 		{
-			if (buffs[j].spellid == spid)
+			if (buffs[j].spellid == spid && buffs[j].ticsremaining > 1)
 			{
 				// we need to remove the buff and reapply it in the first empty slot to stay in sync with client
 				Buffs_Struct savedbuff = Buffs_Struct(buffs[j]); // save a copy before removing it
