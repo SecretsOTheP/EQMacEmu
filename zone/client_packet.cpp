@@ -470,6 +470,7 @@ void Client::CompleteConnect()
 				raid->SendGroupLeader(gid, this);
 			}
 			raid->SendRaidMembers(this);
+			raid_consent = raid->IsConsent(GetName());  // Restore from raid_members db value.			
 		}
 	}
 	if (!raid) {
@@ -3509,6 +3510,19 @@ void Client::Handle_OP_Consent(const EQApplicationPacket *app)
 		std::transform(gname.begin(), gname.end(), gname.begin(), ::tolower);
 		std::string oname = GetName();
 		std::transform(oname.begin(), oname.end(), oname.begin(), ::tolower);
+
+		// Support consenting of raid members (not stored in the db `character_consent` table).
+		if (!gname.empty() && gname[0] == '#')  // Prefix of # is the special command flag.
+		{
+			if (gname == "#raid on")
+				SetRaidConsent(true);
+			else if (gname == "#raid off")
+				SetRaidConsent(false);
+			else if (gname == "#raid")
+				SetRaidConsent(!IsRaidConsent());
+			Message(Chat::White, "Auto-raid consent set to %s", IsRaidConsent() ? "on" : "off");
+			return;
+		}
 
 		if (GetCorpseCount() < 1)
 		{

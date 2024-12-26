@@ -286,6 +286,10 @@ public:
 	int GetHandToHandDelay();
 	uint16 GetWeaponEffectID(int slot = EQ::invslot::slotPrimary);
 	
+	// Support for automatically consenting all raid members.
+	void SetRaidConsent(bool consent);
+	bool IsRaidConsent() const { return raid_consent; }
+
 	void PermaGender(uint32 gender);
 
 	float GetQuiverHaste();
@@ -1555,6 +1559,7 @@ private:
 	int8 last_fatigue;
 	bool mule_initiated;
 	uint32 pending_marriage_character_id;
+	bool raid_consent;
 };
 
 #endif

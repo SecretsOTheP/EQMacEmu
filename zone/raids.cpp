@@ -88,10 +88,12 @@ void Raid::AddMember(Client *c, uint32 group, bool rleader, bool groupleader, bo
 
 	std::string query = StringFormat("INSERT INTO raid_members SET raidid = %lu, charid = %lu, "
                                     "groupid = %lu, _class = %d, level = %d, name = '%s', "
-                                    "isgroupleader = %d, israidleader = %d, islooter = %d, guild_id=%lu, is_officer=%d ",
+                                    "isgroupleader = %d, israidleader = %d, islooter = %d, "
+                                    "guild_id=%lu, is_officer=%d, is_consent=%d ",									
                                     (unsigned long)GetID(), (unsigned long)c->CharacterID(),
                                     (unsigned long)group, c->GetClass(), c->GetLevel(),
-                                    c->GetName(), groupleader, rleader, looter, (unsigned long)c->GuildID(), c->GuildRank());
+                                    c->GetName(), groupleader, rleader, looter, (unsigned long)c->GuildID(),
+                                    c->GuildRank(), (int32)c->IsRaidConsent());
     auto results = database.QueryDatabase(query);
 
 	if(!results.Success()) {
@@ -1748,7 +1750,7 @@ bool Raid::LearnMembers()
 	memset(members, 0, (sizeof(RaidMember)*MAX_RAID_MEMBERS));
 
 	std::string query = StringFormat("SELECT name, groupid, _class, level, "
-                                    "isgroupleader, israidleader, islooter, guild_id, is_officer "
+                                    "isgroupleader, israidleader, islooter, guild_id, is_officer, is_consent "	
                                     "FROM raid_members WHERE raidid = %lu",
                                     (unsigned long)GetID());
     auto results = database.QueryDatabase(query);
@@ -1783,6 +1785,7 @@ bool Raid::LearnMembers()
         members[index].IsLooter = atoi(row[6]);
 		members[index].guildid = atoi(row[7]);
 		members[index].IsGuildOfficer = atoi(row[8]);
+		members[index].IsConsent = atoi(row[9]);		
         ++index;
     }
 
@@ -1917,4 +1920,38 @@ void Raid::RaidMessage_StringID(Mob* sender, uint32 type, uint32 string_id, cons
 				members[i].member->Message_StringID(type, string_id, message, message2, message3, message4, message5, message6, message7, message8, message9, distance);
 		}
 	}
+}
+
+void Raid::SetConsent(const char *name, bool grant_consent_to_raid_members)
+{
+	std::string query = StringFormat("UPDATE raid_members SET is_consent = %d WHERE name = '%s'",
+									grant_consent_to_raid_members, name);
+	auto results = database.QueryDatabase(query);
+	if (!results.Success())
+		Log(Logs::General, Logs::Error, "Set raid Consent error: %s\n", results.ErrorMessage().c_str());
+
+	LearnMembers();
+	VerifyRaid();
+
+	// Broadcast a group update to trigger an update for raid members in other zones.
+	// The use case is a dead raid member consenting raid members in their corpse's zone.
+	auto pack = new ServerPacket(ServerOP_UpdateGroup, sizeof(ServerRaidGeneralAction_Struct));
+	ServerRaidGeneralAction_Struct* rga = (ServerRaidGeneralAction_Struct*)pack->pBuffer;
+	rga->gid = 12;  // Results in a no-op in UpdateGroup().
+	rga->rid = GetID();
+	rga->zoneid = zone->GetZoneID();
+	rga->zoneguildid = zone->GetGuildID();
+	worldserver.SendPacket(pack);
+	safe_delete(pack);
+}
+
+bool Raid::IsConsent(const char *who) const
+{
+	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
+	{
+		if(strcmp(who, members[x].membername) == 0)
+			return members[x].IsConsent;
+	}
+
+	return false;
 }

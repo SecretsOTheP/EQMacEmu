@@ -2098,6 +2098,8 @@ bool Corpse::Summon(Client* client, bool spell, bool CheckDistance) {
 				break;
 			}
 		}
+		if (!consented && client->GetRaid() && client->GetRaid()->IsConsent(this->GetOwnerName()))
+			consented = true;		
 		if (!consented) {
 			client->Message_StringID(Chat::White, CONSENT_NONE);
 			return false;
