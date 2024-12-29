@@ -375,6 +375,7 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 	ranged_attack_leeway_timer.Disable();
 	last_fatigue = 0;
 	mule_initiated = false;
+	raid_consent = false;
 }
 
 Client::~Client() {
@@ -819,6 +820,14 @@ bool Client::PermaRaceClass(
 	}
 
 	return true;
+}
+
+void Client::SetRaidConsent(bool consent)
+{
+	raid_consent = consent;
+	Raid *r = GetRaid();
+	if (r)
+		r->SetConsent(GetName(), consent);
 }
 
 bool Client::SaveAA(){

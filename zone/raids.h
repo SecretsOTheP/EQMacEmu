@@ -66,6 +66,7 @@ struct RaidMember{
 	bool IsGuildOfficer;
 	bool IsRaidLeader;
 	bool IsLooter;
+	bool IsConsent;	
 };
 
 class Raid : public GroupIDConsumer {
@@ -99,6 +100,8 @@ public:
 	bool	IsRaidMember(const char *name);
 	void	UpdateLevel(const char *name, int newLevel);
 	void	UpdatePlayer(Client* update);
+	void	SetConsent(const char *name, bool grant_consent_to_raid_members);
+	bool	IsConsent(const char *name) const;	
 
 	uint32	GetFreeGroup();
 	uint8	GroupCount(uint32 gid);
