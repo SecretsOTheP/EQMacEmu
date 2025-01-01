@@ -3359,7 +3359,7 @@ void Mob::CommonDamage(Mob* attacker, int32 &damage, const uint16 spell_id, cons
 			{
 				if (attacker && attacker->IsClient() && attacker != this)
 				{
-					attacker->Message_StringID(Chat::SpellWornOff, YOUR_HIT_DOT, GetCleanName(), itoa(damage), spells[spell_id].name);
+					attacker->Message_StringID(Chat::SpellWornOff, StringID::YOUR_HIT_DOT, GetCleanName(), itoa(damage), spells[spell_id].name);
 				}
 			}
 		}

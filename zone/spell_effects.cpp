@@ -1093,7 +1093,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 						CastToNPC()->AddPetLoot(item->ID, quantity);
 					}
 				} else if (caster) {
-					caster->Message_StringID(Chat::SpellFailure, SPELL_NO_EFFECT);
+					caster->Message_StringID(Chat::SpellFailure, StringID::SPELL_NO_EFFECT);
 				}
 
 				break;
@@ -1155,7 +1155,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 						}
 					}
 				} else if (caster) {
-					caster->Message_StringID(Chat::SpellFailure, SPELL_NO_EFFECT);
+					caster->Message_StringID(Chat::SpellFailure, StringID::SPELL_NO_EFFECT);
 				}
 
 				break;

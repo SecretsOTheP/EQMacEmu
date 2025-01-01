@@ -485,7 +485,7 @@ void Client::ForageItem(bool guarantee) {
 				else
 				{
 					// we already have this item on the cursor - so stop sending it here.
-					Message_StringID(Chat::Skills, FORAGE_FAILED);
+					Message_StringID(Chat::Skills, StringID::FORAGE_FAILED);
 					return;
 				}
 			}

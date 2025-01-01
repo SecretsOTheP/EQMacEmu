@@ -1286,12 +1286,12 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 	{
 		if (GetBaseRace() == IKSAR && zone_expansion != KunarkEQ)
 		{
-			Message_StringID(Chat::Red, NO_EXPAN);
+			Message_StringID(Chat::Red, StringID::NO_EXPAN);
 			return false;
 		}
 		else if (GetBaseRace() != IKSAR && zone_expansion == KunarkEQ)
 		{
-			Message_StringID(Chat::Red, NO_EXPAN);
+			Message_StringID(Chat::Red, StringID::NO_EXPAN);
 			return false;
 		}
 	}

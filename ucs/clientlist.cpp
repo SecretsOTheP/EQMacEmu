@@ -1202,10 +1202,12 @@ void Client::SendChannelMessageByNumber(std::string Message) {
 			GeneralChannelMessage("Channel " + RequiredChannel->GetName() + " is moderated and you have not been granted a voice.");
 	}
 
-	else {
+	else
+	{
 		if (!RequiredChannel->IsModerated() || RequiredChannel->HasVoice(GetFQName()) || RequiredChannel->IsOwner(GetFQName()) ||
 			RequiredChannel->IsModerator(GetFQName())) {
 			RequiredChannel->SendMessageToChannel(Message.substr(MessageStart + 1), this);
+		}
 		else
 			GeneralChannelMessage("Channel " + RequiredChannel->GetName() + " is moderated and you have not been granted a voice.");
 	}

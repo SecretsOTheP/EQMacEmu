@@ -2745,8 +2745,8 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 
 			if (castspell->spell_id == SPELL_MANA_CONVERT && !zone->AllowManastoneClick())
 			{
-				Message_StringID(Chat::Red, SPELL_DOES_NOT_WORK_HERE);
-				InterruptSpell(SPELL_RECAST, Chat::SpellFailure, castspell->spell_id);
+				Message_StringID(Chat::Red, StringID::SPELL_DOES_NOT_WORK_HERE);
+				InterruptSpell(StringID::SPELL_RECAST, Chat::SpellFailure, castspell->spell_id);
 				return;
 			}
 
@@ -3254,7 +3254,6 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app)
 
 				std::string warped = std::string(GetCleanName()) + " - entity moving too fast: dist: " + std::to_string(dist) + ", distDivTime: " + std::to_string(distDivTime) + "playerSpeed: " + std::to_string(speed);
 				worldserver.SendEmoteMessage(0, 0, 100, Chat::Default, "%s - entity moving too fast: %lf %lf - is_exempt_correct %s, playerSpeed %lf", GetCleanName(), dist, distDivTime, std::to_string(is_exempt_correct).c_str(), speed);
-				database.SetHackerFlag(this->account_name, this->name, warped.c_str());
 			}
 		}
 	}
@@ -3799,7 +3798,7 @@ void Client::Handle_OP_CorpseDrop(const EQApplicationPacket *app)
 {
 	if (app->size == 1 || app->size == 0)
 	{
-		Message_StringID(Chat::Default, CORPSEDRAG_STOPALL);
+		Message_StringID(Chat::Default, StringID::CORPSEDRAG_STOPALL);
 		ClearDraggedCorpses();
 		return;
 	}
@@ -3827,14 +3826,14 @@ void Client::Handle_OP_CorpseDrop(const EQApplicationPacket *app)
 				if (!strcasecmp(It->first.c_str(), cds->CorpseName))
 				{
 					It = DraggedCorpses.erase(It);
-					Message_StringID(Chat::DefaultText, CORPSEDRAG_STOP, corpse->GetCleanName());
+					Message_StringID(Chat::DefaultText, StringID::CORPSEDRAG_STOP, corpse->GetCleanName());
 					return;
 				}
 			}
 
 		}
 		else
-			Message_StringID(Chat::DefaultText, CORPSEDRAG_SOMEONE_ELSE, corpse->GetCleanName());
+			Message_StringID(Chat::DefaultText, StringID::CORPSEDRAG_SOMEONE_ELSE, corpse->GetCleanName());
 		return;
 	}
 }
@@ -5257,7 +5256,6 @@ void Client::Handle_OP_GroupFollow(const EQApplicationPacket *app)
 	if (Admin() > 0)
 	{
 		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
 		return;
 	}
 
@@ -5454,7 +5452,6 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 	if (Admin() > 0)
 	{
 		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
 		return;
 	}
 
@@ -5485,7 +5482,6 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 			if (Invitee->CastToClient()->Admin() > 0)
 			{
 				Message(Chat::Red, "You are being invited by a GM. This will never work.");
-				database.SetHackerFlag(Invitee->CastToClient()->AccountName(), Invitee->CastToClient()->GetCleanName(), "GM attempted to join a group or raid.");
 				return;
 			}
 			if (!Invitee->IsGrouped() && !Invitee->IsRaidGrouped())
@@ -7091,7 +7087,6 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 	if (Admin() > 0)
 	{
 		Message(Chat::Red, "You are a GM. Do not join raids or groups.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to join a group or raid.");
 		return;
 	}
 
@@ -7647,7 +7642,7 @@ void Client::Handle_OP_RezzAnswer(const EQApplicationPacket *app)
 	);
 
 
-	OPRezzAnswer(ra->action, ra->spellid, ra->zone_id, 0, ra->x, ra->y, ra->z);
+	OPRezzAnswer(r->action, r->spellid, r->zone_id, 0, r->x, r->y, r->z);
 	
 	if (r->action == ResurrectionActions::Accept) {
 		if (player_event_logs.IsEventEnabled(PlayerEvent::REZ_ACCEPTED)) {
@@ -9374,7 +9369,6 @@ void Client::Handle_OP_Trader(const EQApplicationPacket *app)
 			if (Admin() > 0)
 			{
 				Message(Chat::Red, "You are a GM. You cannot list items for sale. Use the dev server for that.");
-				database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to sell an item on the Bazaar.");
 				return;
 			}
 			GetItems_Struct* gis = GetTraderItems();
@@ -9522,7 +9516,6 @@ void Client::Handle_OP_TraderBuy(const EQApplicationPacket *app)
 	if (Admin() > 0)
 	{
 		Message(Chat::Red, "You are a GM. You cannot list items for sale. Use the dev server for that.");
-		database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to sell an item on the Bazaar.");
 		return;
 	}
 	// Bazaar Trader:
@@ -9604,7 +9597,6 @@ void Client::Handle_OP_TradeRequest(const EQApplicationPacket *app)
 		if (Admin() > 0)
 		{
 			Message(Chat::Red, "You are a GM. You cannot trade with other players. Use the dev server for that.");
-			database.SetHackerFlag(account_name, GetCleanName(), "GM attempted to trade with another player instead of using GM commands.");
 			return;
 		}
 

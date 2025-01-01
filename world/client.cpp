@@ -31,7 +31,7 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "wguild_mgr.h"
-#include "char_create_data.h"
+#include "../common/char_create_data.h"
 #include "../common/repositories/player_event_logs_repository.h"
 #include "../common/events/player_event_logs.h"
 

@@ -2030,14 +2030,14 @@ void Client::SetTemporaryLastName(char* in_lastname) {
 	}
 
 	if (strlen(in_lastname) >= 20) {
-		Message_StringID(Chat::Yellow, SURNAME_TOO_LONG);
+		Message_StringID(Chat::Yellow, StringID::SURNAME_TOO_LONG);
 		return;
 	}
 
 
 	if (in_lastname[0] != 0 && !database.CheckNameFilter(in_lastname, true))
 	{
-		Message_StringID(Chat::Red, SURNAME_REJECTED);
+		Message_StringID(Chat::Red, StringID::SURNAME_REJECTED);
 		return;
 	}
 
@@ -2067,7 +2067,7 @@ void Client::SetTemporaryCustomizedLastName(char* in_lastname) {
 
 	// This code path is through the Title NPC. Data is already valid.
 	if (strlen(in_lastname) >= sizeof(lastname)) {
-		Message_StringID(Chat::Yellow, SURNAME_TOO_LONG);
+		Message_StringID(Chat::Yellow, StringID::SURNAME_TOO_LONG);
 		return;
 	}
 
