@@ -17,37 +17,41 @@ void command_skilldifficulty(Client *c, const Seperator *sep)
 		{
 			for (int i = 0; i < EQ::skills::SkillCount; ++i)
 			{
-				int rawskillval = t->GetRawSkill(EQ::skills::SkillType(i));
-				int skillval = t->GetSkill(EQ::skills::SkillType(i));
-				int maxskill = t->GetMaxSkillAfterSpecializationRules(EQ::skills::SkillType(i), t->MaxSkill(EQ::skills::SkillType(i)));
-				c->Message(Chat::Yellow, "Skill: %s (%d) has difficulty: %0.2f", zone->skill_difficulty[i].name, i, zone->skill_difficulty[i].difficulty);
-				if(maxskill > 0)
+				for (int classid = 1; classid < 16; classid++)
 				{
-					c->Message(Chat::Green, "%s currently has %d (raw: %d) of %d towards this skill.", t->GetName(), skillval, rawskillval, maxskill);
+					int rawskillval = t->GetRawSkill(EQ::skills::SkillType(i));
+					int skillval = t->GetSkill(EQ::skills::SkillType(i));
+					int maxskill = t->GetMaxSkillAfterSpecializationRules(EQ::skills::SkillType(i), t->MaxSkill(EQ::skills::SkillType(i)));
+					c->Message(Chat::Yellow, "Skill: %s (%d) has difficulty: %0.2f for class %s (%u)", zone->skill_difficulty[i].name, i, zone->skill_difficulty[i].difficulty[classid], GetPlayerClassAbbreviation(classid).c_str(), classid);
+					if (classid == c->GetClass() && maxskill > 0)
+					{
+						c->Message(Chat::Green, "%s currently has %d (raw: %d) of %d towards this skill.", t->GetName(), skillval, rawskillval, maxskill);
+					}
 				}
 			}
 		}
 		else if (strcasecmp(sep->arg[1], "difficulty") == 0)
 		{
-			if(!sep->IsNumber(2) && !sep->IsNumber(3))
+			if(!sep->IsNumber(2) && !sep->IsNumber(3) && !sep->IsNumber(4))
 			{
-				c->Message(Chat::Red, "Please specify a valid skill and difficulty.");
+				c->Message(Chat::Red, "Please specify a valid skill, difficulty and classid.");
 				return;
 			}
-			else if(atoi(sep->arg[2]) > 74 || atoi(sep->arg[2]) < 0 || atof(sep->arg[3]) > 15 || atof(sep->arg[3]) < 1)
+			else if(atoi(sep->arg[2]) > 74 || atoi(sep->arg[2]) < 0 || atof(sep->arg[3]) > 34 || atof(sep->arg[3]) < 1 || atoi(sep->arg[4]) < 1 || atoi(sep->arg[4]) > 15)
 			{
-				c->Message(Chat::Red, "Please specify a skill between 0 and 74 and a difficulty between 1 and 15.");
+				c->Message(Chat::Red, "Please specify a skill between 0 and 74, difficulty between 1 and 34 and classid between 1 and 15.");
 				return;
 			}
 			else
 			{
 				uint16 skillid = atoi(sep->arg[2]);
 				float difficulty = atof(sep->arg[3]);
-				database.UpdateSkillDifficulty(skillid, difficulty);
+				uint8 classid = atoi(sep->arg[4]);
+				database.UpdateSkillDifficulty(skillid, difficulty, classid);
 				auto pack = new ServerPacket(ServerOP_ReloadSkills, 0);
 				worldserver.SendPacket(pack);
 				safe_delete(pack);
-				c->Message(Chat::White, "Set skill %d to difficulty %0.2f and reloaded all zones.", skillid, difficulty);
+				c->Message(Chat::White, "Set skill %d to difficulty %0.2f for class %u and reloaded all zones.", skillid, difficulty, classid);
 			}
 
 		}
@@ -81,7 +85,7 @@ void command_skilldifficulty(Client *c, const Seperator *sep)
 	else
 	{
 		c->Message(Chat::White, "Usage: #skills info - Provides information about target.");
-		c->Message(Chat::White, "#skills difficulty [skillid] [difficulty] - Sets difficulty for selected skill.");
+		c->Message(Chat::White, "#skills difficulty [skillid] [difficulty] [classid] - Sets difficulty for selected skill.");
 		c->Message(Chat::White, "#skills reload - Reloads skill difficulty in each zone.");
 		c->Message(Chat::White, "#skills values - Displays target's skill values.");
 	}

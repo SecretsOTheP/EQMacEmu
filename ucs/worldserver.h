@@ -20,19 +20,57 @@
 
 #include "../common/net/servertalk_client_connection.h"
 #include "../common/eq_packet_structs.h"
+#include "../common/timer.h"
+#include "database.h"
 #include <memory>
 
 class EQApplicationPacket;
 
+struct WorldServerConfig
+{
+	std::string WorldShortName;
+
+	std::string WorldIP;
+	uint16 WorldTCPPort;
+	std::string SharedKey;
+
+	std::string DatabaseHost;
+	std::string DatabaseUsername;
+	std::string DatabasePassword;
+	std::string DatabaseDB;
+	uint16 DatabasePort;
+};
+
 class WorldServer
 {
 public:
-	WorldServer();
+	WorldServer(WorldServerConfig *config);
 	~WorldServer();
-	void ProcessMessage(uint16 opcode, EQ::Net::Packet&);
+	void ProcessMessage(uint16 opcode, EQ::Net::Packet &);
+
+	UCSDatabase &GetUCSDatabase() { return m_database; }
+	void PingUCSDatabase();
 
 private:
 	std::unique_ptr<EQ::Net::ServertalkClient> m_connection;
+
+	WorldServerConfig *m_config;
+	UCSDatabase m_database;
+	Timer m_dbping_timer;
+};
+
+class WorldServerList
+{
+public:
+	WorldServerList();
+	void Process();
+	WorldServer *GetWorldServer(std::string WorldShortName) { return m_worldservers.count(WorldShortName) == 1 ? m_worldservers[WorldShortName] : nullptr; }
+	WorldServer *GetMainWorldServer() { return GetWorldServer(m_mainshortname); }
+	size_t GetServerCount() { return m_worldservers.size(); }
+
+private:
+	std::string m_mainshortname;
+	std::map<std::string, WorldServer *> m_worldservers;
 };
 
 #endif

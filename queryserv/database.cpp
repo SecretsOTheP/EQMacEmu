@@ -46,7 +46,6 @@
 #include "../common/strings.h"
 #include "../common/servertalk.h"
 
-
 void QSDatabase::LogPlayerSpeech(
 	const char *from,
 	const char *to,

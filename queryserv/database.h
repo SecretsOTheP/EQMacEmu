@@ -40,6 +40,8 @@
 class QSDatabase : public Database {
 public:
 
+	void AddSpeech(const char *from, const char *to, const char *message, uint16 minstatus, uint32 guilddbid, uint8 type);
+
 	void LogPlayerAARateHourly(QSPlayerAARateHourly_Struct* QS, uint32 items);
 	void LogPlayerAAPurchase(QSPlayerAAPurchase_Struct* QS, uint32 items);
 	void LogPlayerQGlobalUpdates(QSPlayerQGlobalUpdate_Struct* QS, uint32 items);
@@ -53,42 +55,6 @@ public:
 	void LogPlayerLootRecords(QSPlayerLootRecords_struct* QS, uint32 Items);
 
 	void GeneralQueryReceive(ServerPacket *pack);
-
-	/*
-	 * Database Setup for bootstraps only.
-	 */
-	bool DBSetup();
-	bool DBSetup_CheckLegacy();
-	bool DBSetup_PlayerAAPurchase();
-	bool DBSetup_PlayerDeathBy();
-	bool DBSetup_PlayerTSEvents();
-	bool DBSetup_PlayerQGlobalUpdates();
-	bool DBSetup_PlayerLootRecords();
-	bool DBSetup_PlayerItemDesyncs();
-
-	bool Check_Trade_Tables();
-	bool Create_Trade_Table();
-	bool Copy_Trade_Record();
-
-	bool Check_Handin_Tables();
-	bool Create_Handin_Table();
-	bool Copy_Handin_Record();
-
-	bool Check_NPCKills_Tables();
-	bool Create_NPCKills_Table();
-	bool Copy_NPCKills_Record();
-
-	bool Check_Merchant_Tables();
-	bool Create_Merchant_Table();
-	bool Copy_Merchant_Record();
-
-	bool Check_Delete_Tables();
-	bool Create_Delete_Table();
-	bool Copy_Delete_Record();
-
-	bool Check_ItemMove_Tables();
-	bool Create_ItemMove_Table();
-	bool Copy_ItemMove_Record();
 
 };
 

@@ -681,6 +681,36 @@
         OutF(LogSys, Logs::Detail, Logs::Discord, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
 } while (0)
 
+#define LogCombatRecord(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::General, Logs::CombatRecord))\
+        OutF(LogSys, Logs::General, Logs::CombatRecord, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogCombatRecordDetail(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::Detail, Logs::CombatRecord))\
+        OutF(LogSys, Logs::Detail, Logs::CombatRecord, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogCheat(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::General, Logs::Cheat))\
+        OutF(LogSys, Logs::General, Logs::Cheat, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogCheatDetail(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::Detail, Logs::Cheat))\
+        OutF(LogSys, Logs::Detail, Logs::Cheat, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogPlayerEvents(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::General, Logs::PlayerEvents))\
+        OutF(LogSys, Logs::General, Logs::PlayerEvents, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogPlayerEventsDetail(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::Detail, Logs::PlayerEvents))\
+        OutF(LogSys, Logs::Detail, Logs::PlayerEvents, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
 #define Log(debug_level, log_category, message, ...) do {\
     if (LogSys.IsLogEnabled(debug_level, log_category))\
         LogSys.Out(debug_level, log_category, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\

@@ -21,7 +21,7 @@ void command_save(Client *c, const Seperator *sep)
 	{
 		if (target->CastToClient()->Save(2))
 		{
-			c->Message_StringID(Chat::White, PC_SAVED, target->GetName());
+			c->Message_StringID(Chat::White, StringID::PC_SAVED, target->GetName());
 		}
 		else
 			c->Message(Chat::White, "Manual save for %s failed.", target->GetName());

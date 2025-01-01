@@ -121,7 +121,7 @@ namespace EQ
 		bool IsAmmo() const;
 
 		// Accessors
-		const int16 GetID() const { return ((m_item) ? m_item->ID : 0); }
+		const uint16 GetID() const { return ((m_item) ? m_item->ID : 0); }
 		const EQ::ItemData* GetItem() const;
 
 		int8 GetCharges() const { return m_charges; }

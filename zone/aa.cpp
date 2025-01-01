@@ -99,7 +99,7 @@ void Client::ActivateAA(aaID aaid)
 
 	if (playeraction != eaStanding || IsFeigned())
 	{
-		Message_StringID(Chat::SpellFailure, MUST_BE_STANDING_TO_CAST);
+		Message_StringID(Chat::SpellFailure, StringID::MUST_BE_STANDING_TO_CAST);
 		return;
 	}
 
@@ -254,7 +254,7 @@ void Client::ActivateAA(aaID aaid)
 		Corpse *corpse = entity_list.GetClosestCorpse(this, nullptr);
 		if (!corpse || DistanceSquaredNoZ(GetPosition(), corpse->GetPosition()) > 10000 || !CheckLosFN(corpse, true))
 		{
-			Message_StringID(Chat::White, NO_SUITABLE_CORPSE);
+			Message_StringID(Chat::White, StringID::NO_SUITABLE_CORPSE);
 			return;
 		}
 		if (IsClient())
@@ -270,7 +270,7 @@ void Client::ActivateAA(aaID aaid)
 		{
 			strcpy(corpse_name, corpse->GetCleanName());
 		}
-		Message_StringID(Chat::White, YOU_BEGIN_TO_CONCENTRATE, corpse_name);
+		Message_StringID(Chat::White, StringID::YOU_BEGIN_TO_CONCENTRATE, corpse_name);
 	}
 
 	// start the reuse timer
@@ -292,7 +292,7 @@ void Client::ActivateAA(aaID aaid)
 		{
 			if (GetMana() < caa->mana_cost)
 			{
-				Message_StringID(Chat::Red, INSUFFICIENT_MANA);
+				Message_StringID(Chat::Red, StringID::INSUFFICIENT_MANA);
 				return;
 			}
 			SetMana(GetMana() - caa->mana_cost);
@@ -306,7 +306,7 @@ void Client::ActivateAA(aaID aaid)
 
 		case aaActionMassBuff:
 			EnableAAEffect(aaEffectMassGroupBuff, caa->duration);
-			Message_StringID(Chat::Disciplines, MGB_STRING); // The next group buff you cast will hit all targets in range.
+			Message_StringID(Chat::Disciplines, StringID::MGB_STRING); // The next group buff you cast will hit all targets in range.
 			break;
 
 		case aaActionWarcry:
@@ -328,7 +328,7 @@ void Client::ActivateAA(aaID aaid)
 
 		case aaActionProjectIllusion:
 			EnableAAEffect(aaEffectProjectIllusion, caa->duration);
-			Message_StringID(Chat::Disciplines, PROJECT_ILLUSION); // The next illusion spell you cast that changes a player into another character model and not an object will work on the group member you have targeted.
+			Message_StringID(Chat::Disciplines, StringID::PROJECT_ILLUSION); // The next illusion spell you cast that changes a player into another character model and not an object will work on the group member you have targeted.
 			break;
 
 		case aaActionFrenziedBurnout:
@@ -380,7 +380,7 @@ void Client::ActivateAA(aaID aaid)
 
 		if (in_range == false)
 		{
-			Message_StringID(Chat::Red, TARGET_OUT_OF_RANGE);
+			Message_StringID(Chat::Red, StringID::TARGET_OUT_OF_RANGE);
 			cast_success = false;
 		}
 		else
@@ -399,7 +399,7 @@ void Client::ActivateAA(aaID aaid)
 		if (!cast_success)
 		{
 			//Reset on failed cast
-			ResetAATimer(aaid, ABILITY_FAILED);
+			ResetAATimer(aaid, StringID::ABILITY_FAILED);
 			return;
 		}
 
@@ -549,10 +549,10 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 
 		if (!corpse || DistanceSquaredNoZ(GetPosition(), corpse->GetPosition()) > 10000 || !CheckLosFN(corpse, true))
 		{
-			Message_StringID(Chat::White, NO_SUITABLE_CORPSE);
+			Message_StringID(Chat::White, StringID::NO_SUITABLE_CORPSE);
 			if (IsClient())
 			{
-				CastToClient()->ResetAATimer(aaWaketheDead, ABILITY_FAILED);
+				CastToClient()->ResetAATimer(aaWaketheDead, StringID::ABILITY_FAILED);
 			}
 		}
 		else
@@ -584,7 +584,7 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 			{
 				strcpy(corpse_name, corpse->GetCleanName());
 			}
-			entity_list.MessageClose_StringID(this, false, 100.0f, Chat::Disciplines, RISES_TO_SERVE, corpse_name, GetCleanName());
+			entity_list.MessageClose_StringID(this, false, 100.0f, Chat::Disciplines, StringID::RISES_TO_SERVE, corpse_name, GetCleanName());
 		}
 
 		if (IsClient())
@@ -763,7 +763,7 @@ void Client::DisableAAEffect(aaEffectType type) {
 	switch (type)
 	{
 	case aaEffectWarcry:
-		Message_StringID(Chat::Spells, WARCRY_FADES);
+		Message_StringID(Chat::Spells, StringID::WARCRY_FADES);
 		break;
 	}
 }
@@ -968,7 +968,7 @@ void Client::ResetSingleAATimer(aaID activate, uint32 messageid)
 
 	ZeroCastingVars();
 
-	uint16 color = messageid == TOO_DISTRACTED ? Chat::SpellFailure : Chat::Yellow;
+	uint16 color = messageid == StringID::TOO_DISTRACTED ? Chat::SpellFailure : Chat::Yellow;
 	Message_StringID(color, messageid);
 
 	int ptimerID = GetAATimerID(activate) + pTimerAAStart;
@@ -989,7 +989,7 @@ void Client::ResetAATimer(aaID activate, uint32 messageid)
 
 	ZeroCastingVars();
 
-	uint16 color = messageid == TOO_DISTRACTED ? Chat::SpellFailure : Chat::Yellow;
+	uint16 color = messageid == StringID::TOO_DISTRACTED ? Chat::SpellFailure : Chat::Yellow;
 	Message_StringID(color, messageid);
 
 	int ptimerID = GetAATimerID(activate) + pTimerAAStart;
@@ -1195,7 +1195,7 @@ void Client::InspectBuffs(Client* Inspector, int Rank)
 {
 	if (!Inspector || (Rank == 0)) return;
 
-	Inspector->Message_StringID(Chat::White, CURRENT_SPELL_EFFECTS, GetName());
+	Inspector->Message_StringID(Chat::White, StringID::CURRENT_SPELL_EFFECTS, GetName());
 	uint32 buff_count = GetMaxTotalSlots();
 	for (uint32 i = 0; i < buff_count; ++i)
 	{
@@ -1209,7 +1209,7 @@ void Client::InspectBuffs(Client* Inspector, int Rank)
 					Inspector->Message(Chat::White, "%s (Permanent)", spells[buffs[i].spellid].name);
 				else {
 					auto TempString = fmt::format(" {:.1f} ", static_cast<float>(buffs[i].ticsremaining) / 10.0f);
-					Inspector->Message_StringID(Chat::White, BUFF_MINUTES_REMAINING, spells[buffs[i].spellid].name, TempString.c_str());
+					Inspector->Message_StringID(Chat::White, StringID::BUFF_MINUTES_REMAINING, spells[buffs[i].spellid].name, TempString.c_str());
 				}
 			}
 		}

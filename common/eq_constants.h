@@ -417,12 +417,12 @@ enum Anonymity : uint8
 //ZoneChange_Struct->success values
 enum ZoningMessage : int8
 {
-	ZoneNoMessage = 0,
-	ZoneSuccess = 1,
-	ZoneNotReady = -1,
-	ZoneValidPC = -2,
-	ZoneStoryZone = -3,
-	ZoneNoExpansion = -6,
+	ZoneNoMessage    = 0,
+	ZoneSuccess      = 1,
+	ZoneNotReady     = -1,
+	ZoneValidPC      = -2,
+	ZoneStoryZone    = -3,
+	ZoneNoExpansion  = -6,
 	ZoneNoExperience = -7
 };
 
@@ -716,6 +716,12 @@ enum ChatChannelNames : uint16
 
 	ChatChannel_UNKNOWN_Guild = 17,
 	ChatChannel_UNKNOWN_GMSAY = 18
+};
+
+enum ResurrectionActions
+{
+	Decline,
+	Accept
 };
 
 #endif

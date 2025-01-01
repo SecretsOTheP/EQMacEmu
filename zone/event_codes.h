@@ -76,6 +76,7 @@ typedef enum {
 	EVENT_SPAWN_ZONE,
 	EVENT_DEATH_ZONE,
 	EVENT_CLICK_MERCHANT,		// client clicked on a merchant NPC
+	EVENT_WARP,
 	_LargestEventID
 } QuestEventID;
 

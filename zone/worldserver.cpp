@@ -55,6 +55,8 @@
 #include "queryserv.h"
 #include "../common/patches/patches.h"
 #include "../common/skill_caps.h"
+#include "queryserv.h"
+#include "../common/events/player_event_logs.h"
 
 extern EntityList entity_list;
 extern Zone* zone;
@@ -248,13 +250,13 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				if (client && client->Connected()) {
 					if (scm->chan_num == ChatChannel_TellEcho) {
 						if (scm->queued == 1) { // tell was queued
-							client->Tell_StringID(QUEUED_TELL, scm->to, scm->message);
+							client->Tell_StringID(StringID::QUEUED_TELL, scm->to, scm->message);
 						}
 						else if (scm->queued == 2) { // tell queue was full
-							client->Tell_StringID(QUEUE_TELL_FULL, scm->to, scm->message);
+							client->Tell_StringID(StringID::QUEUE_TELL_FULL, scm->to, scm->message);
 						}
 						else if (scm->queued == 3) { // person was offline
-							client->Message_StringID(Chat::EchoTell, TOLD_NOT_ONLINE, scm->to);
+							client->Message_StringID(Chat::EchoTell, StringID::TOLD_NOT_ONLINE, scm->to);
 						}
 						else { // normal tell echo "You told Soanso, 'something'"
 							// tell echo doesn't use language, so it looks normal to you even if nobody can understand your tells
@@ -415,7 +417,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Client* client = entity_list.GetClientByID(wars->id);
 				if (client) {
 					if (pack->size == 58) {//no results
-						client->Message_StringID(Chat::White, WHOALL_NO_RESULTS);
+						client->Message_StringID(Chat::White, StringID::WHOALL_NO_RESULTS);
 					}
 					else {
 						auto outapp = new EQApplicationPacket(OP_WhoAllResponse, pack->size);
@@ -779,7 +781,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			Client* c = entity_list.GetClientByName(Rezzer);
 
 			if (c) {
-				c->Message_StringID(Chat::SpellWornOff, REZZ_ALREADY_PENDING);
+				c->Message_StringID(Chat::SpellWornOff, StringID::REZZ_ALREADY_PENDING);
 			}
 
 			break;
@@ -1634,7 +1636,8 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				scs->permission = s->permission;
 				scs->zone_id = s->zone_id;
 				scs->GuildID = s->GuildID;
-				scs->message_string_id = TARGET_NOT_FOUND;
+				scs->message_string_id = StringID::TARGET_NOT_FOUND;
+
 				scs->corpse_id = 0;
 				worldserver.SendPacket(scs_pack);
 				safe_delete(scs_pack);
@@ -1647,11 +1650,11 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			Client* grant = entity_list.GetClientByName(s->grantname);
 
 			// Consent has completed successfully in ServerOP_Consent. Send the success message to the owner.
-			if(owner && s->message_string_id == CONSENT_GIVEN) {
+			if(owner && s->message_string_id == StringID::CONSENT_GIVEN) {
 				owner->Message_StringID(Chat::White, s->message_string_id, s->grantname);
 			}
 			// Revoke consent.
-			else if(grant && s->message_string_id == CONSENT_BEEN_DENIED) {
+			else if(grant && s->message_string_id == StringID::CONSENT_BEEN_DENIED) {
 				grant->Consent(0, s->ownername, s->grantname, false, s->corpse_id);
 				if (s->corpse_id == 0) {
 					grant->Message_StringID(Chat::White, s->message_string_id, s->ownername);
@@ -1662,7 +1665,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				char ownername[64];
 				strcpy(ownername, owner->GetName());
 				owner->Consent(1, ownername, s->grantname, true);
-				owner->Message_StringID(Chat::White, CONSENT_GIVEN, s->grantname);
+				owner->Message_StringID(Chat::White, StringID::CONSENT_GIVEN, s->grantname);
 			}
 			break;
 		}
@@ -1670,7 +1673,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			ServerOP_ConsentDeny_Struct* s = (ServerOP_ConsentDeny_Struct*)pack->pBuffer;
 			Client* client = entity_list.GetClientByName(s->grantname);
 			if (client) {
-				client->Message_StringID(Chat::White, CONSENT_BEEN_DENIED, s->ownername);
+				client->Message_StringID(Chat::White, StringID::CONSENT_BEEN_DENIED, s->ownername);
 				client->Consent(0, s->ownername, s->grantname);
 			}
 			break;
@@ -1936,6 +1939,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 		case ServerOP_ReloadLogs: {
 			zone->SendReloadMessage("Log Settings");
 			LogSys.LoadLogDatabaseSettings();
+			player_event_logs.ReloadSettings();
 			break;
 		}
 		case ServerOP_ReloadLoot: {

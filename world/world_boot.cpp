@@ -237,8 +237,8 @@ bool WorldBoot::DatabaseLoadRoutines(int argc, char** argv)
 	LogInfo("Clearing raids");
 	database.ClearRaid();
 	database.ClearRaidDetails();
-	LogInfo("Loading items");
 
+	LogInfo("Loading items");
 	if (!database.LoadItems(hotfix_name)) {
 		LogError("Error: Could not load item data. But ignoring");
 	}
@@ -280,8 +280,8 @@ bool WorldBoot::DatabaseLoadRoutines(int argc, char** argv)
 		database.AdjustSpawnTimes();
 	}
 
-	if (RuleB(World, ClearTempMerchantlist)) {
-		LogInfo("Clearing temporary merchant lists...");
+	if (RuleB(World, ClearTempList)) {
+		LogInfo("Clearing temporary merchant lists");
 		database.ClearMerchantTemp();
 	}
 

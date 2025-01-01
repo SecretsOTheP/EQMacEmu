@@ -111,6 +111,8 @@ private:
 
 	EQStreamInterface* const eqs;
 
+	void RecordPossibleHack(const std::string &message);
+
 	uint16	expansion;
 	uint8	charcount;
 	bool	mule;

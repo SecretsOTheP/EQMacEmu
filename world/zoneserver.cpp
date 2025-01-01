@@ -34,6 +34,8 @@
 #include "ucs.h"
 #include "queryserv.h"
 #include "../common/content/world_content_service.h"
+#include "../common/repositories/player_event_logs_repository.h"
+#include "../common/events/player_event_logs.h"
 #include "../common/zone_store.h"
 #include "../common/patches/patches.h"
 #include "../common/skill_caps.h"
@@ -1205,7 +1207,7 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	case ServerOP_Consent:
 	{
 		bool success = false;
-
+		
 		ZoneServer* zs;
 		auto s = (ServerOP_Consent_Struct*)pack->pBuffer;
 		ClientListEntry* cle = client_list.FindCharacter(s->grantname);

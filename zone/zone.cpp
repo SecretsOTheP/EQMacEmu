@@ -1193,6 +1193,8 @@ bool Zone::Init(bool is_static) {
 
 void Zone::ReloadStaticData() {
 	LogInfo("Reloading Zone Static Data...");
+	entity_list.RemoveAllObjects();
+	entity_list.RemoveAllDoors();
 
 	LogInfo("Reloading static zone points...");
 	zone_point_list.Clear();
@@ -1222,11 +1224,11 @@ void Zone::ReloadStaticData() {
 		LogError("Reloading World Objects failed. continuing.");
 	}
 
-	entity_list.RemoveAllDoors();
 	LoadZoneDoors();
 	entity_list.RespawnAllDoors();
 
 	LogInfo("Reloading NPC Emote Data...");
+	npc_emote_list.clear();
 	LoadNPCEmotes(&npc_emote_list);
 
 	LogInfo("Reloading KeyRing Data...");
@@ -2487,30 +2489,45 @@ void Zone::LoadKeyRingData(LinkedList<KeyRing_Data_Struct*>* KeyRingDataList)
 
 void Zone::LoadSkillDifficulty()
 {
-    const std::string query = "SELECT skillid, difficulty, name FROM skill_difficulty order by skillid";
+    const std::string query = "SELECT skillid, difficulty, name, class FROM skill_difficulty order by skillid";
     auto results = database.QueryDatabase(query);
     if (!results.Success()) {
         return;
     }
 
-	int i = 0;
+	// load table
     for (auto row = results.begin(); row != results.end(); ++row)
     {
         uint8 skillid = atoi(row[0]);
+		float skilldiff = atof(row[1]);
+		char *skillname = row[2];
+		uint8 classid = atoi(row[3]);
 
-		while (i < skillid && i < EQ::skills::SkillCount)
+		if (skill_difficulty.count(skillid) == 0)
 		{
-			skill_difficulty[i].difficulty = 7.5;
-			strncpy(skill_difficulty[i].name, "SkillUnknown", 32);
-			LogError("Skill {} is not in the database!", i);
-			++i;
+			strncpy(skill_difficulty[skillid].name, skillname, sizeof(skill_difficulty[skillid].name));
 		}
-
-        skill_difficulty[skillid].difficulty = atof(row[1]);
-		strncpy(skill_difficulty[skillid].name, row[2], 32);
-		++i;
+		skill_difficulty[skillid].difficulty[classid] = skilldiff;
     }
-
+	
+	// validate and print errors about missing rows
+	for (int skillid = 0; skillid < EQ::skills::SkillCount; skillid++)
+	{
+		if (skill_difficulty.count(skillid) == 0)
+		{
+			LogError("Skill {0} not configured in skill_difficulty table and will use default difficulty for skill up checks.", EQ::skills::GetSkillName((EQ::skills::SkillType)skillid));
+		}
+		else
+		{
+			for (int classid = 1; classid < 16; classid++)
+			{
+				if (skill_difficulty[skillid].difficulty[classid] == 0)
+				{
+					LogError("Skill {0} class {1} not configured in skill_difficulty table and will use default difficulty for skill up checks.", EQ::skills::GetSkillName((EQ::skills::SkillType)skillid), GetPlayerClassAbbreviation(classid).c_str());
+				}
+			}
+		}
+	}
 }
 
 void Zone::ReloadWorld(uint8 global_repop){

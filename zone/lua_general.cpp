@@ -1189,6 +1189,11 @@ void lua_discord_send(std::string webhook_name, std::string message)
 	zone->SendDiscordMessage(webhook_name, message);
 }
 
+void lua_send_player_handin_event()
+{
+	quest_manager.SendPlayerHandinEvent();
+}
+
 /**
  * Expansions
  */
@@ -1616,6 +1621,7 @@ luabind::scope lua_register_general() {
 		luabind::def("is_hotzone", (bool(*)(void))& lua_is_hotzone),
 		luabind::def("set_hotzone", (void(*)(bool))& lua_set_hotzone),
 		luabind::def("discord_send", &lua_discord_send),
+		luabind::def("send_player_handin_event", (void(*)(void)) &lua_send_player_handin_event),
 		
 		
 		/**
@@ -1711,7 +1717,8 @@ luabind::scope lua_register_events() {
 			luabind::value("tick", static_cast<int>(EVENT_TICK)),
 			luabind::value("spawn_zone", static_cast<int>(EVENT_SPAWN_ZONE)),
 			luabind::value("death_zone", static_cast<int>(EVENT_DEATH_ZONE)),
-			luabind::value("click_merchant", static_cast<int>(EVENT_CLICK_MERCHANT))
+			luabind::value("click_merchant", static_cast<int>(EVENT_CLICK_MERCHANT)),
+			luabind::value("warp", static_cast<int>(EVENT_WARP))
 		];
 }
 

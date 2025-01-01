@@ -15,7 +15,7 @@ SET(common_sources
 	deity.cpp
 	dbcore.cpp
 	discord/discord.cpp
-	discord_manager.cpp
+	discord/discord_manager.cpp
 	emu_constants.cpp
 	emu_limits.cpp
 	emu_opcodes.cpp
@@ -33,6 +33,8 @@ SET(common_sources
 	eq_stream_proxy.cpp
 	eqtime.cpp
 	event_sub.cpp
+	events/player_event_logs.cpp
+    events/player_event_discord_formatter.cpp
 	extprofile.cpp
 	faction.cpp
 	fastmath.cpp
@@ -182,6 +184,8 @@ SET(repositories
 	repositories/base/base_petitions_repository.h
 	repositories/base/base_pets_repository.h
 	repositories/base/base_player_titlesets_repository.h
+	repositories/base/base_player_event_log_settings_repository.h
+    repositories/base/base_player_event_logs_repository.h
 	repositories/base/base_quest_globals_repository.h
 	repositories/base/base_raid_details_repository.h
 	repositories/base/base_raid_members_repository.h
@@ -283,6 +287,8 @@ SET(repositories
 	repositories/petitions_repository.h
 	repositories/pets_repository.h
 	repositories/player_titlesets_repository.h
+	repositories/player_event_log_settings_repository.h
+    repositories/player_event_logs_repository.h
 	repositories/quest_globals_repository.h
 	repositories/raid_details_repository.h
 	repositories/raid_members_repository.h
@@ -342,7 +348,7 @@ SET(common_headers
 	dbcore.h
 	deity.h
 	discord/discord.h
-	discord_manager.h
+	discord/discord_manager.h
 	emu_constants.h
 	emu_limits.h
 	emu_opcodes.h
@@ -368,6 +374,9 @@ SET(common_headers
 	eq_stream_type.h
 	eqtime.h
 	event_sub.h
+	events/player_event_logs.h
+    events/player_event_discord_formatter.h
+    events/player_events.h
 	extprofile.h
 	faction.h
 	fastmath.h
@@ -439,6 +448,7 @@ SET(common_headers
 	zone_numbers.h
 	zone_store.h
 	platform.h
+	json/json_archive_single_line.h
 	json/json.h
 	json/json-forwards.h
 	event/event_loop.h

@@ -229,32 +229,6 @@ bool ZoneDatabase::GetZoneCFG(uint32 zoneid, NewZone_Struct *zone_data, bool &ca
 	return true;
 }
 
-bool ZoneDatabase::logevents(const char* accountname,uint32 accountid,uint8 status,const char* charname, const char* target,const char* descriptiontype, const char* description,int event_nid){
-
-	uint32 len = strlen(description);
-	uint32 len2 = strlen(target);
-	auto descriptiontext = new char[2 * len + 1];
-	auto targetarr = new char[2 * len2 + 1];
-	memset(descriptiontext, 0, 2*len+1);
-	memset(targetarr, 0, 2*len2+1);
-	DoEscapeString(descriptiontext, description, len);
-	DoEscapeString(targetarr, target, len2);
-
-	std::string query = StringFormat("INSERT INTO eventlog (accountname, accountid, status, "
-                                    "charname, target, descriptiontype, description, event_nid) "
-                                    "VALUES('%s', %i, %i, '%s', '%s', '%s', '%s', '%i')",
-                                    accountname, accountid, status, charname, targetarr,
-                                    descriptiontype, descriptiontext, event_nid);
-    safe_delete_array(descriptiontext);
-	safe_delete_array(targetarr);
-	auto results = QueryDatabase(query);
-	if (!results.Success())	{
-		return false;
-	}
-
-	return true;
-}
-
 void ZoneDatabase::UpdateBug(BugReport_Struct* bug_report, uint32 clienttype) 
 {
 	if (!bug_report)
@@ -2056,12 +2030,8 @@ int ZoneDatabase::getZoneShutDownDelay(uint32 zoneID)
 {
 	std::string query = StringFormat("SELECT shutdowndelay FROM zone WHERE zoneidnumber = %i", zoneID);
     auto results = QueryDatabase(query);
-    if (!results.Success()) {
-        return (RuleI(Zone, AutoShutdownDelay));
-    }
 
-    if (results.RowCount() == 0) {
-        std::cerr << "Error in getZoneShutDownDelay no result '" << query << "' " << std::endl;
+    if (!results.Success() || results.RowCount() == 0) {
         return (RuleI(Zone, AutoShutdownDelay));
     }
 
@@ -3938,10 +3908,10 @@ bool ZoneDatabase::SaveSoulboundItems(Client* client, std::list<EQ::ItemInstance
 	return false;
 }
 
-bool ZoneDatabase::UpdateSkillDifficulty(uint16 skillid, float difficulty)
+bool ZoneDatabase::UpdateSkillDifficulty(uint16 skillid, float difficulty, uint8 classid)
 {
 		std::string query = StringFormat("UPDATE skill_difficulty SET difficulty = %0.2f "
-                                    "WHERE skillid = %u;", difficulty, skillid);
+                                    "WHERE skillid = %u and class = %u;", difficulty, skillid, classid);
     auto results = QueryDatabase(query);
 	if (!results.Success())
 		return false;

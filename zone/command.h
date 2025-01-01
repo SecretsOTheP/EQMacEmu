@@ -25,6 +25,7 @@ class Seperator;
 
 #include "../common/types.h"
 #include <string>
+#include <map>
 
 #define	COMMAND_CHAR '#'
 
@@ -45,7 +46,6 @@ void command_deinit(void);
 int command_add(std::string command_name, std::string description, uint8 admin, CmdFuncPtr function);
 int command_notavail(Client *c, std::string message, bool ignore_status);
 int command_realdispatch(Client *c, std::string message, bool ignore_status);
-void command_logcommand(Client *c, std::string message);
 uint8 GetCommandStatus(std::string command_name);
 void ListModifyNPCStatMap(Client* c);
 std::map<std::string, std::string> GetModifyNPCStatMap();

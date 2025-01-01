@@ -112,7 +112,8 @@ const char *LuaEvents[_LargestEventID] = {
 	"event_tick",
 	"event_spawn_zone",
 	"event_death_zone",
-	"event_click_merchant"
+	"event_click_merchant",
+	"event_warp"
 };
 
 extern Zone *zone;
@@ -192,6 +193,7 @@ LuaParser::LuaParser() {
 	PlayerArgumentDispatch[EVENT_BOARD_BOAT] = handle_board_boat;
 	PlayerArgumentDispatch[EVENT_LEAVE_BOAT] = handle_leave_boat;
 	PlayerArgumentDispatch[EVENT_CLICK_MERCHANT] = handle_click_merchant;
+	PlayerArgumentDispatch[EVENT_WARP] = handle_player_warp;
 
 	ItemArgumentDispatch[EVENT_ITEM_CLICK] = handle_item_click;
 	ItemArgumentDispatch[EVENT_ITEM_CLICK_CAST] = handle_item_click;

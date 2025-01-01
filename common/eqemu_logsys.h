@@ -124,6 +124,9 @@ namespace Logs {
 		EqTime,
 		ClientLogin,
 		Discord,
+		CombatRecord,
+		Cheat,
+		PlayerEvents,
 		MaxCategoryID	/* Don't Remove this*/
 	};
 
@@ -204,7 +207,10 @@ namespace Logs {
 		"Zone Points",
 		"EqTime",
 		"Client Login",
-		"Discord"
+		"Discord",
+		"CombatRecord",
+		"Cheat",
+		"PlayerEvents"
 	};
 }
 

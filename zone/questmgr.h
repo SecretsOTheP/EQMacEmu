@@ -228,6 +228,7 @@ public:
 	
 	float GetCurrentExpansion() const;
 	std::string getdeityname(uint32 deity_id);
+	void SendPlayerHandinEvent();
 
 	Client *GetInitiator() const;
 	NPC *GetNPC() const;

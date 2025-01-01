@@ -1363,7 +1363,7 @@ void NPC::PickPocket(Client* thief)
 	{
 		if(olevel > 45) 
 		{
-			thief->Message_StringID(Chat::Skills, STEAL_OUTSIDE_LEVEL);
+			thief->Message_StringID(Chat::Skills, StringID::STEAL_OUTSIDE_LEVEL);
 			thief->SendPickPocketResponse(this, 0, PickPocketFailed, 0, nullptr, true);
 			return;
 		}
@@ -1380,7 +1380,7 @@ void NPC::PickPocket(Client* thief)
 	{
 		AddToHateList(thief, 50);
 		if(CanTalk())
-			Say_StringID(PP_FAIL, thief->GetName());
+			Say_StringID(StringID::PP_FAIL, thief->GetName());
 		thief->SendPickPocketResponse(this, 0, PickPocketFailed);
 		return;
 	}
@@ -2230,7 +2230,7 @@ void NPC::DoNPCEmote(uint8 event_, uint32 emoteid, Mob* target)
 			this->Shout("%s", processed.c_str());
 		}
 		else if (nes->type == 3) {
-			entity_list.MessageClose_StringID(this, true, 200, 10, GENERIC_STRING, processed.c_str());
+			entity_list.MessageClose_StringID(this, true, 200, 10, StringID::GENERIC_STRING, processed.c_str());
 		}
 		else {
 			this->Say("%s", processed.c_str());
@@ -2268,7 +2268,7 @@ void NPC::DoFactionEmote()
 		if (IsPlayableRace(target->GetRace()))
 			Say_StringID(0, zone->random.Int(1176, 1179), itoa(target->GetRaceStringID()));
 		else
-			Say_StringID(0, zone->random.Int(1176, 1179), itoa(SCUMSUCKERS));
+			Say_StringID(0, zone->random.Int(1176, 1179), itoa(StringID::SCUMSUCKERS));
 	}
 	else
 		Say_StringID(zone->random.Int(1184, 1187));
@@ -3212,7 +3212,7 @@ uint8 NPC::Disarm(float chance)
 
 				// NPC has a weapon and was disarmed.
 				if (CanTalk())
-					Say_StringID(DISARM_SUCCESS);
+					Say_StringID(StringID::DISARM_SUCCESS);
 
 				return 2;
 			}

@@ -1,8 +1,11 @@
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/binary.hpp>
 #include "discord.h"
 #include "../http/httplib.h"
 #include "../json/json.h"
 #include "../strings.h"
 #include "../eqemu_logsys.h"
+#include "../events/player_event_logs.h"
 
 constexpr int MAX_RETRIES = 10;
 
@@ -75,6 +78,74 @@ void Discord::SendWebhookMessage(const std::string& message, const std::string& 
         LogInfo("Client creation failure [{}]", ex.what());
         return;
     }
+}
+
+void Discord::SendPlayerEventMessage(
+	const PlayerEvent::PlayerEventContainer &e,
+	const std::string &webhook_url
+)
+{
+	if (!ValidateWebhookUrl(webhook_url)) {
+		return;
+	}
+
+	auto s = Strings::Split(webhook_url, '/');
+
+	// url
+	std::string base_url = fmt::format("{}//{}", s[0], s[2]);
+	std::string endpoint = Strings::Replace(webhook_url, base_url, "");
+
+	// client
+	httplib::Client cli(base_url);
+	cli.set_connection_timeout(0, 15000000); // 15 sec
+	cli.set_read_timeout(15, 0); // 15 seconds
+	cli.set_write_timeout(15, 0); // 15 seconds
+	httplib::Headers headers = {
+		{"Content-Type", "application/json"}
+	};
+
+	std::string payload = PlayerEventLogs::GetDiscordPayloadFromEvent(e);
+	if (payload.empty()) {
+		return;
+	}
+
+	bool retry = true;
+	int  retries = 0;
+	int  retry_timer = 1000;
+	while (retry) {
+		if (auto res = cli.Post(endpoint, payload, "application/json")) {
+			if (res->status != 200 && res->status != 204) {
+				LogError("Code [{}] Error [{}]", res->status, res->body);
+			}
+			if (res->status == 429) {
+				if (!res->body.empty()) {
+					std::stringstream ss(res->body);
+					Json::Value       response;
+
+					try {
+						ss >> response;
+					}
+					catch (std::exception const &ex) {
+						LogDiscord("JSON serialization failure [{}] via [{}]", ex.what(), res->body);
+					}
+
+					retry_timer = std::stoi(response["retry_after"].asString()) + 500;
+				}
+
+				LogDiscord("Rate limited... retrying message in [{}ms]", retry_timer);
+				std::this_thread::sleep_for(std::chrono::milliseconds(retry_timer + 500));
+			}
+			if (res->status == 204) {
+				retry = false;
+			}
+			if (retries > MAX_RETRIES) {
+				LogDiscord("Retries exceeded for player event message");
+				retry = false;
+			}
+
+			retries++;
+		}
+	}
 }
 
 std::string Discord::FormatDiscordMessage(uint16 category_id, const std::string& message)

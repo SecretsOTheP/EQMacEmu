@@ -194,7 +194,7 @@ bool NPC::AICastSpell(Mob* tar, uint8 iChance, uint16 iSpellTypes, bool zeroPrio
 						if (!roambox_distance && !IsPet() && GetHPRatio() <= 15.0f && zone->GetZoneExpansion() != ClassicEQ
 							&& zone->random.Roll(50) && DistanceSquared(CastToNPC()->GetSpawnPoint(), GetPosition()) > 40000)
 						{
-							entity_list.MessageClose_StringID(this, true, 200, Chat::Spells, BEGIN_GATE, this->GetCleanName());
+							entity_list.MessageClose_StringID(this, true, 200, Chat::Spells, StringID::BEGIN_GATE, this->GetCleanName());
 							AIDoSpellCast(i, tar, mana_cost);
 							AIspells[i].time_cancast = Timer::GetCurrentTime() + 5000;
 							return true;
@@ -1003,7 +1003,7 @@ void Client::AI_Process()
 
 					if (GetTarget())
 					{
-						CheckIncreaseSkill(EQ::skills::SkillDoubleAttack, GetTarget(), zone->skill_difficulty[EQ::skills::SkillDoubleAttack].difficulty);
+						CheckIncreaseSkill(EQ::skills::SkillDoubleAttack, GetTarget(), zone->skill_difficulty[EQ::skills::SkillDoubleAttack].difficulty[GetClass()]);
 						if (CheckDoubleAttack())
 						{
 							Attack(GetTarget(), EQ::invslot::slotPrimary);
@@ -1018,7 +1018,7 @@ void Client::AI_Process()
 								{
 									if (zone->random.Int(0, 99) < aabonuses.FlurryChance)
 									{
-										Message_StringID(Chat::NPCFlurry, YOU_FLURRY);
+										Message_StringID(Chat::NPCFlurry, StringID::YOU_FLURRY);
 										Attack(GetTarget(), EQ::invslot::slotPrimary);
 
 										if (zone->random.Roll(10))							// flurry is usually only +1 swings
@@ -1051,7 +1051,7 @@ void Client::AI_Process()
 
 			if (GetTarget() && !IsStunned() && !IsMezzed() && !IsFeigned() && attack_dw_timer.CheckKeepSynchronized() && IsDualWielding())
 			{
-				CheckIncreaseSkill(EQ::skills::SkillDualWield, GetTarget(), zone->skill_difficulty[EQ::skills::SkillDualWield].difficulty);
+				CheckIncreaseSkill(EQ::skills::SkillDualWield, GetTarget(), zone->skill_difficulty[EQ::skills::SkillDualWield].difficulty[GetClass()]);
 				if (CheckDualWield())
 				{
 					TryProcs(GetTarget(), EQ::invslot::slotSecondary);
@@ -2462,7 +2462,8 @@ void Mob::AI_Event_Engaged(Mob* attacker)
 					if (emoteid != 0 && !IsPet()) {
 						CastToNPC()->DoNPCEmote(EQ::constants::EmoteEventTypes::EnterCombat, emoteid, attacker);
 					}
-
+					std::string mob_name = GetCleanName();
+					m_combat_record.Start(mob_name);
 					CastToNPC()->SetCombatEvent(true);
 				}
 			}
@@ -2554,6 +2555,7 @@ void Mob::AI_Event_NoLongerEngaged() {
 				if (emoteid != 0) {
 					CastToNPC()->DoNPCEmote(EQ::constants::EmoteEventTypes::LeaveCombat, emoteid);
 				}
+				m_combat_record.Stop();
 				CastToNPC()->SetCombatEvent(false);
 			}
 		}
@@ -2729,14 +2731,14 @@ void Mob::StartEnrage()
 
 	// start the timer. need to call IsEnraged frequently since we dont have callback timers :-/
 	bEnraged = true;
-	entity_list.MessageClose_StringID(this, true, 200, Chat::NPCEnrage, NPC_ENRAGE_START, GetCleanName());
+	entity_list.MessageClose_StringID(this, true, 200, Chat::NPCEnrage, StringID::NPC_ENRAGE_START, GetCleanName());
 }
 
 void Mob::ProcessEnrage(){
 	if(IsEnraged()){
 		Timer *timer = GetSpecialAbilityTimer(SpecialAbility::Enrage);
 		if(timer && timer->Check()){
-			entity_list.MessageClose_StringID(this, true, 200, Chat::NPCEnrage, NPC_ENRAGE_END, GetCleanName());
+			entity_list.MessageClose_StringID(this, true, 200, Chat::NPCEnrage, StringID::NPC_ENRAGE_END, GetCleanName());
 
 			int enraged_cooldown = GetSpecialAbilityParam(SpecialAbility::Enrage, 2);
 			enraged_cooldown = enraged_cooldown > 0 ? enraged_cooldown : EnragedTimer;
@@ -2761,10 +2763,10 @@ bool Mob::Flurry()
 	{
 		if (!IsPet())
 		{
-			entity_list.MessageClose_StringID(this, true, 200, Chat::NPCFlurry, NPC_FLURRY, GetCleanName(), target->GetCleanName());
+			entity_list.MessageClose_StringID(this, true, 200, Chat::NPCFlurry, StringID::NPC_FLURRY, GetCleanName(), target->GetCleanName());
 		} else
 		{
-			entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, NPC_FLURRY, GetCleanName(), target->GetCleanName());
+			entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::NPC_FLURRY, GetCleanName(), target->GetCleanName());
 		}
 
 		if (IsNPC())
@@ -2848,9 +2850,9 @@ bool Mob::Rampage(int range, int damagePct)
 		return false;
 
 	if (!IsPet())
-		entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, NPC_RAMPAGE, GetCleanName());
+		entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, StringID::NPC_RAMPAGE, GetCleanName());
 	else
-		entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, NPC_RAMPAGE, GetCleanName());
+		entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::NPC_RAMPAGE, GetCleanName());
 
 	for (int i = 0; i < RampageArray.size(); i++)
 	{
@@ -2909,12 +2911,12 @@ void Mob::AreaRampage(int numTargets, int damagePct)
 	if (!IsPet())	// do not know every pet AA so thought it safer to add this
 	{
 		// older clients did not have 'wild rampage' string
-		entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, NPC_RAMPAGE, GetCleanName());
+		entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, StringID::NPC_RAMPAGE, GetCleanName());
 		//entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, AE_RAMPAGE, GetCleanName());
 	}
 	else
 	{
-		entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, NPC_RAMPAGE, GetCleanName());
+		entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::NPC_RAMPAGE, GetCleanName());
 		//entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, AE_RAMPAGE, GetCleanName());
 	}
 

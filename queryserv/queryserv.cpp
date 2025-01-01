@@ -33,6 +33,7 @@
 #include "../common/path_manager.h"
 #include "../common/zone_store.h"
 #include "../common/content/world_content_service.h"
+#include "../common/events/player_event_logs.h"
 #include <list>
 #include <signal.h>
 #include <thread>
@@ -46,6 +47,7 @@ WorldServer           *worldserver = 0;
 EQEmuLogSys           LogSys;
 PathManager           path;
 ZoneStore             zone_store;
+PlayerEventLogs       player_event_logs;
 WorldContentService content_service;
 
 void CatchSignal(int sig_num) { 
@@ -100,12 +102,19 @@ int main() {
 	worldserver = new WorldServer;
 	worldserver->Connect(); 
 
+	Timer player_event_process_timer(1000);
+	player_event_logs.SetDatabase(&database)->Init();
+
 	auto loop_fn = [&](EQ::Timer* t) {
 		Timer::SetCurrentTime();
 
 		if (!RunLoops) {
 			EQ::EventLoop::Get().Shutdown();
 			return;
+		}
+
+		if (player_event_process_timer.Check()) {
+			player_event_logs.Process();
 		}
 	};
 

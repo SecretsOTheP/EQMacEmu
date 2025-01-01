@@ -6,7 +6,11 @@
 #include "../common/eq_packet_structs.h"
 #include "../common/net/packet.h"
 #include <cereal/cereal.hpp>
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/chrono.hpp>
 #include <cereal/types/string.hpp>
+#include <cereal/types/vector.hpp>
+#include <glm/vec4.hpp>
 
 #define SERVER_TIMEOUT	30000	// how often keepalive gets sent
 #define INTERSERVER_TIMER					10000
@@ -218,6 +222,8 @@
 #define ServerOP_QSPlayerTSEvents					0x5022
 #define ServerOP_QSPlayerQGlobalUpdates				0x5023
 #define ServerOP_QSPlayerLootRecords				0x5024
+// player events
+#define ServerOP_PlayerEvent 0x5100
 
 /*Quarm*/
 #define ServerOP_QuakeImminent 0x4200
@@ -233,7 +239,7 @@
 #define ServerOP_WIClientSessionResponse 0x5005
 /* Query Serv Generic Packet Flag/Type Enumeration */
 
-#define ServerOP_Speech			0x4513
+#define ServerOP_Speech			0x5500
 
 enum {
 	UserToWorldStatusWorldUnavail    = 0,
@@ -1049,6 +1055,7 @@ struct QSPlayerLogHandin_Struct {
 	uint32				npc_id;
 };
 
+
 struct QSPlayerLogNPCKillSub_Struct{
 	uint32 NPCID;
 	uint32 ZoneID;
@@ -1230,6 +1237,11 @@ struct ServerWeather_Struct {
 	uint32 type;
 	uint32 intensity;
 	uint16 timer;
+};
+
+struct ServerSendPlayerEvent_Struct {
+	uint32_t cereal_size;
+	char cereal_data[0];
 };
 
 struct ServerFlagUpdate_Struct {

@@ -116,9 +116,6 @@ public:
 	uint16	MoveCharacterToBind(uint32 iCharID);
 	
 	bool	UpdateName(const char* oldname, const char* newname);
-	bool	SetHackerFlag(const char* accountname, const char* charactername, const char* hacked);
-	bool	SetMQDetectionFlag(const char* accountname, const char* charactername, const char* hacked, const char* zone);
-	bool	SetMQDetectionFlag(const char* accountname, const char* charactername, const std::string& hacked, const char* zone);
 	bool	AddToNameFilter(std::string name);
 	bool	ReserveName(uint32 account_id, char* name);
 	bool	StoreCharacter(uint32 account_id, PlayerProfile_Struct* pp, EQ::InventoryProfile* inv);

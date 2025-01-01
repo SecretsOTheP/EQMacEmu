@@ -44,7 +44,7 @@ class QueryServ {
 		void QSLootRecords(uint32 char_id, const char* corpsename, const char* type, uint32 zone_id, uint32 item_id, const char* item_name, int16 charges, int32 platinum, int32 gold, int32 silver, int32 copper);
 		void QSNPCKills(uint32 npcid, uint32 zoneid, uint8 type, std::list<uint32> &charids, uint32 kill_steal);
 		void QSTradeItems(uint32 from_id, uint32 to_id, uint32 from_slot, uint32 to_slot, int16 item_id, uint8 charges, bool bagged, bool pc_trade = true);
-		void QSPlayerTrade(struct QSPlayerLogTrade_Struct* QS);
+		void QSPlayerTrade(struct QSPlayerLogTrade_Struct * QS);
 		void QSHandinItems(struct QSPlayerLogHandin_Struct* QS);
 		void QSLogCommands(Client* c, const char* Command, const char* Arguments, Mob* Target = 0);
 		void QSDeleteItems();

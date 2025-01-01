@@ -17,6 +17,7 @@
 */
 
 #include "../common/global_define.h"
+#include "../common/events/player_event_logs.h"
 
 #include <stdlib.h>
 #include <list>
@@ -102,7 +103,7 @@ void Object::HandleCombine(Client* user, const Combine_Struct* in_combine, Objec
 
 	DBTradeskillRecipe_Struct spec;
 	if (!database.GetTradeRecipe(container, c_type, some_id, user->CharacterID(), &spec)) {
-		user->Message_StringID(Chat::Emote,TRADESKILL_NOCOMBINE);
+		user->Message_StringID(Chat::Emote, StringID::TRADESKILL_NOCOMBINE);
 		auto outapp = new EQApplicationPacket(OP_TradeSkillCombine, 0);
 		user->QueuePacket(outapp);
 		safe_delete(outapp);
@@ -197,9 +198,25 @@ void Object::HandleCombine(Client* user, const Combine_Struct* in_combine, Objec
 	}
 
 	if (success) {
+		if (player_event_logs.IsEventEnabled(PlayerEvent::COMBINE_SUCCESS)) {
+			auto e = PlayerEvent::CombineEvent{
+				.recipe_id = spec.recipe_id,
+				.recipe_name = spec.name,
+				.tradeskill_id = (uint32)spec.tradeskill
+			};
+			RecordPlayerEventLogWithClient(user, PlayerEvent::COMBINE_SUCCESS, e);
+		}
 		parse->EventPlayer(EVENT_COMBINE_SUCCESS, user, spec.name, spec.recipe_id);
 	}
 	else {
+		if (player_event_logs.IsEventEnabled(PlayerEvent::COMBINE_FAILURE)) {
+			auto e = PlayerEvent::CombineEvent{
+				.recipe_id = spec.recipe_id,
+				.recipe_name = spec.name,
+				.tradeskill_id = (uint32)spec.tradeskill
+			};
+			RecordPlayerEventLogWithClient(user, PlayerEvent::COMBINE_FAILURE, e);
+		}
 		parse->EventPlayer(EVENT_COMBINE_FAILURE, user, spec.name, spec.recipe_id);
 	}
 }
@@ -291,7 +308,7 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 		spec->tradeskill, user_skill, spec->trivial, aa_chance, chance, spec->nofail ? "(no fail combine)" : "", roll);
 
 	if (isTrivialCombine) {
-		Message_StringID(Chat::LightBlue, TRADESKILL_TRIVIAL);
+		Message_StringID(Chat::LightBlue, StringID::TRADESKILL_TRIVIAL);
 	}
 
 	const EQ::ItemData* item = nullptr;
@@ -302,7 +319,7 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 			CheckIncreaseTradeskill(true, spec->tradeskill);
 		}
 
-		Message_StringID(Chat::LightBlue, TRADESKILL_SUCCEED, spec->name.c_str());
+		Message_StringID(Chat::LightBlue, StringID::TRADESKILL_SUCCEED, spec->name.c_str());
 
 		Log(Logs::Detail, Logs::Tradeskills, "Combine success");
 
@@ -344,7 +361,7 @@ bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
 			CheckIncreaseTradeskill(false, spec->tradeskill);
 		}
 
-		Message_StringID(Chat::LightBlue,TRADESKILL_FAILED);
+		Message_StringID(Chat::LightBlue, StringID::TRADESKILL_FAILED);
 
 		Log(Logs::Detail, Logs::Tradeskills, "Combine failed");
 			if (this->GetGroup())
@@ -390,7 +407,7 @@ void Client::CheckIncreaseTradeskill(bool isSuccessfulCombine, EQ::skills::Skill
 		return;
 	}
 
-	double tradeDifficulty = zone->skill_difficulty[tradeskill].difficulty;
+	double tradeDifficulty = zone->skill_difficulty[tradeskill].difficulty[GetClass()];
 
 	if (RuleB(Quarm, EnableGlobalSkillupDifficultyAdjustments))
 	{

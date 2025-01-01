@@ -26,10 +26,12 @@
 #include "object.h"
 
 #include "quest_parser_collection.h"
+#include "worldserver.h"
 #include "zonedb.h"
 #include "string_ids.h"
 #include "queryserv.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
+#include "../common/events/player_event_logs.h"
 
 #include <iostream>
 
@@ -39,6 +41,7 @@ const char DEFAULT_OBJECT_NAME_SUFFIX[] = "_ACTORDEF";
 
 extern Zone* zone;
 extern EntityList entity_list;
+extern WorldServer worldserver;
 extern QueryServ* QServ;
 
 // Loading object from database
@@ -538,9 +541,10 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 		{
 
 			// if there is a lore conflict - don't allow the item to be picked up
-			if(sender->CheckLoreConflict(m_inst->GetItem())) 
+			auto item = m_inst->GetItem();
+			if(sender->CheckLoreConflict(item))
 			{
-				sender->Message_StringID(Chat::Red, PICK_LORE);
+				sender->Message_StringID(Chat::Red, StringID::PICK_LORE);
 				auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
 				ClickObject_Struct* loreitem = (ClickObject_Struct*)outapp->pBuffer;
 				loreitem->player_id = click_object->player_id;
@@ -555,7 +559,7 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 					c_inst = m_inst->GetItem(i);
 					if (c_inst && sender->CheckLoreConflict(c_inst->GetItem())) {
 						// we found a lore item in container - so do not allow picking up item.
-						sender->Message_StringID(Chat::Red, PICK_LORE);
+						sender->Message_StringID(Chat::Red, StringID::PICK_LORE);
 						auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
 						ClickObject_Struct* loreitem = (ClickObject_Struct*)outapp->pBuffer;
 						loreitem->player_id = click_object->player_id;
@@ -567,13 +571,21 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 				}
 			}
 
-			std::string export_string = fmt::format("{}", m_inst->GetItem()->ID);
+			if (player_event_logs.IsEventEnabled(PlayerEvent::GROUNDSPAWN_PICKUP)) {
+				auto e = PlayerEvent::GroundSpawnPickupEvent{
+					.item_id = item->ID,
+					.item_name = item->Name,
+				};
+				RecordPlayerEventLogWithClient(sender, PlayerEvent::GROUNDSPAWN_PICKUP, e);
+			}
+
+			std::string export_string = fmt::format("{}", item->ID);
 			std::vector<std::any> args;
 			args.push_back(m_inst);
 			parse->EventPlayer(EVENT_PLAYER_PICKUP, sender, export_string, 0, &args);
 
 			int charges = m_inst->GetCharges();
-			uint32 item_id = m_inst->GetItem()->ID;
+			uint32 item_id = item->ID;
 			if(database.ItemQuantityType(item_id) != EQ::item::Quantity_Charges && charges < 1)
 				charges = 1;
 

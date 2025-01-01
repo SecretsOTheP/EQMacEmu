@@ -55,10 +55,14 @@
 #include "queryserv.h"
 #include "mob_movement_manager.h"
 #include "lua_parser.h"
+#include "cheat_manager.h"
 
 #include "../common/zone_store.h"
 #include "../common/skill_caps.h"
 #include "../common/repositories/character_spells_repository.h"
+#include "../common/repositories/discovered_items_repository.h"
+#include "../common/events/player_events.h"
+#include "../common/events/player_event_logs.h"
 
 extern QueryServ* QServ;
 extern EntityList entity_list;
@@ -164,7 +168,8 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 		ClientFilters[cf] = FilterShow;
 	
 	for (int aa_ix = 0; aa_ix < MAX_PP_AA_ARRAY; aa_ix++) { aa[aa_ix] = nullptr; }
-	
+
+	cheat_manager.SetClient(this);
 	character_id = 0;
 	zoneentry = nullptr;
 	conn_state = NoPacketsReceived;
@@ -280,12 +285,6 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 
 	m_TimeSinceLastPositionCheck = 0;
 	m_DistanceSinceLastPositionCheck = 0.0f;
-	m_ShadowStepExemption = 0;
-	m_KnockBackExemption = 0;
-	m_PortExemption = 0;
-	m_SenseExemption = 0;
-	m_AssistExemption = 0;
-	m_CheatDetectMoved = false;
 	CanUseReport = true;
 	aa_los_them_mob = nullptr;
 	los_status = false;
@@ -1264,7 +1263,7 @@ void Client::ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_s
 		}
 
 		if (!IsInAGuild())
-			Message_StringID(Chat::DefaultText, GUILD_NOT_MEMBER2);	//You are not a member of any guild.
+			Message_StringID(Chat::DefaultText, StringID::GUILD_NOT_MEMBER2);	//You are not a member of any guild.
 		else if (!guild_mgr.CheckPermission(GuildID(), GuildRank(), GUILD_SPEAK))
 			Message(Chat::White, "Error: You dont have permission to speak to the guild.");
 		else if (!worldserver.SendChannelMessage(this, targetname, chan_num, GuildID(), language, lang_skill, message))
@@ -1432,7 +1431,7 @@ void Client::ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_s
 				if (GetTarget() && GetTarget()->IsCorpse() && GetTarget()->CastToCorpse()->IsPlayerCorpse()) {
 					if (strcasecmp(targetname,GetTarget()->CastToCorpse()->GetName()) == 0) {
 						if (strcasecmp(GetTarget()->CastToCorpse()->GetOwnerName(),GetName()) == 0) {
-							Message_StringID(Chat::DefaultText, TALKING_TO_SELF);
+							Message_StringID(Chat::DefaultText, StringID::TALKING_TO_SELF);
 							return;
 						} else {
 							targetname = GetTarget()->CastToCorpse()->GetOwnerName();
@@ -1466,6 +1465,17 @@ void Client::ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_s
 		break;
 	}
 	case ChatChannel_Say: { /* Say */
+		if (player_event_logs.IsEventEnabled(PlayerEvent::SAY)) {
+			std::string msg = message;
+			if (!msg.empty() && msg.at(0) != '#' && msg.at(0) != '^') {
+				auto e = PlayerEvent::SayEvent{
+					.message = message,
+					.target = GetTarget() ? GetTarget()->GetCleanName() : ""
+				};
+				RecordPlayerEventLog(PlayerEvent::SAY, e);
+			}
+		}
+
 		if(message[0] == COMMAND_CHAR) {
 			if (command_dispatch(this, message, false) == -2) {
 				if(parse->PlayerHasQuestSub(EVENT_COMMAND)) {
@@ -1709,7 +1719,7 @@ void Client::IncreaseLanguageSkill(int skill_id, int value) {
 	QueuePacket(outapp);
 	safe_delete(outapp);*/
 
-	Message_StringID( Chat::Skills, LANG_SKILL_IMPROVED ); //Notify client
+	Message_StringID( Chat::Skills, StringID::LANG_SKILL_IMPROVED ); //Notify client
 }
 
 void Client::AddSkill(EQ::skills::SkillType skillid, uint16 value) {
@@ -2489,8 +2499,8 @@ bool Client::CheckIncreaseSkill(EQ::skills::SkillType skillid, Mob *against_who,
 		
 		if(difficulty < 1.0f)
 			difficulty = 1.0f;
-		if(difficulty > 28.0f)
-			difficulty = 28.0f;
+		if(difficulty > 34)
+			difficulty = 34.0f;
 
 		float chance1 = (stat / (difficulty * success)) * skillup_modifier;
 		if(chance1 > 95)
@@ -2510,6 +2520,17 @@ bool Client::CheckIncreaseSkill(EQ::skills::SkillType skillid, Mob *against_who,
 			if(zone->random.Real(0, 99) < chance2)
 			{
 				SetSkill(skillid, GetRawSkill(skillid) + 1);
+
+				if (player_event_logs.IsEventEnabled(PlayerEvent::SKILL_UP)) {
+					auto e = PlayerEvent::SkillUpEvent{
+						.skill_id = static_cast<uint32>(skillid),
+						.value = (skillval + 1),
+						.max_skill = static_cast<int16>(maxskill),
+						.against_who = (against_who) ? against_who->GetCleanName() : GetCleanName(),
+					};
+					RecordPlayerEventLog(PlayerEvent::SKILL_UP, e);
+				}
+
 				Log(Logs::General, Logs::Skills, "Skill %d at value %d using stat %0.2f successfully gained a point with %0.2f percent chance (diff %0.2f) first roll chance was: %0.2f", skillid, skillval, stat, chance2, difficulty, chance1);
 				return true;
 			}
@@ -2772,7 +2793,7 @@ void Client::SetPVP(uint8 toggle) {
 	m_pp.pvp = toggle;
 
 	if(GetPVP())
-		this->Message_StringID(Chat::Red,PVP_ON);
+		this->Message_StringID(Chat::Red, StringID::PVP_ON);
 	else
 		Message(Chat::Red, "You no longer follow the ways of discord.");
 
@@ -2842,35 +2863,6 @@ void Client::SetFeigned(bool in_feigned) {
 	}
 	feigned=in_feigned;
  }
-
-void Client::LogMerchant(Client* player, Mob* merchant, uint32 quantity, uint32 price, const EQ::ItemData* item, bool buying)
-{
-	if(!player || !merchant || !item)
-		return;
-
-	std::string LogText = "Qty: ";
-
-	char Buffer[255];
-	memset(Buffer, 0, sizeof(Buffer));
-
-	snprintf(Buffer, sizeof(Buffer)-1, "%3i", quantity);
-	LogText += Buffer;
-	snprintf(Buffer, sizeof(Buffer)-1, "%10i", price);
-	LogText += " TotalValue: ";
-	LogText += Buffer;
-	snprintf(Buffer, sizeof(Buffer)-1, " ItemID: %7i", item->ID);
-	LogText += Buffer;
-	LogText += " ";
-	snprintf(Buffer, sizeof(Buffer)-1, " %s", item->Name);
-	LogText += Buffer;
-
-	if (buying==true) {
-		database.logevents(player->AccountName(),player->AccountID(),player->admin,player->GetName(),merchant->GetName(),"Buying from Merchant",LogText.c_str(),2);
-	}
-	else {
-		database.logevents(player->AccountName(),player->AccountID(),player->admin,player->GetName(),merchant->GetName(),"Selling to Merchant",LogText.c_str(),3);
-	}
-}
 
 bool Client::BindWound(uint16 bindmob_id, bool start, bool fail)
 {
@@ -2979,7 +2971,7 @@ bool Client::BindWound(uint16 bindmob_id, bool start, bool fail)
 			{
 				if (bindmob != this )
 				{
-					bindmob->CastToClient()->Message_StringID(Chat::Skills, STAY_STILL); // Tell IPC to stand still?
+					bindmob->CastToClient()->Message_StringID(Chat::Skills, StringID::STAY_STILL); // Tell IPC to stand still?
 				}
 			}
 		} 
@@ -3057,7 +3049,7 @@ bool Client::BindWound(uint16 bindmob_id, bool start, bool fail)
 					// send bindmob bind done
 					if (bindmob->IsClient() && bindmob != this)
 					{
-						bindmob->CastToClient()->Message_StringID(Chat::Yellow, BIND_WOUND_COMPLETE);
+						bindmob->CastToClient()->Message_StringID(Chat::Yellow, StringID::BIND_WOUND_COMPLETE);
 					}
 
 					// Send client bind done
@@ -3417,7 +3409,7 @@ void Client::Tell_StringID(uint32 string_id, const char *who, const char *messag
 	char string_id_str[10];
 	snprintf(string_id_str, 10, "%d", string_id);
 
-	Message_StringID(Chat::EchoTell, TELL_QUEUED_MESSAGE, who, string_id_str, message);
+	Message_StringID(Chat::EchoTell, StringID::TELL_QUEUED_MESSAGE, who, string_id_str, message);
 }
 
 void Client::SetHideMe(bool flag)
@@ -3468,7 +3460,7 @@ void Client::SetLanguageSkill(int langid, int value)
 	QueuePacket(outapp);
 	safe_delete(outapp);
 
-	Message_StringID( Chat::Skills, LANG_SKILL_IMPROVED ); //Notify the client
+	Message_StringID( Chat::Skills, StringID::LANG_SKILL_IMPROVED ); //Notify the client
 }
 
 void Client::LinkDead()
@@ -3514,7 +3506,7 @@ void Client::Escape()
 	{
 		SetInvisible(INVIS_NORMAL);
 	}
-	Message_StringID(Chat::Skills, ESCAPE);
+	Message_StringID(Chat::Skills, StringID::ESCAPE);
 }
 
 // Based on http://www.eqtraders.com/articles/article_page.php?article=g190&menustr=070000000000
@@ -3617,14 +3609,14 @@ void Client::SacrificeConfirm(Mob *caster) {
 
 	if(GetLevel() < RuleI(Spells, SacrificeMinLevel))
 	{
-		caster->Message_StringID(Chat::Red, SAC_TOO_LOW);	//This being is not a worthy sacrifice.
+		caster->Message_StringID(Chat::Red, StringID::SAC_TOO_LOW);	//This being is not a worthy sacrifice.
 		safe_delete(outapp);
 		return;
 	}
 
 	if (GetLevel() > RuleI(Spells, SacrificeMaxLevel)) 
 	{
-		caster->Message_StringID(Chat::Red, SAC_TOO_HIGH); //This being is too powerful to be a sacrifice.
+		caster->Message_StringID(Chat::Red, StringID::SAC_TOO_HIGH); //This being is too powerful to be a sacrifice.
 		safe_delete(outapp);
 		return;
 	}
@@ -3705,7 +3697,7 @@ void Client::Sacrifice(Mob *caster)
 		}
 	}
 	else{
-		caster->Message_StringID(Chat::Red, SAC_TOO_LOW);	//This being is not a worthy sacrifice.
+		caster->Message_StringID(Chat::Red, StringID::SAC_TOO_LOW);	//This being is not a worthy sacrifice.
 	}
 }
 
@@ -3764,7 +3756,7 @@ void Client::SendPickPocketResponse(Mob *from, uint32 amt, int type, int16 sloti
 		if(type > PickPocketFailed)
 			success = SKILLUP_SUCCESS;
 
-		CheckIncreaseSkill(EQ::skills::SkillPickPockets, nullptr, zone->skill_difficulty[EQ::skills::SkillPickPockets].difficulty, success);
+		CheckIncreaseSkill(EQ::skills::SkillPickPockets, nullptr, zone->skill_difficulty[EQ::skills::SkillPickPockets].difficulty[GetClass()], success);
 	}
 
 	if(type == PickPocketItem && inst)
@@ -3836,30 +3828,42 @@ bool Client::GetPickPocketSlot(EQ::ItemInstance* inst, int16& freeslotid)
 	return false;
 }
 
-bool Client::IsDiscovered(uint32 itemid) {
-
-	std::string query = StringFormat("SELECT count(*) FROM discovered_items WHERE item_id = '%lu'", itemid);
-    auto results = database.QueryDatabase(query);
-    if (!results.Success()) {
+bool Client::IsDiscovered(uint32 item_id) {
+	const auto &l = DiscoveredItemsRepository::GetWhere(
+		database,
+		fmt::format(
+			"item_id = {}",
+			item_id
+		)
+	);
+	if (l.empty()) {
         return false;
     }
-
-	auto row = results.begin();
-	if (!atoi(row[0]))
-		return false;
 
 	return true;
 }
 
-void Client::DiscoverItem(uint32 itemid) {
+void Client::DiscoverItem(uint32 item_id) {
+	auto e = DiscoveredItemsRepository::NewEntity();
 
-	std::string query = StringFormat("INSERT INTO discovered_items "
-									"SET item_id = %lu, char_name = '%s', "
-									"discovered_date = UNIX_TIMESTAMP(), account_status = %i",
-									itemid, GetName(), Admin());
-	auto results = database.QueryDatabase(query);
+	e.account_status = Admin();
+	e.char_name = GetCleanName();
+	e.discovered_date = std::time(nullptr);
+	e.item_id = item_id;
 
-	parse->EventPlayer(EVENT_DISCOVER_ITEM, this, "", itemid);
+	auto d = DiscoveredItemsRepository::InsertOne(database, e);
+
+	parse->EventPlayer(EVENT_DISCOVER_ITEM, this, "", item_id);
+
+	if (player_event_logs.IsEventEnabled(PlayerEvent::DISCOVER_ITEM)) {
+		const auto *item = database.GetItem(item_id);
+
+		auto e = PlayerEvent::DiscoverItemEvent{
+			.item_id = item_id,
+			.item_name = item->Name,
+		};
+		RecordPlayerEventLog(PlayerEvent::DISCOVER_ITEM, e);
+	}
 }
 
 uint16 Client::GetPrimarySkillValue()
@@ -4031,177 +4035,6 @@ void Client::NotifyNewTitlesAvailable()
 uint32 Client::GetStartZone()
 {
 	return m_pp.binds[4].zoneId;
-}
-
-void Client::SetShadowStepExemption(bool v)
-{
-	if(v == true)
-	{
-		uint32 cur_time = Timer::GetCurrentTime();
-		if((cur_time - m_TimeSinceLastPositionCheck) > 1000)
-		{
-			float speed = (m_DistanceSinceLastPositionCheck * 100) / (float)(cur_time - m_TimeSinceLastPositionCheck);
-			float runs = GetRunspeed();
-			if(speed > (runs * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-			{
-				Log(Logs::General, Logs::Error, "%s %i moving too fast! moved: %.2f in %ims, speed %.2f\n", __FILE__, __LINE__,
-					m_DistanceSinceLastPositionCheck, (cur_time - m_TimeSinceLastPositionCheck), speed);
-				if(!GetGMSpeed() && (runs >= GetBaseRunspeed() || (speed > (GetBaseRunspeed() * RuleR(Zone, MQWarpDetectionDistanceFactor)))))
-				{
-					if(IsShadowStepExempted())
-					{
-						if(m_DistanceSinceLastPositionCheck > 800)
-						{
-							CheatDetected(MQWarpShadowStep, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(IsKnockBackExempted())
-					{
-						//still potential to trigger this if you're knocked back off a
-						//HUGE fall that takes > 2.5 seconds
-						if(speed > 30.0f)
-						{
-							CheatDetected(MQWarpKnockBack, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(!IsPortExempted())
-					{
-						if(!IsMQExemptedArea(zone->GetZoneID(), GetX(), GetY(), GetZ()))
-						{
-							if(speed > (runs * 2 * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-							{
-								CheatDetected(MQWarp, GetX(), GetY(), GetZ());
-								m_TimeSinceLastPositionCheck = cur_time;
-								m_DistanceSinceLastPositionCheck = 0.0f;
-								//Death(this, 10000000, SPELL_UNKNOWN, _1H_BLUNT);
-							}
-							else
-							{
-								CheatDetected(MQWarpLight, GetX(), GetY(), GetZ());
-							}
-						}
-					}
-				}
-			}
-		}
-		m_TimeSinceLastPositionCheck = cur_time;
-		m_DistanceSinceLastPositionCheck = 0.0f;
-	}
-	m_ShadowStepExemption = v;
-}
-
-void Client::SetKnockBackExemption(bool v)
-{
-	if(v == true)
-	{
-		uint32 cur_time = Timer::GetCurrentTime();
-		if((cur_time - m_TimeSinceLastPositionCheck) > 1000)
-		{
-			float speed = (m_DistanceSinceLastPositionCheck * 100) / (float)(cur_time - m_TimeSinceLastPositionCheck);
-			float runs = GetRunspeed();
-			if(speed > (runs * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-			{
-				if(!GetGMSpeed() && (runs >= GetBaseRunspeed() || (speed > (GetBaseRunspeed() * RuleR(Zone, MQWarpDetectionDistanceFactor)))))
-				{
-					Log(Logs::General, Logs::Error, "%s %i moving too fast! moved: %.2f in %ims, speed %.2f\n", __FILE__, __LINE__,
-					m_DistanceSinceLastPositionCheck, (cur_time - m_TimeSinceLastPositionCheck), speed);
-					if(IsShadowStepExempted())
-					{
-						if(m_DistanceSinceLastPositionCheck > 800)
-						{
-							CheatDetected(MQWarpShadowStep, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(IsKnockBackExempted())
-					{
-						//still potential to trigger this if you're knocked back off a
-						//HUGE fall that takes > 2.5 seconds
-						if(speed > 30.0f)
-						{
-							CheatDetected(MQWarpKnockBack, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(!IsPortExempted())
-					{
-						if(!IsMQExemptedArea(zone->GetZoneID(), GetX(), GetY(), GetZ()))
-						{
-							if(speed > (runs * 2 * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-							{
-								m_TimeSinceLastPositionCheck = cur_time;
-								m_DistanceSinceLastPositionCheck = 0.0f;
-								CheatDetected(MQWarp, GetX(), GetY(), GetZ());
-								//Death(this, 10000000, SPELL_UNKNOWN, _1H_BLUNT);
-							}
-							else
-							{
-								CheatDetected(MQWarpLight, GetX(), GetY(), GetZ());
-							}
-						}
-					}
-				}
-			}
-		}
-		m_TimeSinceLastPositionCheck = cur_time;
-		m_DistanceSinceLastPositionCheck = 0.0f;
-	}
-	m_KnockBackExemption = v;
-}
-
-void Client::SetPortExemption(bool v)
-{
-	if(v == true)
-	{
-		uint32 cur_time = Timer::GetCurrentTime();
-		if((cur_time - m_TimeSinceLastPositionCheck) > 1000)
-		{
-			float speed = (m_DistanceSinceLastPositionCheck * 100) / (float)(cur_time - m_TimeSinceLastPositionCheck);
-			float runs = GetRunspeed();
-			if(speed > (runs * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-			{
-				if(!GetGMSpeed() && (runs >= GetBaseRunspeed() || (speed > (GetBaseRunspeed() * RuleR(Zone, MQWarpDetectionDistanceFactor)))))
-				{
-					Log(Logs::General, Logs::Error, "%s %i moving too fast! moved: %.2f in %ims, speed %.2f\n", __FILE__, __LINE__,
-					m_DistanceSinceLastPositionCheck, (cur_time - m_TimeSinceLastPositionCheck), speed);
-					if(IsShadowStepExempted())
-					{
-						if(m_DistanceSinceLastPositionCheck > 800)
-						{
-								CheatDetected(MQWarpShadowStep, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(IsKnockBackExempted())
-					{
-						//still potential to trigger this if you're knocked back off a
-						//HUGE fall that takes > 2.5 seconds
-						if(speed > 30.0f)
-						{
-							CheatDetected(MQWarpKnockBack, GetX(), GetY(), GetZ());
-						}
-					}
-					else if(!IsPortExempted())
-					{
-						if(!IsMQExemptedArea(zone->GetZoneID(), GetX(), GetY(), GetZ()))
-						{
-							if(speed > (runs * 2 * RuleR(Zone, MQWarpDetectionDistanceFactor)))
-							{
-								m_TimeSinceLastPositionCheck = cur_time;
-								m_DistanceSinceLastPositionCheck = 0.0f;
-								CheatDetected(MQWarp, GetX(), GetY(), GetZ());
-								//Death(this, 10000000, SPELL_UNKNOWN, _1H_BLUNT);
-							}
-							else
-							{
-								CheatDetected(MQWarpLight, GetX(), GetY(), GetZ());
-							}
-						}
-					}
-				}
-			}
-		}
-		m_TimeSinceLastPositionCheck = cur_time;
-		m_DistanceSinceLastPositionCheck = 0.0f;
-	}
-	m_PortExemption = v;
 }
 
 void Client::Signal(uint32 data)
@@ -4407,7 +4240,7 @@ void Client::SuspendMinion()
 
 			CurrentPet->SetMana(m_suspendedminion.Mana);
 
-			Message_StringID(clientMessageTell, SUSPEND_MINION_UNSUSPEND, CurrentPet->GetCleanName());
+			Message_StringID(clientMessageTell, StringID::SUSPEND_MINION_UNSUSPEND, CurrentPet->GetCleanName());
 
 			memset(&m_suspendedminion, 0, sizeof(struct PetInfo));
 		}
@@ -4423,19 +4256,19 @@ void Client::SuspendMinion()
 		{
 			if(m_suspendedminion.SpellID > 0)
 			{
-				Message_StringID(clientMessageError,ONLY_ONE_PET);
+				Message_StringID(clientMessageError, StringID::ONLY_ONE_PET);
 
 				return;
 			}
 			else if(CurrentPet->IsEngaged())
 			{
-				Message_StringID(clientMessageError,SUSPEND_MINION_FIGHTING);
+				Message_StringID(clientMessageError, StringID::SUSPEND_MINION_FIGHTING);
 
 				return;
 			}
 			else if(entity_list.Fighting(CurrentPet))
 			{
-				Message_StringID(clientMessageBlue,SUSPEND_MINION_HAS_AGGRO);
+				Message_StringID(clientMessageBlue, StringID::SUSPEND_MINION_HAS_AGGRO);
 			}
 			else
 			{
@@ -4454,7 +4287,7 @@ void Client::SuspendMinion()
 					strn0cpy(m_suspendedminion.Name, CurrentPet->GetName(), 64); // Name stays even at rank 1
 				EntityList::RemoveNumbers(m_suspendedminion.Name);
 
-				Message_StringID(clientMessageTell, SUSPEND_MINION_SUSPEND, CurrentPet->GetCleanName());
+				Message_StringID(clientMessageTell, StringID::SUSPEND_MINION_SUSPEND, CurrentPet->GetCleanName());
 
 				CurrentPet->Depop(false);
 
@@ -4463,7 +4296,7 @@ void Client::SuspendMinion()
 		}
 		else
 		{
-			Message_StringID(clientMessageError, ONLY_SUMMONED_PETS);
+			Message_StringID(clientMessageError, StringID::ONLY_SUMMONED_PETS);
 
 			return;
 		}
@@ -4549,16 +4382,16 @@ void Client::LocateCorpse()
 
 	if(ClosestCorpse)
 	{
-		Message_StringID(Chat::Spells, SENSE_CORPSE_DIRECTION);
+		Message_StringID(Chat::Spells, StringID::SENSE_CORPSE_DIRECTION);
 		SetHeading(CalculateHeadingToTarget(ClosestCorpse->GetX(), ClosestCorpse->GetY()));
 		SetTarget(ClosestCorpse);
 		SendTargetCommand(ClosestCorpse->GetID());
 		SendPosUpdate(2);
 	}
 	else if(!GetTarget())
-		Message_StringID(clientMessageError, SENSE_CORPSE_NONE);
+		Message_StringID(clientMessageError, StringID::SENSE_CORPSE_NONE);
 	else
-		Message_StringID(clientMessageError, SENSE_CORPSE_NOT_NAME);
+		Message_StringID(clientMessageError, StringID::SENSE_CORPSE_NOT_NAME);
 }
 
 void Client::NPCSpawn(NPC *target_npc, const char *identifier, uint32 extra)
@@ -4605,7 +4438,7 @@ void Client::DragCorpses()
 		if (!corpse || !corpse->IsPlayerCorpse() ||
 				corpse->CastToCorpse()->IsBeingLooted() ||
 				!corpse->CastToCorpse()->Summon(this, false, false)) {
-			Message_StringID(Chat::DefaultText, CORPSEDRAG_STOP);
+			Message_StringID(Chat::DefaultText, StringID::CORPSEDRAG_STOP);
 			It = DraggedCorpses.erase(It);
 		}
 	}
@@ -4917,7 +4750,7 @@ void Client::SendQuickStats(Client* client)
 
 void Client::DuplicateLoreMessage(uint32 ItemID)
 {
-	Message_StringID(Chat::White, PICK_LORE);
+	Message_StringID(Chat::White, StringID::PICK_LORE);
 	return;
 
 	const EQ::ItemData *item = database.GetItem(ItemID);
@@ -4925,7 +4758,7 @@ void Client::DuplicateLoreMessage(uint32 ItemID)
 	if(!item)
 		return;
 
-	Message_StringID(Chat::White, PICK_LORE, item->Name);
+	Message_StringID(Chat::White, StringID::PICK_LORE, item->Name);
 }
 
 void Client::GarbleMessage(char *message, uint8 variance)
@@ -5135,7 +4968,7 @@ int32 Client::GetCharacterFactionLevel(int32 faction_id)
 int32 Client::UpdatePersonalFaction(int32 char_id, int32 npc_value, int32 faction_id, int32 temp, bool skip_gm, bool show_msg)
 {
 	int32 hit = npc_value;
-	uint32 msg = FACTION_BETTER;
+	uint32 msg = StringID::FACTION_BETTER;
 	int32 current_value = GetCharacterFactionLevel(faction_id);
 	int32 unadjusted_value = current_value;
 
@@ -5171,11 +5004,11 @@ int32 Client::UpdatePersonalFaction(int32 char_id, int32 npc_value, int32 factio
 
 		if (hit < 0) {
 			if (personal_faction <= min_personal_faction) {
-				msg = FACTION_WORST;
+				msg = StringID::FACTION_WORST;
 				hit = 0;
 			}
 			else {
-				msg = FACTION_WORSE;
+				msg = StringID::FACTION_WORSE;
 				if (personal_faction + hit < min_personal_faction) {
 					hit = min_personal_faction - personal_faction;
 				}
@@ -5183,11 +5016,11 @@ int32 Client::UpdatePersonalFaction(int32 char_id, int32 npc_value, int32 factio
 		}
 		else { // hit > 0
 			if (personal_faction >= max_personal_faction) {
-				msg = FACTION_BEST;
+				msg = StringID::FACTION_BEST;
 				hit = 0;
 			}
 			else {
-				msg = FACTION_BETTER;
+				msg = StringID::FACTION_BETTER;
 				if (personal_faction + hit > max_personal_faction) {
 					hit = max_personal_faction - personal_faction;
 				}
@@ -5246,11 +5079,11 @@ void Client::MerchantRejectMessage(Mob *merchant, int primaryfaction)
 	// If no primary faction or biggest influence is your faction hit
 	// Hack to get Shadowhaven messages correct :I
 	if (GetZoneID() != Zones::SHADOWHAVEN && (primaryfaction <= 0 || lowestvalue == tmpFactionValue)) {
-		merchant->Say_StringID(zone->random.Int(WONT_SELL_DEEDS1, WONT_SELL_DEEDS6));
+		merchant->Say_StringID(zone->random.Int(StringID::WONT_SELL_DEEDS1, StringID::WONT_SELL_DEEDS6));
 	} 
 	//class biggest
 	else if (lowestvalue == fmod.class_mod) {
-		merchant->Say_StringID(0, zone->random.Int(WONT_SELL_CLASS1, WONT_SELL_CLASS4), itoa(GetClassStringID()));
+		merchant->Say_StringID(0, zone->random.Int(StringID::WONT_SELL_CLASS1, StringID::WONT_SELL_CLASS4), itoa(GetClassStringID()));
 	}
 	// race biggest/default
 	else { 
@@ -5259,16 +5092,16 @@ void Client::MerchantRejectMessage(Mob *merchant, int primaryfaction)
 			messageid = zone->random.Int(1, 3); // these aren't sequential StringIDs :(
 			switch (messageid) {
 			case 1:
-				messageid = WONT_SELL_NONSTDRACE1;
+				messageid = StringID::WONT_SELL_NONSTDRACE1;
 				break;
 			case 2:
-				messageid = WONT_SELL_NONSTDRACE2;
+				messageid = StringID::WONT_SELL_NONSTDRACE2;
 				break;
 			case 3:
-				messageid = WONT_SELL_NONSTDRACE3;
+				messageid = StringID::WONT_SELL_NONSTDRACE3;
 				break;
 			default: // w/e should never happen
-				messageid = WONT_SELL_NONSTDRACE1;
+				messageid = StringID::WONT_SELL_NONSTDRACE1;
 				break;
 			}
 			merchant->Say_StringID(messageid);
@@ -5277,22 +5110,22 @@ void Client::MerchantRejectMessage(Mob *merchant, int primaryfaction)
 			messageid = zone->random.Int(1, 5);
 			switch (messageid) {
 			case 1:
-				messageid = WONT_SELL_RACE1;
+				messageid = StringID::WONT_SELL_RACE1;
 				break;
 			case 2:
-				messageid = WONT_SELL_RACE2;
+				messageid = StringID::WONT_SELL_RACE2;
 				break;
 			case 3:
-				messageid = WONT_SELL_RACE3;
+				messageid = StringID::WONT_SELL_RACE3;
 				break;
 			case 4:
-				messageid = WONT_SELL_RACE4;
+				messageid = StringID::WONT_SELL_RACE4;
 				break;
 			case 5:
-				messageid = WONT_SELL_RACE5;
+				messageid = StringID::WONT_SELL_RACE5;
 				break;
 			default: // w/e should never happen
-				messageid = WONT_SELL_RACE1;
+				messageid = StringID::WONT_SELL_RACE1;
 				break;
 			}
 			merchant->Say_StringID(0, messageid, itoa(GetRaceStringID()));
@@ -6333,7 +6166,7 @@ void Client::WarCry(uint8 rank)
 					if (distance <= rangesq)
 					{
 						g->members[gi]->CastToClient()->EnableAAEffect(aaEffectWarcry, time);
-						g->members[gi]->Message_StringID(Chat::Spells, WARCRY_ACTIVATE);
+						g->members[gi]->Message_StringID(Chat::Spells, StringID::WARCRY_ACTIVATE);
 					}
 				}
 			}
@@ -6358,7 +6191,7 @@ void Client::WarCry(uint8 rank)
 						if (distance <= rangesq)
 						{
 							member->EnableAAEffect(aaEffectWarcry, time);
-							member->Message_StringID(Chat::Spells, WARCRY_ACTIVATE);
+							member->Message_StringID(Chat::Spells, StringID::WARCRY_ACTIVATE);
 						}
 					}
 				}
@@ -6368,7 +6201,7 @@ void Client::WarCry(uint8 rank)
 
 	// self
 	EnableAAEffect(aaEffectWarcry, time);
-	Message_StringID(Chat::Spells, WARCRY_ACTIVATE);
+	Message_StringID(Chat::Spells, StringID::WARCRY_ACTIVATE);
 }
 
 void Client::ClearTimersOnDeath()
@@ -6416,7 +6249,7 @@ bool Client::FleshToBone()
 		return true;
 	}
 
-	Message_StringID(Chat::SpellFailure, FLESHBONE_FAILURE);
+	Message_StringID(Chat::SpellFailure, StringID::FLESHBONE_FAILURE);
 	return false;
 }
 
@@ -7994,4 +7827,57 @@ void Client::CheckClientToNpcAggroTimer()
 		m_client_npc_aggro_scan_timer.Disable();
 		m_client_npc_aggro_scan_timer.Start(scan_npc_aggro_timer_idle);
 	}
+}
+
+PlayerEvent::PlayerEvent Client::GetPlayerEvent()
+{
+	auto e = PlayerEvent::PlayerEvent{};
+	e.account_id = AccountID();
+	e.character_id = CharacterID();
+	e.character_name = GetCleanName();
+	e.x = GetX();
+	e.y = GetY();
+	e.z = GetZ();
+	e.heading = GetHeading();
+	e.zone_id = GetZoneID();
+	e.zone_short_name = zone ? zone->GetShortName() : "";
+	e.zone_long_name = zone ? zone->GetLongName() : "";
+	e.guild_id = GuildID();
+	e.guild_name = guild_mgr.GetGuildName(GuildID());
+	e.account_name = AccountName();
+
+	return e;
+}
+
+std::vector<Mob *> Client::GetRaidOrGroupOrSelf(bool clients_only)
+{
+	std::vector<Mob *> v;
+
+	if (IsRaidGrouped()) {
+		Raid *r = GetRaid();
+
+		if (r) {
+			for (const auto &m : r->members) {
+				if (m.member && !clients_only) {
+					v.emplace_back(m.member);
+				}
+			}
+		}
+	}
+	else if (IsGrouped()) {
+		Group *g = GetGroup();
+
+		if (g) {
+			for (const auto &m : g->members) {
+				if (m && (m->IsClient() || !clients_only)) {
+					v.emplace_back(m);
+				}
+			}
+		}
+	}
+	else {
+		v.emplace_back(this);
+	}
+
+	return v;
 }

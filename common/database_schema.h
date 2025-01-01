@@ -257,9 +257,7 @@ namespace DatabaseSchema {
 			"bugs",
 			"commands_log",
 			"discord_webhooks",
-			"eventlog",
 			"gm_ips",
-			"hackers",
 			"group_id",
 			"group_leaders",
 			"group_members",
@@ -275,6 +273,8 @@ namespace DatabaseSchema {
 			"respawn_times",
 			"saylink",
 			"server_scheduled_events",
+			"player_event_log_settings",
+			"player_event_logs"
 			"webdata_character",
 			"webdata_servers"
 		};

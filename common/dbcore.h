@@ -12,6 +12,7 @@
 
 #include <mysql.h>
 #include <string.h>
+#include <mutex>
 
 #define CR_SERVER_GONE_ERROR    2006
 #define CR_SERVER_LOST          2013
@@ -28,6 +29,7 @@ public:
 	void TransactionBegin();
 	void TransactionCommit();
 	void TransactionRollback();
+	std::string Escape(const std::string &s);
 	uint32	DoEscapeString(char* tobuf, const char* frombuf, uint32 fromlen);
 	void	ping();
 
@@ -43,6 +45,8 @@ private:
 	MYSQL	mysql;
 	Mutex	MDatabase;
 	eStatus pStatus;
+
+	std::mutex m_query_lock{};
 
 	char*	pHost;
 	char*	pUser;

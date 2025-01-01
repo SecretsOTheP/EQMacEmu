@@ -28,6 +28,7 @@
 #include "aa.h"
 #include "../common/light_source.h"
 #include "../common/emu_constants.h"
+#include "combat_record.h"
 
 #include <any>
 #include <set>
@@ -1325,6 +1326,10 @@ protected:
 
 	uint16 instillDoubtTargetID;
 	Timer instillDoubtStageTimer;
+
+	CombatRecord m_combat_record{};
+public:
+	const CombatRecord &GetCombatRecord() const;
 
 private:
 

@@ -355,7 +355,7 @@ void QueryServ::QSTradeItems(uint32 from_id, uint32 to_id, uint32 from_slot, uin
 	SendQuery(query);
 }
 
-void QueryServ::QSPlayerTrade(QSPlayerLogTrade_Struct* QS)
+void QueryServ::QSPlayerTrade(QSPlayerLogTrade_Struct *QS)
 {
 	std::string query = StringFormat(
 		"INSERT INTO `qs_player_trade_log` SET "
@@ -386,6 +386,7 @@ void QueryServ::QSPlayerTrade(QSPlayerLogTrade_Struct* QS)
 		QS->char2_count);
 	SendQuery(query);
 }
+
 
 void QueryServ::QSLogCommands(Client* c, const char* Command, const char* Arguments, Mob* Target)
 {

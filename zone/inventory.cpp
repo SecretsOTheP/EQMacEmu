@@ -18,14 +18,13 @@
 
 #include "../common/global_define.h"
 #include "../common/eqemu_logsys.h"
-#include "../common/zone_store.h"
+#include "string_ids.h"
 #include "../common/strings.h"
-
 #include "quest_parser_collection.h"
 #include "worldserver.h"
 #include "zonedb.h"
-#include "queryserv.h"
-#include "string_ids.h"
+#include "../common/events/player_event_logs.h"
+#include "../common/repositories/character_corpse_items_repository.h"
 
 extern WorldServer worldserver;
 extern QueryServ* QServ;
@@ -315,19 +314,50 @@ bool Client::SummonItem(uint32 item_id, int8 quantity, uint16 to_slot, bool forc
 // Drop item from inventory to ground (generally only dropped from SlotCursor)
 void Client::DropItem(int16 slot_id)
 {
+	LogInventory(
+		"[{}] (char_id: [{}]) Attempting to drop item from slot [{}] on the ground",
+		GetCleanName(),
+		CharacterID(),
+		slot_id
+	);
+
 	if(GetInv().CheckNoDrop(slot_id) && RuleI(World, FVNoDropFlag) == 0 ||
 		RuleI(Character, MinStatusForNoDropExemptions) < Admin() && RuleI(World, FVNoDropFlag) == 2) {
-		database.SetHackerFlag(this->AccountName(), this->GetCleanName(), "Tried to drop an item on the ground that was nodrop!");
+		auto invalid_drop = m_inv.GetItem(slot_id);
+
+		std::string message = fmt::format(
+			"Tried to drop an item on the ground that was no-drop! item_name [{}] item_id ({})",
+			invalid_drop->GetItem()->Name,
+			invalid_drop->GetItem()->ID
+		);
+
+		invalid_drop = nullptr;
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
 		GetInv().DeleteItem(slot_id);
 		return;
 	}
 
 	// Take control of item in client inventory
-	EQ::ItemInstance *inst = m_inv.PopItem(slot_id);
+	auto *inst = m_inv.PopItem(slot_id);
 	if(inst) {
-		int i = parse->EventItem(EVENT_DROP_ITEM, this, inst, nullptr, "", 0);
-		if(i != 0) {
-			safe_delete(inst);
+		int i = 0;
+
+		if (player_event_logs.IsEventEnabled(PlayerEvent::DROPPED_ITEM)) {
+			auto e = PlayerEvent::DroppedItemEvent{
+				.item_id = inst->GetID(),
+				.item_name = inst->GetItem()->Name,
+				.slot_id = slot_id,
+				.charges = (uint32)inst->GetCharges()
+			};
+			RecordPlayerEventLog(PlayerEvent::DROPPED_ITEM, e);
+		}
+
+		if (parse->ItemHasQuestSub(inst, EVENT_DROP_ITEM)) {
+			parse->EventItem(EVENT_DROP_ITEM, this, inst, nullptr, "", slot_id);
+			if (i != 0) {
+				LogInventory("Item drop handled by [EVENT_DROP_ITEM]");
+				safe_delete(inst);
+			}
 		}
 	} else {
 		// Item doesn't exist in inventory!
@@ -431,7 +461,7 @@ void Client::CreateGroundObject(const EQ::ItemInstance* inst_in, glm::vec4 coord
 
 	if (message)
 	{
-		Message_StringID(Chat::Yellow, DROPPED_ITEM);
+		Message_StringID(Chat::Yellow,  StringID::DROPPED_ITEM);
 	}
 
 	// Package as zone object
@@ -861,7 +891,7 @@ bool Client::PushItemOnCursorWithoutQueue(EQ::ItemInstance* inst, bool drop)
 	const EQ::ItemData* item = database.GetItem(inst->GetID());
 	if (item && CheckLoreConflict(item))
 	{
-		Message_StringID(Chat::White, DUP_LORE);
+		Message_StringID(Chat::White, StringID::DUP_LORE);
 		return false;
 	}
 
@@ -1336,6 +1366,18 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 			}
 
 			DeleteItemInInventory(move_in->from_slot);
+
+			if (player_event_logs.IsEventEnabled(PlayerEvent::ITEM_DESTROY)) {
+				auto e = PlayerEvent::DestroyItemEvent{
+					.item_id = inst->GetItem()->ID,
+					.item_name = inst->GetItem()->Name,
+					.charges = inst->GetCharges(),
+					.reason = "Client destroy cursor",
+				};
+
+				RecordPlayerEventLog(PlayerEvent::ITEM_DESTROY, e);
+			}
+
 			return true; // Item destroyed by client
 		}
 		else {
@@ -1364,9 +1406,12 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 		if(!banker || distance > USE_BANKER_RANGE)
 		{
 			float dist = sqrtf((float)distance);
-			auto hacked_string = fmt::format("Player tried to make use of a banker(items) but {} is non-existant or too far away ( {:.1f} units - window closes at 20).",
-				banker ? banker->GetName() : "UNKNOWN NPC", dist);
-			database.SetMQDetectionFlag(AccountName(), GetName(), hacked_string, zone->GetShortName());
+			auto message = fmt::format(
+				"Player tried to make use of a banker (items) but banker [{}] is "
+				"non-existent or too far away [{}] units",
+				banker ? banker->GetName() : "UNKNOWN NPC", distance
+			);
+			RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
 			if (distance > USE_NPC_RANGE2) {
 				Kick();	// Kicking player to avoid item loss do to client and server inventories not being sync'd
 				std::string error = "Banker error.";
@@ -1502,7 +1547,7 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 					safe_delete(outapp);
 
 					m_tradeskill_object->PutItem(EQ::InventoryProfile::CalcBagIdx(src_slot_id), inst);
-					Message_StringID(Chat::White, DUP_LORE);
+					Message_StringID(Chat::White, StringID::DUP_LORE);
 					safe_delete(inst);
 
 					return true;

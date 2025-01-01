@@ -31,6 +31,9 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "wguild_mgr.h"
+#include "char_create_data.h"
+#include "../common/repositories/player_event_logs_repository.h"
+#include "../common/events/player_event_logs.h"
 
 #include <iostream>
 #include <iomanip>
@@ -1598,4 +1601,24 @@ bool Client::GetSessionLimit()
 	}
 
 	return false;
+}
+
+void Client::RecordPossibleHack(const std::string &message)
+{
+	if (player_event_logs.IsEventEnabled(PlayerEvent::POSSIBLE_HACK)) {
+		auto event = PlayerEvent::PossibleHackEvent{ .message = message };
+		std::stringstream ss;
+		{
+			cereal::JSONOutputArchiveSingleLine ar(ss);
+			event.serialize(ar);
+		}
+		auto e = PlayerEventLogsRepository::NewEntity();
+		e.character_id = char_id;
+		e.account_id = GetCLE() ? GetAccountID() : 0;
+		e.event_type_id = PlayerEvent::POSSIBLE_HACK;
+		e.event_type_name = PlayerEvent::EventName[PlayerEvent::POSSIBLE_HACK];
+		e.event_data = ss.str();
+		e.created_at = std::time(nullptr);
+		PlayerEventLogsRepository::InsertOne(database, e);
+	}
 }

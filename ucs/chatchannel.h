@@ -78,6 +78,7 @@ public:
 	void RemoveAllChannels();
 	void SendAllChannels(Client *c);
 	void Process();
+	void ChatChannelDiscordRelay(ChatChannel *channel, Client *client, const char *message);
 
 private:
 

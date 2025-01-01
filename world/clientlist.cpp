@@ -745,21 +745,21 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 
 		// This is the packet header data.
 		uint32 plid = fromid;
-		uint16 playerineqstring = WHOALL_PLAYERS;
+		uint16 playerineqstring = StringID::WHOALL_PLAYERS;
 		const char line2[] = "---------------------------";
 		uint8 unknown35 = 0x0A;
 		uint16 unknown36 = 0;
-		uint16 playersinzonestring = WHOALL_SINGLE;
+		uint16 playersinzonestring = StringID::WHOALL_SINGLE;
 		uint16 unknown44[5];
 
 		if (totalusers > wholimit && admin < gmwholist && (!noguildlimit || (whom->guildid < 0)))
 		{
 			totalusers = wholimit;
-			playersinzonestring = WHOALL_CUT_SHORT;
+			playersinzonestring = StringID::WHOALL_CUT_SHORT;
 		}
 		else if (totalusers > 1)
 		{
-			playersinzonestring = WHOALL_COUNT;
+			playersinzonestring = StringID::WHOALL_COUNT;
 		}
 
 		unknown44[0] = 0;
@@ -826,50 +826,50 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 				else if (cle->GetGM())
 				{
 					if (cle->Admin() >= AccountStatus::GMImpossible)
-						rankstring = WHOALL_IMPOSSIBRU;
+						rankstring = StringID::WHOALL_IMPOSSIBRU;
 					else if (cle->Admin() >= AccountStatus::GMMgmt)
-						rankstring = WHOALL_MGMT;
+						rankstring = StringID::WHOALL_MGMT;
 					else if (cle->Admin() >= AccountStatus::GMCoder)
-						rankstring = WHOALL_CODER;
+						rankstring = StringID::WHOALL_CODER;
 					else if (cle->Admin() >= AccountStatus::GMAreas)
-						rankstring = WHOALL_AREAS;
+						rankstring = StringID::WHOALL_AREAS;
 					else if (cle->Admin() >= AccountStatus::QuestMaster)
-						rankstring = WHOALL_QUESTMASTER;
+						rankstring = StringID::WHOALL_QUESTMASTER;
 					else if (cle->Admin() >= AccountStatus::GMLeadAdmin)
-						rankstring = WHOALL_LEAD;
+						rankstring = StringID::WHOALL_LEAD;
 					else if (cle->Admin() >= AccountStatus::GMAdmin)
-						rankstring = WHOALL_ADMIN;
+						rankstring = StringID::WHOALL_ADMIN;
 					else if (cle->Admin() >= AccountStatus::GMStaff)
-						rankstring = WHOALL_STAFF;
+						rankstring = StringID::WHOALL_STAFF;
 					else if (cle->Admin() >= AccountStatus::EQSupport)
-						rankstring = WHOALL_EQSUPPORT;
+						rankstring = StringID::WHOALL_EQSUPPORT;
 					else if (cle->Admin() >= AccountStatus::GMTester)
-						rankstring = WHOALL_TESTER;
+						rankstring = StringID::WHOALL_TESTER;
 					else if (cle->Admin() >= AccountStatus::SeniorGuide)
-						rankstring = WHOALL_SENIOR;
+						rankstring = StringID::WHOALL_SENIOR;
 					else if (cle->Admin() >= AccountStatus::QuestTroupe)
-						rankstring = WHOALL_QUESTTROUPE;
+						rankstring = StringID::WHOALL_QUESTTROUPE;
 					else if (cle->Admin() >= AccountStatus::Guide)
-						rankstring = WHOALL_GUIDE;
+						rankstring = StringID::WHOALL_GUIDE;
 					else if (cle->Admin() >= AccountStatus::ApprenticeGuide)
-						rankstring = WHOALL_APPRENTICE;
+						rankstring = StringID::WHOALL_APPRENTICE;
 					else if (cle->Admin() >= AccountStatus::Steward)
-						rankstring = WHOALL_STEWARD;
+						rankstring = StringID::WHOALL_STEWARD;
 				}
 				++idx;
 
 				char guildbuffer[67] = { 0 };
 				if (cle->GuildID() != GUILD_NONE && cle->GuildID() > 0 && (cle->Anon() != 1 || admin >= cle->Admin()))
 					sprintf(guildbuffer, "<%s>", guild_mgr.GetGuildName(cle->GuildID()));
-				uint16 formatstring = WHOALL_ALL;
+				uint16 formatstring = StringID::WHOALL_ALL;
 				if (cle->Anon() == 1 && (admin < cle->Admin() || admin == AccountStatus::Player))
-					formatstring = WHOALL_ANON;
+					formatstring = StringID::WHOALL_ANON;
 				else if (cle->Anon() == 1 && admin >= cle->Admin() && admin >= AccountStatus::QuestTroupe)
-					formatstring = WHOALL_GM;
+					formatstring = StringID::WHOALL_GM;
 				else if (cle->Anon() == 2 && (admin < cle->Admin() || admin == AccountStatus::Player))
-					formatstring = WHOALL_ROLE;//display guild
+					formatstring = StringID::WHOALL_ROLE;//display guild
 				else if (cle->Anon() == 2 && admin >= cle->Admin() && admin >= AccountStatus::QuestTroupe)
-					formatstring = WHOALL_GM;//display everything
+					formatstring = StringID::WHOALL_GM;//display everything
 
 				uint16 plclass_ = 0;
 				uint16 pllevel = 0;
@@ -884,18 +884,18 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 				if (cle->Anon() == 0 || (admin >= cle->Admin() && admin >= AccountStatus::QuestTroupe))
 				{
 					if (!cle->GetGM() && cle->AFK())
-						rankstring = WHOALL_AFK;
+						rankstring = StringID::WHOALL_AFK;
 
 					plclass_ = cle->class_();
 					pllevel = cle->level();
 					if (admin >= gmwholist)
-						pidstring = WHOALL_USERPID;
+						pidstring = StringID::WHOALL_USERPID;
 					plrace = cle->baserace();
-					zonestring = WHOALL_ZONE;
+					zonestring = StringID::WHOALL_ZONE;
 					plzone = database.GetClientZoneID(cle->zone());
 					
 					if (cle->LFG())
-						plflag = WHOALL_LFG;
+						plflag = StringID::WHOALL_LFG;
 				}
 
 				if (admin >= cle->Admin() && admin >= AccountStatus::QuestTroupe)

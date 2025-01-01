@@ -72,6 +72,7 @@
 #include "worldserver.h"
 #include "queryserv.h"
 #include "zonedb.h"
+#include "../common/events/player_event_logs.h"
 
 extern QueryServ* QServ;
 extern WorldServer worldserver;
@@ -622,6 +623,15 @@ int command_realdispatch(Client *c, std::string message, bool ignore_status)
 		return -1;
 	}
 
+	if (player_event_logs.IsEventEnabled(PlayerEvent::GM_COMMAND) && message != "#help") {
+		auto e = PlayerEvent::GMCommandEvent{
+			.message = message,
+			.target = c->GetTarget() ? c->GetTarget()->GetName() : "NONE"
+		};
+
+		RecordPlayerEventLogWithClient(c, PlayerEvent::GM_COMMAND, e);
+	}
+
 	cur->function(c, &sep);	// Dispatch C++ Command
 
 	return 0;
@@ -955,7 +965,6 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/list.cpp"
 #include "gm_commands/listnpcs.cpp"
 #include "gm_commands/loc.cpp"
-#include "gm_commands/logcommand.cpp"
 #include "gm_commands/logs.cpp"
 #include "gm_commands/logtest.cpp"
 #include "gm_commands/makemule.cpp"

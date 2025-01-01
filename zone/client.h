@@ -54,6 +54,8 @@ struct ItemData;
 #include "questmgr.h"
 #include "zone.h"
 #include "zonedb.h"
+#include "cheat_manager.h"
+#include "../common/events/player_events.h"
 
 #ifdef _WINDOWS
 	// since windows defines these within windef.h (which windows.h include)
@@ -205,17 +207,6 @@ typedef enum {
 	ZoneToGuildZone
 } ZoneMode;
 
-typedef enum {
-	MQWarp,
-	MQWarpShadowStep,
-	MQWarpKnockBack,
-	MQWarpLight,
-	MQZone,
-	MQZoneUnknownDest,
-	MQGate,
-	MQGhost
-} CheatTypes;
-
 enum {
 	HideCorpseNone = 0,
 	HideCorpseAll = 1,
@@ -288,6 +279,8 @@ public:
 	
 	void PermaGender(uint32 gender);
 
+	std::vector<Mob *> GetRaidOrGroupOrSelf(bool clients_only = false);
+
 	float GetQuiverHaste();
 	int	GetHasteCap();
 
@@ -340,12 +333,15 @@ public:
 	void	ReturnTraderReq(const EQApplicationPacket* app,int16 traderitemcharges, int TraderSlot,uint32 price);
 	void	TradeRequestFailed(const EQApplicationPacket* app);
 	void	BuyTraderItem(TraderBuy_Struct* tbs,Client* trader,const EQApplicationPacket* app);
-	void	FinishTrade(Mob* with, bool finalizer = false, void* event_entry = nullptr);
+	void FinishTrade(
+		Mob *with,
+		bool finalizer = false,
+		void *event_entry = nullptr
+	);
 	void	SendZonePoints();
 
 	void FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho);
 	virtual bool Process();
-	void LogMerchant(Client* player, Mob* merchant, uint32 quantity, uint32 price, const EQ::ItemData* item, bool buying);
 	void QueuePacket(const EQApplicationPacket* app, bool ack_req = true, CLIENT_CONN_STATUS = CLIENT_CONNECTINGALL, eqFilterType filter=FilterNone);
 	void FastQueuePacket(EQApplicationPacket** app, bool ack_req = true, CLIENT_CONN_STATUS = CLIENT_CONNECTINGALL);
 	void ChannelMessageReceived(uint8 chan_num, uint8 language, uint8 lang_skill, const char* orig_message, const char* targetname=nullptr);
@@ -1017,21 +1013,9 @@ public:
 	//Anti-Cheat Stuff
 	uint32 m_TimeSinceLastPositionCheck;
 	float m_DistanceSinceLastPositionCheck;
-	bool m_CheatDetectMoved;
-	void SetShadowStepExemption(bool v);
-	void SetKnockBackExemption(bool v);
-	void SetPortExemption(bool v);
-	void SetSenseExemption(bool v) { m_SenseExemption = v; }
-	void SetAssistExemption(bool v) { m_AssistExemption = v; }
-	const bool IsShadowStepExempted() const { return m_ShadowStepExemption; }
-	const bool IsKnockBackExempted() const { return m_KnockBackExemption; }
-	const bool IsPortExempted() const { return m_PortExemption; }
-	const bool IsSenseExempted() const { return m_SenseExemption; }
-	const bool IsAssistExempted() const { return m_AssistExemption; }
 	const bool GetGMSpeed() const { return (gmspeed > 0); }
 	const bool GetGMInvul() const { return gminvul; }
 	void SetGmInvul(bool state) { gminvul = state; invulnerable = state; }
-	void CheatDetected(CheatTypes CheatType, float x, float y, float z);
 	const bool IsMQExemptedArea(uint32 zoneID, float x, float y, float z) const;
 	bool CanUseReport;
 
@@ -1260,6 +1244,11 @@ public:
 	inline bool InstanceBootGraceTimerExpired() { return instance_boot_grace_timer.Check(); }
 	void ShowDevToolsMenu();
 	void SendReloadCommandMessages();
+
+	CheatManager cheat_manager;
+
+	PlayerEvent::PlayerEvent GetPlayerEvent();
+	void RecordKilledNPCEvent(NPC *n);
 
 protected:
 	friend class Mob;

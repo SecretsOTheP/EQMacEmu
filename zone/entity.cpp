@@ -1726,9 +1726,9 @@ void EntityList::DuelMessage(Mob *winner, Mob *loser, bool flee)
 		//might want some sort of distance check in here?
 		if (cur != winner && cur != loser) {
 			if (flee)
-				cur->Message_StringID(Chat::Yellow, DUEL_FLED, winner->GetName(),loser->GetName(),loser->GetName());
+				cur->Message_StringID(Chat::Yellow, StringID::DUEL_FLED, winner->GetName(),loser->GetName(),loser->GetName());
 			else
-				cur->Message_StringID(Chat::Yellow, DUEL_FINISHED, winner->GetName(),loser->GetName());
+				cur->Message_StringID(Chat::Yellow, StringID::DUEL_FINISHED, winner->GetName(),loser->GetName());
 		}
 		++it;
 	}
@@ -4976,7 +4976,7 @@ void EntityList::AreaCastSpell(float minx, float miny, float maxx, float maxy, u
 				}
 				else if(regeant_itemid > 0 && slotid == INVALID_INDEX)
 				{
-					client->Message_StringID(Chat::SpellFailure, MISSING_SPELL_COMP);
+					client->Message_StringID(Chat::SpellFailure, StringID::MISSING_SPELL_COMP);
 				}
 			}
 		}

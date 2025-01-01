@@ -289,6 +289,8 @@ public:
 	void MaxSkills();
 	bool SendGMCommand(std::string message);
 	bool SendGMCommand(std::string message, bool ignore_status);
+	luabind::object GetRaidOrGroupOrSelf(lua_State *L);
+	luabind::object GetRaidOrGroupOrSelf(lua_State *L, bool clients_only);
 
 	void SetClientMaxLevel(uint8 max_level);
 	uint8 GetClientMaxLevel();

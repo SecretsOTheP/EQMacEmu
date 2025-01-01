@@ -356,7 +356,7 @@ bool Beacon::Process()
 							if (Assassinate_Dmg)
 							{
 								weapon_dmg = Assassinate_Dmg;
-								entity_list.MessageClose_StringID(caster, false, 200, Chat::MeleeCrit, ASSASSINATES, caster->GetName());
+								entity_list.MessageClose_StringID(caster, false, 200, Chat::MeleeCrit, StringID::ASSASSINATES, caster->GetName());
 							}
 							else
 							{
@@ -364,50 +364,53 @@ bool Beacon::Process()
 							}
 						}
 
-						if (weapon_dmg > 0 && skillinuse == EQ::skills::SkillArchery && caster->GetClass() == Class::Ranger)
+						if (weapon_dmg > 0 && skillinuse == EQ::skills::SkillArchery)
 						{
-							if (target->IsNPC() && target->GetBodyType() == BodyType::Humanoid	&& caster->GetAABonuses().HeadShot[1]
-								&& target->GetLevel() <= caster->GetAABonuses().HSLevel 
-								&& zone->random.Roll(static_cast<double>(caster->GetDEX()) / 3500.0)
-							)
+							if (caster->GetClass() == Class::Ranger)
 							{
-								entity_list.MessageClose_StringID(caster, false, 200, Chat::MeleeCrit, FATAL_BOW_SHOT, caster->GetName());
-								weapon_dmg = 32000;
-							}
-							else
-							{
-								if (caster->GetLevel() > 50)
+								if (target->IsNPC() && target->GetBodyType() == BodyType::Humanoid && caster->GetAABonuses().HeadShot[1]
+									&& target->GetLevel() <= caster->GetAABonuses().HSLevel
+									&& zone->random.Roll(static_cast<double>(caster->GetDEX()) / 3500.0)
+									)
 								{
-									bool dobonus = false;
-									int bonuschance = RuleI(Combat, ArcheryBonusChance);
-
-									if (!RuleB(Combat, UseArcheryBonusRoll) || (zone->random.Int(1, 100) < bonuschance))
+									entity_list.MessageClose_StringID(caster, false, 200, Chat::MeleeCrit, StringID::FATAL_BOW_SHOT, caster->GetName());
+									weapon_dmg = 32000;
+								}
+								else
+								{
+									if (caster->GetLevel() > 50)
 									{
-										if (RuleB(Combat, ArcheryBonusRequiresStationary))
+										bool dobonus = false;
+										int bonuschance = RuleI(Combat, ArcheryBonusChance);
+
+										if (!RuleB(Combat, UseArcheryBonusRoll) || (zone->random.Int(1, 100) < bonuschance))
 										{
-											if (target->IsNPC() && !target->IsMoving() && (!target->IsRooted() || target->PermaRooted()))
+											if (RuleB(Combat, ArcheryBonusRequiresStationary))
+											{
+												if (target->IsNPC() && !target->IsMoving() && (!target->IsRooted() || target->PermaRooted()))
+												{
+													dobonus = true;
+												}
+											}
+											else
 											{
 												dobonus = true;
 											}
 										}
-										else
+
+										if (dobonus)
 										{
-											dobonus = true;
+											weapon_dmg *= 2;
+											caster->Message_StringID(Chat::MeleeCrit, StringID::BOW_DOUBLE_DAMAGE);
 										}
 									}
 
-									if (dobonus)
-									{
-										weapon_dmg *= 2;
-										caster->Message_StringID(Chat::MeleeCrit, BOW_DOUBLE_DAMAGE);
-									}
+									if (weapon_dmg < 1)
+										weapon_dmg = 1;
 								}
-
-								if (weapon_dmg < 1)
-									weapon_dmg = 1;
-
-								caster->TryCriticalHit(target, EQ::skills::SkillArchery, weapon_dmg);
 							}
+
+							caster->TryCriticalHit(target, EQ::skills::SkillArchery, weapon_dmg);
 						}
 
 						target->AddToHateList(caster, projectile_hate, 0);

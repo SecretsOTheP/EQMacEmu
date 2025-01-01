@@ -70,7 +70,7 @@ int32 NPC::GetActSpellDamage(uint16 spell_id, int32 value,  Mob* target) {
 
 			if (chance && zone->random.Roll(chance)) {
 				value += (value*ratio)/100;
-				entity_list.MessageClose_StringID(this, true, 100, Chat::SpellCrit, OTHER_CRIT_BLAST, GetCleanName(), itoa(-value));
+				entity_list.MessageClose_StringID(this, true, 100, Chat::SpellCrit, StringID::OTHER_CRIT_BLAST, GetCleanName(), itoa(-value));
 			}
 		}
 		else {
@@ -103,8 +103,8 @@ int32 Client::TryWizardInnateCrit(uint16 spell_id, int32 damage, int32 focusDmg,
 				damage = maxHit;
 
 			entity_list.MessageClose_StringID(this, true, 100, Chat::SpellCrit,
-				OTHER_CRIT_BLAST, GetName(), itoa(-damage));
-			Message_StringID(Chat::SpellCrit, YOU_CRIT_BLAST, itoa(-damage));
+				StringID::OTHER_CRIT_BLAST, GetName(), itoa(-damage));
+			Message_StringID(Chat::SpellCrit, StringID::YOU_CRIT_BLAST, itoa(-damage));
 		}
 		else
 			damage += focusDmg;
@@ -158,8 +158,8 @@ int32 Client::GetActSpellDamage(uint16 spell_id, int32 dmg, Mob* target)
 		dmg += dmg * mult / 100 + focusDmg;		// focused damage is not multiplied by crit
 
 		entity_list.MessageClose_StringID(this, false, 100, Chat::SpellCrit,
-				OTHER_CRIT_BLAST, GetName(), itoa(-dmg));
-		Message_StringID(Chat::SpellCrit, YOU_CRIT_BLAST, itoa(-dmg));
+			StringID::OTHER_CRIT_BLAST, GetName(), itoa(-dmg));
+		Message_StringID(Chat::SpellCrit, StringID::YOU_CRIT_BLAST, itoa(-dmg));
 	}
 	else if (GetClass() == Class::Wizard)
 		dmg = TryWizardInnateCrit(spell_id, dmg, focusDmg);
@@ -234,7 +234,7 @@ int32 NPC::GetActSpellHealing(uint16 spell_id, int32 value, Mob* target, bool ho
 		if(spells[spell_id].buffduration < 1) {
 			if(spellbonuses.CriticalHealChance && (zone->random.Roll(spellbonuses.CriticalHealChance))) {
 				value = value*2;
-				entity_list.MessageClose_StringID(this, true, 100, Chat::SpellCrit, OTHER_CRIT_HEAL, GetCleanName(), itoa(value));
+				entity_list.MessageClose_StringID(this, true, 100, Chat::SpellCrit, StringID::OTHER_CRIT_HEAL, GetCleanName(), itoa(value));
 			}
 		}
 	 }
@@ -283,8 +283,8 @@ int32 Client::GetActSpellHealing(uint16 spell_id, int32 value, Mob* target, bool
 
 		if (Critical) {
 			entity_list.MessageClose_StringID(this, false, 100, Chat::SpellCrit,
-					OTHER_CRIT_HEAL, GetName(), itoa(value));
-			Message_StringID(Chat::SpellCrit, YOU_CRIT_HEAL, itoa(value));
+				StringID::OTHER_CRIT_HEAL, GetName(), itoa(value));
+			Message_StringID(Chat::SpellCrit, StringID::YOU_CRIT_HEAL, itoa(value));
 		}
 
 		return value;
@@ -472,7 +472,7 @@ bool Client::UseDiscipline(uint8 disc_id)
 	{
 		char val1[20]={0};
 		char val2[20]={0};
-		Message_StringID(Chat::Disciplines, DISCIPLINE_CANUSEIN, ConvertArray((remain)/60,val1), ConvertArray(remain%60,val2));
+		Message_StringID(Chat::Disciplines, StringID::DISCIPLINE_CANUSEIN, ConvertArray((remain)/60,val1), ConvertArray(remain%60,val2));
 		return(false);
 	}
 
@@ -487,7 +487,7 @@ bool Client::UseDiscipline(uint8 disc_id)
 	uint8 level_to_use = DisciplineUseLevel(disc_id);
 	if(level_to_use > GetLevel() || level_to_use == 0) 
 	{
-		Message_StringID(Chat::Disciplines, DISC_LEVEL_USE_ERROR);
+		Message_StringID(Chat::Disciplines, StringID::DISC_LEVEL_USE_ERROR);
 		return(false);
 	}
 
@@ -710,34 +710,34 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 			reuse_timer = 1620;
 			ability_timer = 180000;
 			spellid = 4498;
-			string = DISCIPLINE_AGRESSIVE;
+			string = StringID::DISCIPLINE_AGRESSIVE;
 
 			break;
 		case disc_precision:
 			reuse_timer = 1800;
 			ability_timer = 180000;
 			spellid = 4501;
-			string = DISCIPLINE_PRECISION;
+			string = StringID::DISCIPLINE_PRECISION;
 
 			break;
 		case disc_defensive:
 			reuse_timer = 900;
 			ability_timer = 180000;
 			spellid = 4499;
-			string = DISCIPLINE_DEFENSIVE;
+			string = StringID::DISCIPLINE_DEFENSIVE;
 
 			break;
 		case disc_evasive:
 			reuse_timer = 900;
 			ability_timer = 180000;
 			spellid = 4503;
-			string = DISCIPLINE_EVASIVE;
+			string = StringID::DISCIPLINE_EVASIVE;
 
 			break;
 		case disc_ashenhand:
 			reuse_timer = 4320;
 			spellid = 4508;
-			string = DISCIPLINE_ASHENHAND;
+			string = StringID::DISCIPLINE_ASHENHAND;
 
 			break;
 		case disc_furious: // furious (WAR), whirlwind (MNK), counterattack (ROG)
@@ -749,7 +749,7 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4509;
 			else if(GetBaseClass() == Class::Rogue)
 				spellid = 4673;
-			string = DISCIPLINE_FURIOUS;
+			string = StringID::DISCIPLINE_FURIOUS;
 
 			break;
 		case disc_stonestance: // stonestance (MNK), protectivespirit (BST)
@@ -759,13 +759,13 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4510;
 			else if(GetBaseClass() == Class::Beastlord)
 				spellid = 4671;
-			string = DISCIPLINE_STONESTANCE;
+			string = StringID::DISCIPLINE_STONESTANCE;
 
 			break;
 		case disc_thunderkick:
 			reuse_timer = 540;
 			spellid = 4511;
-			string = DISCIPLINE_THUNDERKICK;
+			string = StringID::DISCIPLINE_THUNDERKICK;
 
 			break;
 		case disc_fortitude: // fortitude (WAR), voiddance (MNK)
@@ -775,7 +775,7 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4670;
 			else if(GetBaseClass() == Class::Monk)
 				spellid = 4502;
-			string = DISCIPLINE_FORTITUDE;
+			string = StringID::DISCIPLINE_FORTITUDE;
 
 			break;
 		case disc_fellstrike: // fellstrike (WAR), bestialrage (BST), innerflame (MNK), duelist (ROG)
@@ -789,7 +789,7 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4676;
 			else if(GetBaseClass() == Class::Beastlord)
 				spellid = 4678;
-			string = DISCIPLINE_FELLSTRIKE;
+			string = StringID::DISCIPLINE_FELLSTRIKE;
 
 			break;
 		case disc_hundredfist: // hundredfist (MNK), blindingspeed (ROG)
@@ -799,7 +799,7 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4513;
 			else if(GetBaseClass() == Class::Rogue)
 				spellid = 4677;
-			string = DISCIPLINE_HUNDREDFIST;
+			string = StringID::DISCIPLINE_HUNDREDFIST;
 
 			break;
 		case disc_charge: // charge (WAR), deadeye (ROG)
@@ -809,58 +809,58 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 				spellid = 4672;
 			else if(GetBaseClass() == Class::Rogue)
 				spellid = 4505;
-			string = DISCIPLINE_CHARGE;
+			string = StringID::DISCIPLINE_CHARGE;
 
 			break;
 		case disc_mightystrike:
 			reuse_timer = 3600;
 			ability_timer = 10000;
 			spellid = 4514;
-			string = DISCIPLINE_MIGHTYSTRIKE;
+			string = StringID::DISCIPLINE_MIGHTYSTRIKE;
 
 			break;
 		case disc_nimble:
 			reuse_timer = 1800;
 			ability_timer = 12000;
 			spellid = 4515;
-			string = DISCIPLINE_NIMBLE;
+			string = StringID::DISCIPLINE_NIMBLE;
 
 			break;
 		case disc_silentfist:
 			reuse_timer = 594;
 			spellid = 4507;
 			if(GetRace() == Race::Iksar)
-				string = DISCIPLINE_SILENTFIST_IKSAR;
+				string = StringID::DISCIPLINE_SILENTFIST_IKSAR;
 			else
-				string = DISCIPLINE_SILENTFIST;
+				string = StringID::DISCIPLINE_SILENTFIST;
 
 			break;
 		case disc_kinesthetics:
 			reuse_timer = 1800;
 			ability_timer = 18000;
 			spellid = 4517;
-			string = DISCIPLINE_KINESTHETICS;
+			string = StringID::DISCIPLINE_KINESTHETICS;
 
 			break;
 		case disc_holyforge:
 			reuse_timer = 4320;
 			ability_timer = 300000;
 			spellid = 4500;
-			string = DISCIPLINE_HOLYFORGE;
+			string = StringID::DISCIPLINE_HOLYFORGE;
 
 			break;
 		case disc_sanctification:
 			reuse_timer = 4320;
 			ability_timer = 15000;
 			spellid = 4518;
-			string = DISCIPLINE_SANCTIFICATION;
+			string = StringID::DISCIPLINE_SANCTIFICATION;
 
 			break;
 		case disc_trueshot:
 			reuse_timer = 4320;
 			ability_timer = 120000;
 			spellid = 4506;
-			string = DISCIPLINE_TRUESHOT;
+			string = StringID::DISCIPLINE_TRUESHOT;
 
 			break;
 		case disc_weaponshield:
@@ -868,52 +868,52 @@ bool Client::CastDiscipline(uint8 disc_id, uint8 level_to_use)
 			ability_timer = 20000;
 			spellid = 4519;
 			if(GetGender() == Gender::Male)
-				string = DISCIPLINE_WPNSLD_MALE;
+				string = StringID::DISCIPLINE_WPNSLD_MALE;
 			else if(GetGender() == Gender::Female)
-				string = DISCIPLINE_WPNSLD_FEMALE;
+				string = StringID::DISCIPLINE_WPNSLD_FEMALE;
 			else
-				string = DISCIPLINE_WPNSLD_MONSTER;
+				string = StringID::DISCIPLINE_WPNSLD_MONSTER;
 
 			break;
 		case disc_unholyaura:
 			reuse_timer = 4320;
 			spellid = 4520;
-			string = DISCIPLINE_UNHOLYAURA;
+			string = StringID::DISCIPLINE_UNHOLYAURA;
 
 			break;
 		case disc_leechcurse:
 			reuse_timer = 4320;
 			ability_timer = 20000;
 			spellid = 4504;
-			string = DISCIPLINE_LEECHCURSE;
+			string = StringID::DISCIPLINE_LEECHCURSE;
 
 			break;
 		case disc_deftdance:
 			reuse_timer = 4320;
 			ability_timer = 15000;
 			spellid = 4516;
-			string = DISCIPLINE_DEFTDANCE;
+			string = StringID::DISCIPLINE_DEFTDANCE;
 
 			break;
 		case disc_puretone:
 			reuse_timer = 4320;
 			ability_timer = 240000;
 			spellid = 4586;
-			string = DISCIPLINE_PURETONE;
+			string = StringID::DISCIPLINE_PURETONE;
 
 			break;
 		case disc_resistant:
 			reuse_timer = 3600;
 			ability_timer = 300000;
 			spellid = 4585;
-			string = DISCIPLINE_RESISTANT;
+			string = StringID::DISCIPLINE_RESISTANT;
 
 			break;
 		case disc_fearless:
 			reuse_timer = 3600;
 			ability_timer = 11000;
 			spellid = 4587;
-			string = DISCIPLINE_FEARLESS;
+			string = StringID::DISCIPLINE_FEARLESS;
 
 			break;
 		default:
@@ -988,7 +988,7 @@ void EntityList::AETaunt(Client* taunter, float range)
 			//if (taunter->CheckLosFN(them))
 			//{
 				taunter->Taunt(them, true, 100);
-				taunter->Message_StringID(Chat::Skills, TAUNT_SUCCESS, them->GetCleanName());
+				taunter->Message_StringID(Chat::Skills, StringID::TAUNT_SUCCESS, them->GetCleanName());
 			//}
 		}
 		++it;
@@ -1168,7 +1168,7 @@ void EntityList::AESpell(Mob *caster, Mob *center, uint16 spell_id, bool affect_
 				{
 					Log(Logs::General, Logs::Spells, "Invalid target: Attempting to cast a beneficial AE spell/song on %s.", curmob->GetName());
 					if(!IsBardSong(spell_id) && spells[spell_id].targettype != ST_AEBard)
-						caster->Message_StringID(Chat::SpellFailure, SPELL_NO_HOLD);
+						caster->Message_StringID(Chat::SpellFailure, StringID::SPELL_NO_HOLD);
 					continue;
 				}
 				else if (IsBardSong(spell_id) && curmob->IsPet())
@@ -1188,7 +1188,7 @@ void EntityList::AESpell(Mob *caster, Mob *center, uint16 spell_id, bool affect_
 			int16 slotid = curmob->CastToClient()->GetInv().HasItem(19720);
 			if(slotid == INVALID_INDEX)
 			{
-				curmob->Message_StringID(Chat::SpellFailure, NO_COMPONENT_LUCLIN);
+				curmob->Message_StringID(Chat::SpellFailure, StringID::NO_COMPONENT_LUCLIN);
 				Log(Logs::Detail, Logs::Spells, "%s does not have the correct component to travel to Luclin.", curmob->GetName());
 				continue;
 			}

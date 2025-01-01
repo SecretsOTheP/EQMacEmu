@@ -947,7 +947,7 @@ int32 Client::CalcManaRegen(bool meditate)
 	this->medding = new_medding_state; // turn off medding flag if it didn't get set above (famished or not sitting/mounted)
 	if (this->medding && meditate)
 	{
-		CheckIncreaseSkill(EQ::skills::SkillMeditate, nullptr, zone->skill_difficulty[EQ::skills::SkillMeditate].difficulty);
+		CheckIncreaseSkill(EQ::skills::SkillMeditate, nullptr, zone->skill_difficulty[EQ::skills::SkillMeditate].difficulty[GetClass()]);
 	}
 	
 	// level regen bonus applies even when famished

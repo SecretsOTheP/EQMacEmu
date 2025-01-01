@@ -25,6 +25,7 @@
 #include "worldserver.h"
 #include "string_ids.h"
 #include "queryserv.h"
+#include "../common/events/player_event_logs.h"
 
 extern EntityList entity_list;
 extern WorldServer worldserver;
@@ -154,13 +155,25 @@ void Group::SplitMoney(uint32 copper, uint32 silver, uint32 gold, uint32 platinu
 
 			// the group member other than the character doing the /split only gets this message "(splitter) shares the money with the group"
 			if (share && member_client != splitter) {
-				member_client->Message_StringID(Chat::Green, SHARE_MONEY, splitter->GetCleanName());
+				member_client->Message_StringID(Chat::Green, StringID::SHARE_MONEY, splitter->GetCleanName());
 			}
 
 			// Check if there are any coins to add to the player's purse.
 			if (receive_copper || receive_silver || receive_gold || receive_platinum) {
 				member_client->AddMoneyToPP(receive_copper, receive_silver, receive_gold, receive_platinum, true);
-				member_client->Message_StringID(Chat::Green, YOU_RECEIVE_AS_SPLIT, Strings::Money(receive_platinum, receive_gold, receive_silver, receive_copper).c_str());
+				member_client->Message_StringID(Chat::Green, StringID::YOU_RECEIVE_AS_SPLIT, Strings::Money(receive_platinum, receive_gold, receive_silver, receive_copper).c_str());
+			}
+
+			// If logging of player money transactions is enabled, record the transaction.
+			if (player_event_logs.IsEventEnabled(PlayerEvent::SPLIT_MONEY)) {
+				auto e = PlayerEvent::SplitMoneyEvent{
+					.copper = receive_copper,
+					.silver = receive_silver,
+					.gold = receive_gold,
+					.platinum = receive_platinum,
+					.player_money_balance = member_client->GetCarriedMoney(),
+				};
+				RecordPlayerEventLogWithClient(member_client, PlayerEvent::SPLIT_MONEY, e);
 			}
 
 			if (RuleB(QueryServ, PlayerLogMoneyTransactions))
@@ -186,7 +199,7 @@ bool Group::AddMember(Mob* newmember, const char *NewMemberName, uint32 Characte
 	if (GroupCount() >= MAX_GROUP_MEMBERS) //Sanity check for merging groups together.
 	{
 		if (newmember)
-			newmember->Message_StringID(Chat::White, GROUP_IS_FULL);
+			newmember->Message_StringID(Chat::White, StringID::GROUP_IS_FULL);
 		return false;
 	}
 
@@ -558,7 +571,7 @@ bool Group::DelMember(Mob* oldmember)
 
 	GroupGeneric_Struct2* gr = (GroupGeneric_Struct2*) outapp->pBuffer;
 	gr->action = groupActDisband2;
-	gr->param = GROUP_REMOVED;
+	gr->param = StringID::GROUP_REMOVED;
 
 	strcpy(gr->membername,oldmember->GetCleanName());
 	strcpy(gr->yourname,oldmember->GetCleanName());
@@ -1070,11 +1083,11 @@ void Group::BalanceHP(int32 penalty, float range, Mob* caster, int32 limit)
 
 				if (new_hp > old_hp)
 				{
-					members[gi]->Message_StringID(Chat::Spells, DIV_ARB_TAKE);
-					members[gi]->Message_StringID(Chat::Spells, YOU_HEALED, itoa(new_hp - old_hp));
+					members[gi]->Message_StringID(Chat::Spells, StringID::DIV_ARB_TAKE);
+					members[gi]->Message_StringID(Chat::Spells, StringID::YOU_HEALED, itoa(new_hp - old_hp));
 				}
 				else
-					members[gi]->Message_StringID(Chat::Spells, DIV_ARB_GIVE);
+					members[gi]->Message_StringID(Chat::Spells, StringID::DIV_ARB_GIVE);
 
 				members[gi]->SetHP(new_hp);
 				members[gi]->SendHPUpdate();

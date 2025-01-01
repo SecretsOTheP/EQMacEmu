@@ -151,8 +151,8 @@ void Raid::AddGroupToRaid(Client* inviter, Client* invitee, Group* group, uint32
 			group->SetLeader(nullptr);
 		}
 
-		inviter->Message_StringID(Chat::DefaultText, RAID_OOR);
-		invitee->Message_StringID(Chat::DefaultText, CANNOT_JOIN_RAID, ooz_member.c_str());
+		inviter->Message_StringID(Chat::DefaultText, StringID::RAID_OOR);
+		invitee->Message_StringID(Chat::DefaultText, StringID::CANNOT_JOIN_RAID, ooz_member.c_str());
 
 		// this will reset the raid for the invited, but will not give them a message their raid was disbanded.
 		auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
@@ -827,11 +827,11 @@ void Raid::BalanceHP(int32 penalty, uint32 gid, float range, Mob* caster, int32 
 
 					if (new_hp > old_hp)
 					{
-						members[gi].member->Message_StringID(Chat::Spells, DIV_ARB_TAKE);
-						members[gi].member->Message_StringID(Chat::Spells, YOU_HEALED, itoa(new_hp - old_hp));
+						members[gi].member->Message_StringID(Chat::Spells, StringID::DIV_ARB_TAKE);
+						members[gi].member->Message_StringID(Chat::Spells, StringID::YOU_HEALED, itoa(new_hp - old_hp));
 					}
 					else
-						members[gi].member->Message_StringID(Chat::Spells, DIV_ARB_GIVE);
+						members[gi].member->Message_StringID(Chat::Spells, StringID::DIV_ARB_GIVE);
 
 					members[gi].member->SetHP(new_hp);
 					members[gi].member->SendHPUpdate();
@@ -951,7 +951,7 @@ void Raid::SplitMoney(uint32 copper, uint32 silver, uint32 gold, uint32 platinum
 		if (members[i].member) { // If Group Member is Client
 		//I could not get MoneyOnCorpse to work, so we use this
 		members[i].member->AddMoneyToPP(copper_split, silver_split, gold_split, platinum_split, true);
-		members[i].member->Message_StringID(Chat::Green, YOU_RECEIVE_AS_SPLIT, Strings::Money(platinum_split, gold_split, silver_split, copper_split).c_str());
+		members[i].member->Message_StringID(Chat::Green, StringID::YOU_RECEIVE_AS_SPLIT, Strings::Money(platinum_split, gold_split, silver_split, copper_split).c_str());
 		}
 	}
 }
@@ -1648,7 +1648,7 @@ void Raid::SendGroupDisband(Client *to)
 	gu->action = groupActDisband2;
 	strn0cpy(gu->membername, to->GetName(), 64);
 	strn0cpy(gu->yourname, to->GetName(), 64);
-	gu->param = GROUP_REMOVED;
+	gu->param = StringID::GROUP_REMOVED;
 	to->FastQueuePacket(&outapp);
 }
 

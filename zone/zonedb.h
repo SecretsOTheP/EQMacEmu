@@ -440,7 +440,7 @@ public:
 	uint32	GetZoneFishing(uint32 ZoneID, uint8 skill);
 	bool	EnableRecipe(uint32 recipe_id);
 	bool	DisableRecipe(uint32 recipe_id);
-	bool	UpdateSkillDifficulty(uint16 skillid, float difficulty);
+	bool	UpdateSkillDifficulty(uint16 skillid, float difficulty, uint8 classid);
 
 	/*
 	* Doors
@@ -489,7 +489,6 @@ public:
 		* PLEASE DO NOT ADD TO THIS COLLECTION OF CRAP UNLESS YOUR METHOD
 		* REALLY HAS NO BETTER SECTION
 	*/
-	bool	logevents(const char* accountname,uint32 accountid,uint8 status,const char* charname,const char* target, const char* descriptiontype, const char* description,int event_nid);
 	uint32	GetKarma(uint32 acct_id);
 	void	UpdateKarma(uint32 acct_id, uint32 amount);
 	int16  GetTimerFromSkill(EQ::skills::SkillType skillid);

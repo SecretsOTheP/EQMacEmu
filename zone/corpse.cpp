@@ -46,6 +46,7 @@ Child of the Mob class.
 #include "string_ids.h"
 #include "worldserver.h"
 #include "queryserv.h"
+#include "../common/events/player_event_logs.h"
 #include <iostream>
 
 extern EntityList entity_list;
@@ -1750,7 +1751,7 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 	}
 
 		if (client->CheckLoreConflict(item)) {
-			client->Message_StringID(0, LOOT_LORE_ERROR);
+			client->Message_StringID(0, StringID::LOOT_LORE_ERROR);
 			SendEndLootErrorPacket(client);
 			ResetLooter();
 			if (contains_legacy_item) { RemoveLegacyItemLooter(client->GetCleanName()); }
@@ -1848,11 +1849,31 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 		args.push_back(inst);
 		args.push_back(this);
 		parse->EventPlayer(EVENT_LOOT, client, export_string, 0, &args);
+
+		if (player_event_logs.IsEventEnabled(PlayerEvent::LOOT_ITEM) && !IsPlayerCorpse()) {
+			auto e = PlayerEvent::LootItemEvent{
+				.item_id = inst->GetItem()->ID,
+				.item_name = inst->GetItem()->Name,
+				.charges = inst->GetCharges(),
+				.npc_id = GetNPCTypeID(),
+				.corpse_name = EntityList::RemoveNumbers(corpse_name)
+			};
+
+			RecordPlayerEventLogWithClient(client, PlayerEvent::LOOT_ITEM, e);
+		}
+
 		parse->EventItem(EVENT_LOOT, client, inst, this, export_string, 0);
 
-		if ((RuleB(Character, EnableDiscoveredItems))) {
-			if (client && !client->GetGM() && !client->IsDiscovered(inst->GetItem()->ID))
-				client->DiscoverItem(inst->GetItem()->ID);
+
+
+		if (
+			!IsPlayerCorpse() &&
+			RuleB(Character, EnableDiscoveredItems) &&
+			client &&
+			!client->GetGM() &&
+			!client->IsDiscovered(inst->GetItem()->ID)
+			) {
+			client->DiscoverItem(inst->GetItem()->ID);
 		}
 
 		/* First add it to the looter - this will do the bag contents too */
@@ -1910,19 +1931,19 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 
 		if (!IsPlayerCorpse()) 
 		{
-			client->Message_StringID(Chat::Loot, LOOTED_MESSAGE, linker.Link().c_str());
+			client->Message_StringID(Chat::Loot, StringID::LOOTED_MESSAGE, linker.Link().c_str());
 
 			Group *g = client->GetGroup();
 			if (g != nullptr) 
 			{
-				g->GroupMessage_StringID(client, Chat::Loot, OTHER_LOOTED_MESSAGE, client->GetName(), linker.Link().c_str());
+				g->GroupMessage_StringID(client, Chat::Loot, StringID::OTHER_LOOTED_MESSAGE, client->GetName(), linker.Link().c_str());
 			}
 			else
 			{
 				Raid *r = client->GetRaid();
 				if (r != nullptr) 
 				{
-					r->RaidMessage_StringID(client, Chat::Loot, OTHER_LOOTED_MESSAGE, client->GetName(), linker.Link().c_str());
+					r->RaidMessage_StringID(client, Chat::Loot, StringID::OTHER_LOOTED_MESSAGE, client->GetName(), linker.Link().c_str());
 				}
 			}
 		}
@@ -2099,7 +2120,7 @@ bool Corpse::Summon(Client* client, bool spell, bool CheckDistance) {
 			}
 		}
 		if (!consented) {
-			client->Message_StringID(Chat::White, CONSENT_NONE);
+			client->Message_StringID(Chat::White, StringID::CONSENT_NONE);
 			return false;
 		}
 	}
@@ -2110,7 +2131,7 @@ bool Corpse::Summon(Client* client, bool spell, bool CheckDistance) {
 		bool in_range = DistanceSquaredNoZ(m_Position, client->GetPosition()) <= dist2 && fabs(m_Position.z - client->GetPosition().z) < z_dist;
 		if (!in_range)
 		{
-			client->Message_StringID(Chat::White, CORPSE_TOO_FAR);
+			client->Message_StringID(Chat::White, StringID::CORPSE_TOO_FAR);
 			return false;
 		}
 	}
