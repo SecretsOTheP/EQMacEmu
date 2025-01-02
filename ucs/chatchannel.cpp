@@ -807,7 +807,8 @@ void ChatChannelList::ChatChannelDiscordRelay(ChatChannel *channel, Client *clie
 						wsn = " **" + client->GetWorldShortName() + "**";
 					snprintf(q.message, sizeof(q.message), "**%s** [%d %s %s]%s\n%s", client->GetName().c_str(), client->GetLevel(), GetRaceIDName(client->GetRace()), GetClassIDName(client->GetClass(), 1), wsn.c_str(), message);
 					char *discordFormattedMessage = 0;
-					EncodeDiscordChatItemLinkMsg("", q.message, &discordFormattedMessage);
+					char item_message[] = "";
+					EncodeDiscordChatItemLinkMsg(item_message, q.message, &discordFormattedMessage);
 					discord_manager.QueueWebhookMessage(
 						q.webhook_id,
 						discordFormattedMessage
