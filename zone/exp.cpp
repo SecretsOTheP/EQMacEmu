@@ -391,6 +391,22 @@ void Client::AddEXP(uint32 in_add_exp, uint8 conlevel, Mob* killed_mob, int16 av
 		}
 	}
 
+	if (RuleB(Expansion, EnablePetExperienceSplit) && !content_service.IsTheShadowsOfLuclinEnabled()) {
+		if (killed_mob && !HasGroup() && !is_split)	{
+			int32 damage_amount = 0;
+			Mob *top_damager = killed_mob->GetDamageTop(damage_amount, false, false);
+			if (top_damager) {
+				if (top_damager->IsPet()) {
+					float pet_dmg_pct = static_cast<float>(damage_amount) / killed_mob->total_damage;
+					if (pet_dmg_pct > 0.5f) {
+						Log(Logs::General, Logs::EQMac, "%s was damaged more than 50% by a single pet. Pet takes 50% of experience value.", killed_mob->GetCleanName());
+						add_exp = (float)add_exp * 0.5f;
+					}
+				}
+			}
+		}
+	}
+
 	// Used for Luclin era Hell Level Balance Multipliers.  Can also be used for custom behavior.  AA exp should always be 1.0 to be non-custom.
 	if (RuleB(Zone, LevelBasedEXPMods))
 	{

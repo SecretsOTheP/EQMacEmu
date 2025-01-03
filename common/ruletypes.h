@@ -570,6 +570,7 @@ RULE_CATEGORY(Expansion)
 RULE_INT(Expansion, CurrentExpansion, -1, "The current expansion enabled for the server [-1 = All Expansion, 0 = Classic, 1 = Kunark etc.]")
 RULE_BOOL(Expansion, UseItemExpansionSetting, true, "Disabled focus effect, skill mod, bane, and level rec/req on items for appropiate expansion setting")
 RULE_BOOL(Expansion, UseExperienceExpansionSetting, true, "Set ZEM for appropiate expansion setting")
+RULE_BOOL(Expansion, EnablePetExperienceSplit, true, "Accurate from Classic Launch until Luclin.Enables pet experience weights in groups(or 50 % if solo) if a single pet deals more than 50 % damage to a target out of all contributing damage.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Analytics)

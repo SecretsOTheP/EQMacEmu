@@ -70,6 +70,8 @@ public:
 	void DoFactionHits(int32 nfl_id, bool &success);
 	// Gets Hate amount for mob
 	int32 GetEntHate(Mob *ent, bool includeBonus = true);
+	// get the top damage single mob (including pets and npcs), no group or raid
+	Mob *GetDamageTopSingleMob(int32 &return_dmg);
 	// gets top hated mob
 	Mob *GetTop();
 	// gets any on the list

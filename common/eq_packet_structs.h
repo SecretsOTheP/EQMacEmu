@@ -1078,7 +1078,7 @@ struct ManaUpdate_Struct
 struct SpawnHPUpdate_Struct2
 {
 /*00*/ int16	spawn_id;
-/*02*/ uint8		hp;			//HP Percentage
+/*02*/ int8		hp;			//HP Percentage
 /*03*/
 };
 

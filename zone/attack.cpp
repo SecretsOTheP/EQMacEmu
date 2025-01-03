@@ -1273,7 +1273,8 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		damage,
 		spell,
 		static_cast<int>(attack_skill)
-	);	if(parse->EventPlayer(EVENT_DEATH, this, export_string, 0) != 0) {
+	);	
+	if(parse->EventPlayer(EVENT_DEATH, this, export_string, 0) != 0) {
 		if(GetHP() < 0) {
 			SetHP(0);
 		}

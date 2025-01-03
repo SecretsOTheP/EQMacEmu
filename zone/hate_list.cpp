@@ -398,24 +398,28 @@ int32 HateList::GetEntPetDamage(Mob* ent)
 	return dmg;
 }
 
-Mob* HateList::GetDamageTopSingleMob(int32& return_dmg) {
-	Mob* m = nullptr;
+Mob *HateList::GetDamageTopSingleMob(int32 &return_dmg) 
+{
+	Mob *m = nullptr;
 	int32 dmg;
-	Mob* top_mob = nullptr;
+	Mob *top_mob = nullptr;
 	int32 top_dmg = 0;
 	auto iterator = list.begin();
 	while (iterator != list.end()) {
 		m = (*iterator)->ent;
 		dmg = (*iterator)->damage;
+
 		if (!m) {
 			++iterator;
 			continue;
 		}
+
 		if (m->IsClient()) {
 			if (m->CastToClient()->IsFeigned() && (!owner->IsFleeing() || owner->IsRooted() || (Distance(owner->GetPosition(), m->GetPosition()) > 100.0f))) {
 				dmg = 0;
 			}
 		}
+
 		if (dmg > top_dmg) {
 			top_dmg = dmg;
 			top_mob = m;
