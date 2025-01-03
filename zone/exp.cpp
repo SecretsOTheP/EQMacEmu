@@ -391,7 +391,7 @@ void Client::AddEXP(uint32 in_add_exp, uint8 conlevel, Mob* killed_mob, int16 av
 		}
 	}
 
-	if (RuleB(Expansion, EnablePetExperienceSplit) && !content_service.IsTheShadowsOfLuclinEnabled()) {
+	if (RuleB(Quarm, EnablePetExperienceSplit)) {
 		if (killed_mob && !HasGroup() && !is_split)	{
 			int32 damage_amount = 0;
 			Mob *top_damager = killed_mob->GetDamageTop(damage_amount, false, false);
