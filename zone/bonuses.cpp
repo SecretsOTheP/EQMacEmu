@@ -1376,7 +1376,17 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* ne
 			}
 
 			case SE_MovementSpeed:
-				new_bonus->movementspeed += effect_value;
+				// Handle specific case for Selo's Accelerando and Spirit of the Wolf
+				// It should use the max of either of these two
+				if (spell_id == 717 || spell_id == 278) 
+				{
+					new_bonus->movementspeed = std::max(new_bonus->movementspeed, effect_value);
+				} 
+				else 
+				{
+					new_bonus->movementspeed += effect_value;
+				}
+				Log(Logs::Detail, Logs::Spells, "Mob %s has movement speed bonus of %d from spell %d New movement speed: %d", GetName(), effect_value, spell_id, new_bonus->movementspeed);
 				break;
 
 			case SE_SpellDamageShield:
