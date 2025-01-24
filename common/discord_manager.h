@@ -4,6 +4,7 @@
 #include <mutex>
 #include <map>
 #include <vector>
+#include <string>
 #include "../common/types.h"
 
 class DiscordManager {
