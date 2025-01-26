@@ -146,6 +146,7 @@ public:
 
 	void CalcItemBonuses(StatBonuses *newbon);
 	virtual void CalcBonuses();
+	virtual int GetCurBuffSlots() const { return RuleI(Spells, MaxBuffSlotsNPC); }
 	virtual int GetMaxBuffSlots() const { return RuleI(Spells, MaxBuffSlotsNPC); }
 	virtual int GetMaxTotalSlots() const { return RuleI(Spells, MaxTotalSlotsNPC); }
 	virtual int GetPetMaxTotalSlots() const { return RuleI(Spells, MaxTotalSlotsPET); }

@@ -1012,9 +1012,10 @@ void Mob::CalcSpellBonuses(StatBonuses* newbon)
 	newbon->AssistRange = -1;
 
 	int buff_count = GetMaxTotalSlots();
+	int disc_slot = IsClient() ? CastToClient()->GetDiscBuffSlot() : -1;
 	for(i = 0; i < buff_count; i++) {
 		if(buffs[i].spellid != SPELL_UNKNOWN){
-			uint8 caster_level = i == 15 ? GetLevel() : buffs[i].casterlevel; // disciplines are in a fake buff slot at index 15 and these need the current level
+			uint8 caster_level = i == disc_slot ? GetLevel() : buffs[i].casterlevel; // disciplines are in a fake buff slot at last index and these need the current level
 			ApplySpellsBonuses(buffs[i].spellid, caster_level, newbon, buffs[i].casterid, false, buffs[i].instrumentmod, buffs[i].ticsremaining, i,
 				false, 0, 0, 0, 0,
 				buffs[i].bufftype == 4);
@@ -1376,7 +1377,21 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* ne
 			}
 
 			case SE_MovementSpeed:
-				new_bonus->movementspeed += effect_value;
+				// Either the largest snare or the fastest buff applies.
+				if (effect_value > 0)
+				{
+					// Only used if not snared
+					if (new_bonus->movementspeed >= 0 && effect_value > new_bonus->movementspeed) {
+						new_bonus->movementspeed = effect_value;
+					}
+				}
+				else if (effect_value < 0)
+				{
+					// Apply largest snare
+					if (effect_value < new_bonus->movementspeed) {
+						new_bonus->movementspeed = effect_value;
+					}
+				}
 				break;
 
 			case SE_SpellDamageShield:

@@ -734,6 +734,7 @@ bool IsRegeantFocus(uint16 spellid);
 bool IsBoltSpell(uint16 spellid);
 bool RequiresComponents(uint16 spellid);
 int GetSpellEffectIndex(uint16 spell_id, int effect);
+int GetSpellEffectIndex_PatchV1(uint16 spell_id, int effect); // Used in FindAffectSlot_PatchV1() only
 int CanUseSpell(uint16 spellid, int classa, int level);
 int GetMinLevel(uint16 spell_id);
 int GetSpellLevel(uint16 spell_id, int classa);

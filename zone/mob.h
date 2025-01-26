@@ -285,6 +285,7 @@ public:
 	void BuffModifyDurationBySpellID(uint16 spell_id, int32 newDuration, bool update);
 	int CanBuffStack(uint16 spellid, uint8 caster_level, bool iFailIfOverwrite = false);
 	int CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caster_level_override = -1);
+	virtual int GetCurBuffSlots() const { return 0; }
 	virtual int GetMaxBuffSlots() const { return 0; }
 	virtual int GetMaxTotalSlots() const { return 0; }
 	virtual void InitializeBuffSlots() { buffs = nullptr; current_buff_count = 0; }
@@ -310,8 +311,10 @@ public:
 	int GetDamageShieldAmount() { return spellbonuses.DamageShield < 0 ? -(spellbonuses.DamageShield + itembonuses.DamageShield) : -spellbonuses.DamageShield; };
 
 	bool IsStackBlocked(uint16 new_buff_spell_id);
+	bool IsStackBlocked_PatchV1(uint16 new_buff_spell_id);
 	void ProcessBuffOverwriteEffects(uint16 spell_id);
 	int FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int remove_replaced);
+	int FindAffectSlot_PatchV1(Mob* caster, uint16 spell_id, int* result_slotnum, int remove_replaced);
 	bool AssignBuffSlot(Mob *caster, uint16 spell_id, int &buffslot, int &caster_level, EQApplicationPacket *action_packet);
 
 	//Basic Stats/Inventory

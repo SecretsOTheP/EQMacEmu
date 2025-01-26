@@ -75,6 +75,13 @@ struct ItemData;
 #define ASSIST_RANGE		250 // range for /assist
 #define MAX_SPECIALIZED_SKILL 50
 
+#define BUFFSTACKING_PATCH_V2 2 // Buff Stacking Patch + 6 Buff Song Window (Requires New UI)
+#define BUFFSTACKING_PATCH_V1 1 // Buff Stacking Patch only (Old UI)
+
+constexpr int SONG_WINDOW_BUFF_SLOTS = 6; // Buffstacking patch enables song window support
+constexpr int CLIENT_MAX_BUFF_SLOTS = (15 + SONG_WINDOW_BUFF_SLOTS);
+constexpr int CLIENT_TOTAL_BUFF_SLOTS = (15 + SONG_WINDOW_BUFF_SLOTS + 1); // add 1 for disc slot
+
 extern Zone* zone;
 
 class CLIENTPACKET
@@ -630,9 +637,10 @@ public:
 	int32 TryWizardInnateCrit(uint16 spell_id, int32 damage, int32 focusDmg, int32 maxHit = 0);
 	virtual bool CheckFizzle(uint16 spell_id);
 	virtual bool CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, EQ::spells::CastingSlot slot);
-	virtual int GetMaxBuffSlots() const { return 15; }
-	virtual int GetMaxTotalSlots() const { return 16; } //15 spells/songs, 1 disc
-	int GetDiscBuffSlot() { return 15; }
+	virtual int GetCurBuffSlots() const { return 15 + m_song_window_slots; } // Dynamic count based on whether they have song window support detected.
+	virtual int GetMaxBuffSlots() const { return CLIENT_MAX_BUFF_SLOTS; } // Total size of the spells + songs window.
+	virtual int GetMaxTotalSlots() const { return CLIENT_TOTAL_BUFF_SLOTS; } // Total size of spells + songs + hidden slot for Disciplines.
+	int GetDiscBuffSlot() { return CLIENT_MAX_BUFF_SLOTS; } // Always hide the disc buff after the last spell/song slot.
 	virtual void InitializeBuffSlots();
 	virtual void UninitializeBuffSlots();
 	void ApplyDurationFocus(uint16 spell_id, uint16 buffslot, Mob* spelltar = nullptr, int spell_level=-1);
@@ -1384,6 +1392,9 @@ public:
 	void SetLockSavePosition(bool lock_save_position);
 	inline bool IsMuleInitiated() { return mule_initiated; }
 	inline void SetMuleInitiated(bool initiated) { mule_initiated = initiated; }
+	bool GetBuffStackingPatch() const { return m_buff_stacking_patch; }
+	void SetBuffStackingPatch(bool enabled) { m_buff_stacking_patch = enabled; }
+	void SetSongWindowSlots(uint8 song_window_buff_slots) { m_song_window_slots = song_window_buff_slots; }
 private:
 	bool dev_tools_enabled;
 
@@ -1557,6 +1568,9 @@ private:
 	int8 last_fatigue;
 	bool mule_initiated;
 	uint32 pending_marriage_character_id;
+
+	bool m_buff_stacking_patch = false; // Flag for whether the client has a buffstacking patch installed. See Handle_OP_SpawnAppearance for how this is negotiated.
+	uint8 m_song_window_slots = 0; // If buffstacking patch is on, this is the number of song window slots available
 };
 
 #endif

@@ -572,9 +572,11 @@ struct PlayerProfile_Struct
 	/*3393*/	uint8	unknown3393[23];
 	/*3416*/	int32	hunger_level;
 	/*3420*/	int32	thirst_level;
-	/*3424*/	uint8	unknown3424[20];
+	/*3424*/	SpellBuff_Struct buff_unknown3424[2];
 	/*3444*/	uint32	zone_id;
-	/*3448*/	uint8	unknown3448[336];	// On AK, there was a lot of data here in the packet the client sent for OP_Save, but none in the encoded packet the server sent at zone in.
+	/*3448*/	uint8	unknown3448[126];	// On AK, there was a lot of data here in the packet the client sent for OP_Save, but none in the encoded packet the server sent at zone in.
+	/*3574*/	SpellBuff_Struct buffs_ext[15];
+	/*3724*/	uint16  buff_caster_id[30];
 	/*3784*/	uint32	bind_point_zone[5];	
 	/*3804*/	float	bind_y[5];
 	/*3824*/	float	bind_x[5];

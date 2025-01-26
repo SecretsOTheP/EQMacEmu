@@ -752,6 +752,14 @@ int GetSpellEffectIndex(uint16 spell_id, int effect)
 	return -1;
 }
 
+// [Buffstacking Patch] Mirrors Client: BSP_SpellAffectIndex
+int GetSpellEffectIndex_PatchV1(uint16 spell_id, int effect)
+{
+	return (effect == SE_MovementSpeed && spells[spell_id].goodEffect && spells[spell_id].bardsong)
+		? -1
+		: GetSpellEffectIndex(spell_id, effect);
+}
+
 // returns the level required to use the spell if that class/level
 // can use it, 0 otherwise
 // note: this isn't used by anything right now

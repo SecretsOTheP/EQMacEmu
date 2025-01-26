@@ -183,7 +183,7 @@ namespace Mac {
 		OUT(copper_cursor);
 		OUT_array(skills, structs::MAX_PP_SKILL);  // 1:1 direct copy (100 dword)
 
-		for(r = 0; r < 15; r++)
+		for(r = 0; r < 15; r++) // buffs 1-15
 		{
 			eq->buffs[r].bufftype = (emu->buffs[r].spellid == 0xFFFF || emu->buffs[r].spellid == 0) ? 0 : emu->buffs[r].bufftype;
 			OUT(buffs[r].level);
@@ -192,6 +192,16 @@ namespace Mac {
 			OUT(buffs[r].spellid);
 			OUT(buffs[r].duration);
 			OUT(buffs[r].counters);
+		}
+		for (r = 0; r < 15; r++) // buffs 16-30
+		{
+			eq->buffs_ext[r].bufftype = (emu->buffs_ext[r].spellid == 0xFFFF || emu->buffs_ext[r].spellid == 0) ? 0 : emu->buffs_ext[r].bufftype;
+			OUT(buffs_ext[r].level);
+			OUT(buffs_ext[r].bard_modifier);
+			OUT(buffs_ext[r].activated);
+			OUT(buffs_ext[r].spellid);
+			OUT(buffs_ext[r].duration);
+			OUT(buffs_ext[r].counters);
 		}
 		OUT_str(name);
 		OUT_str(last_name);

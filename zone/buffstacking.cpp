@@ -131,7 +131,7 @@ bool Mob::IsStackBlocked(uint16 new_buff_spell_id)
 	if (new_buff_spelldata->classes[Class::Bard - 1] != 255 && this->GetClass() == Class::Bard)
 		return 0;
 
-	for (int buffslot = 0; buffslot < this->GetMaxBuffSlots(); buffslot++)
+	for (int buffslot = 0; buffslot < this->GetCurBuffSlots(); buffslot++)
 	{
 		if (BuffStacking::IsValidSpellIndex(this->buffs[buffslot].spellid))
 		{
@@ -190,6 +190,16 @@ bool Mob::IsStackBlocked(uint16 new_buff_spell_id)
 	}
 
 	return 0;
+}
+
+// [BuffStackingPatch] Fixed bug -- The old logic checked if the spell target was also a bard (obvious bug), rather than just spell's class.
+bool Mob::IsStackBlocked_PatchV1(uint16 new_buff_spell_id)
+{
+	// Mirrors Client: BSP_IsStackBlocked()
+	SPDat_Spell_Struct* new_buff_spelldata = (SPDat_Spell_Struct*)&spells[new_buff_spell_id];
+	return (new_buff_spelldata && new_buff_spelldata->bardsong)
+		? false
+		: IsStackBlocked(new_buff_spell_id);
 }
 
 // this processes effect 149 (SE_StackingCommand_Overwrite) in the newly applied buff to remove any existing buffs that match the filter
@@ -269,7 +279,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 	if (!caster || !BuffStacking::IsValidSpellIndex(spell_id))
 		return 0;
 
-	if (!this->GetMaxBuffSlots() || !caster->GetMaxBuffSlots()) // only NPC and Client can have buffs
+	if (!this->GetCurBuffSlots() || !caster->GetCurBuffSlots()) // only NPC and Client can have buffs
 	{
 		return 0;
 	}
@@ -342,6 +352,11 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 		}
 	}
 
+	// [Buffstacking] Swap to the new logic
+	if (IsClient() && CastToClient()->GetBuffStackingPatch()) {
+		return FindAffectSlot_PatchV1(caster, spell_id, result_slotnum, remove_replaced);
+	}
+
 	SPDat_Spell_Struct *new_spelldata = (SPDat_Spell_Struct *)&spells[spell_id]; // TODO - have to use same spells as client, not the customized TAKP spells in the database
 
 	if (!new_spelldata || !caster->IsNPC() && IsStackBlocked(spell_id))
@@ -365,7 +380,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 
 	if (new_spelldata->classes[Class::Bard - 1] != 255 && caster->GetClass() == Class::Bard)  // Bard casting bard song
 	{
-		for (int cur_slotnum2 = 0; cur_slotnum2 < this->GetMaxBuffSlots(); cur_slotnum2++)
+		for (int cur_slotnum2 = 0; cur_slotnum2 < this->GetCurBuffSlots(); cur_slotnum2++)
 		{
 			struct Buffs_Struct *old_buff2 = &this->buffs[cur_slotnum2];
 
@@ -396,7 +411,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 	spell_id_already_affecting_target = 0;
 
 
-	for (int cur_slotnum = 0; cur_slotnum < this->GetMaxBuffSlots(); cur_slotnum++)
+	for (int cur_slotnum = 0; cur_slotnum < this->GetCurBuffSlots(); cur_slotnum++)
 	{
 		struct Buffs_Struct *old_buff3 = &this->buffs[cur_slotnum];
 		if (old_buff3->spellid != SPELL_UNKNOWN)
@@ -439,7 +454,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 		{
 			emptyslot = -1;
 			buffslotnum = 0;
-			if (this->GetMaxBuffSlots())
+			if (this->GetCurBuffSlots())
 			{
 				do
 				{
@@ -461,7 +476,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 						emptyslot = buffslotnum;
 					}
 					++buffslotnum;
-				} while (buffslotnum < this->GetMaxBuffSlots());
+				} while (buffslotnum < this->GetCurBuffSlots());
 				if (emptyslot != -1)
 				{
 					*result_slotnum = emptyslot;
@@ -502,7 +517,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 				if (!(this->IsClient() && this->CastToClient()->GetGM()))
 				{
 					curbuff_slotnum = 0;
-					if (this->GetMaxBuffSlots())
+					if (this->GetCurBuffSlots())
 					{
 						while (1)
 						{
@@ -513,7 +528,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 								if (curbuf_spelldata && curbuf_spelldata->goodEffect) // found a beneficial spell to overwrite
 									break;
 							}
-							if (++curbuff_slotnum >= this->GetMaxBuffSlots())
+							if (++curbuff_slotnum >= this->GetCurBuffSlots())
 								return 0;
 						}
 						if (remove_replaced) // only 0 for Mob AI considering spells to cast
@@ -563,7 +578,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 			*result_slotnum = cur_slotnum7; // save first blank slot found
 		}
 	STACK_OK: // jump here when current buff and new buff don't interact to increment slot number and check next buff
-		if (++cur_slotnum7 >= this->GetMaxBuffSlots())
+		if (++cur_slotnum7 >= this->GetCurBuffSlots())
 		{
 			goto STACK_OK_OVERWRITE_BUFF_IF_NEEDED;
 		}
@@ -745,6 +760,442 @@ OVERWRITE_INCREASE_WITH_DECREASE:
 		goto BLOCKED_BUFF;
 OVERWRITE_REMOVE_FIRST_CUR_SLOTNUM:
 	*result_slotnum = cur_slotnum7;
+	if (spell_id != old_buff->spellid)
+	{
+	OVERWRITE_REMOVE_FIRST:
+		if (remove_replaced == 2)
+		{
+			this->BuffFadeBySlot(*result_slotnum, true, true, true); // remove it on the client too, used for overwriting secondary buffs once replacement slot found
+		}
+		else if (remove_replaced == 1)
+		{
+			this->BuffFadeBySlot(*result_slotnum, true, true, false); // Overwriting without removing explicitly, client will handle this
+		}
+	}
+
+RETURN_RESULT_SLOTNUM:
+	return 1;
+}
+
+// [BuffStacking Patch - Song Window] Mirrors Client: BSP_ToBuffSlot()
+// - Allow us to start at offset 15 when finding buff slots for songs.
+int BSP_ToBuffSlot(int i, int start_offset, int modulo) {
+	return (i + start_offset) % modulo;
+}
+
+// [BuffStacking Patch] Mirrors Client: BSP_FindAffectSlot()
+int Mob::FindAffectSlot_PatchV1(Mob *caster, uint16 spell_id, int *result_slotnum, int remove_replaced)
+{
+	*result_slotnum = -1;
+	SPDat_Spell_Struct *new_spelldata = (SPDat_Spell_Struct *)&spells[spell_id]; // TODO - have to use same spells as client, not the customized TAKP spells in the database
+	if (!new_spelldata || !caster->IsNPC() && IsStackBlocked_PatchV1(spell_id))
+		return 0;
+
+	int MaxBuffSlots = GetCurBuffSlots(); // Potentially have 16+ slots if song window is enabled.
+	int StartBuffOffset = 0;
+	int MaxSelectableBuffs = IsClient() ? 15 : MaxBuffSlots; // Non-short-duration spells can use first 15 slots only for clients.
+	if (IsClient() && MaxBuffSlots > 15 && new_spelldata->short_buff_box) {
+		// Client with Song window casting a song, can use all 16+ slots.
+		StartBuffOffset = 15;
+		MaxSelectableBuffs = MaxBuffSlots;
+	}
+
+	WORD old_buff_spell_id = 0;
+	struct Buffs_Struct* old_buff = 0;
+	int16 old_buff_spellid;
+	SPDat_Spell_Struct* old_spelldata = 0;
+	int16 cur_slotnum7 = 0;
+	int16 cur_slotnum7_buffslot = BSP_ToBuffSlot(cur_slotnum7, StartBuffOffset, MaxSelectableBuffs);
+	uint8 new_buff_effectid2 = 0;
+	uint8 effect_slot_num = 0;
+	bool no_slot_found_yet = true;
+	bool old_effect_is_negative_or_zero = false;
+	bool old_effect_value_is_negative_or_zero = false;
+	bool is_bard_song = new_spelldata->bardsong;
+	bool is_movement_effect = GetSpellEffectIndex_PatchV1(spell_id, SE_MovementSpeed) != -1;
+	int old_effect_value;
+	int new_effect_value;
+
+	// Screech Immunity
+	if (!new_spelldata->goodEffect)
+	{
+		for (int effect_slot = 0; effect_slot < EFFECT_COUNT; effect_slot++)
+		{
+			if (new_spelldata->effectid[effect_slot] == SE_Screech)
+			{
+				if (spellbonuses.Screech + new_spelldata->base[effect_slot] >= 0)
+				{
+					Message_StringID(Chat::SpellFailure, SCREECH_BUFF_BLOCK, new_spelldata->name);
+					return 0;
+				}
+			}
+		}
+	}
+
+	if (is_bard_song)  // [Patch:Main] - Removed: caster->Class == BARD
+	{
+		for (int i = 0; i < MaxBuffSlots; i++)
+		{
+			int buffslot = i; // This first loop is just checking for basic blocking, we can skip the buff/offset translation check
+			Buffs_Struct* buff = &this->buffs[buffslot];
+
+			if (buff->spellid != SPELL_UNKNOWN && BuffStacking::IsValidSpellIndex(buff->spellid))
+			{
+				SPDat_Spell_Struct *buff_spell = (SPDat_Spell_Struct *)&spells[buff->spellid];
+				if (buff_spell
+					&& !buff_spell->bardsong
+					&& !buff_spell->goodEffect
+					&& new_spelldata->goodEffect
+					&& is_movement_effect
+					&& (GetSpellEffectIndex_PatchV1(buff->spellid, SE_MovementSpeed) != -1 || GetSpellEffectIndex_PatchV1(buff->spellid, SE_Root) != -1))
+				{
+					*result_slotnum = -1;
+					return 0;
+				}
+			}
+		}
+	}
+
+	// this flag is true for spells that can have multiple copies of the same spell_id buff on the target
+	// things that can do this are DoTs from different casters, but some DoTs are specifically excluded
+	// because they contain a debuff that shouldn't be doubled up.  Bard chants, druid fire DoT and Lifeburn
+	bool is_stack_with_self_allowed = BuffStacking::IsStackWithSelfAllowed(new_spelldata);
+	bool spell_id_already_affecting_target = false;
+
+	for (int i = 0; i < MaxSelectableBuffs; i++)
+	{
+		int buffslot = BSP_ToBuffSlot(i, StartBuffOffset, MaxSelectableBuffs); // [Patch:SongWindow] Translates the 'i' value to the right buffslot order.
+		Buffs_Struct* buff = &this->buffs[buffslot];
+		if (buff->spellid != SPELL_UNKNOWN)
+		{
+			if (buff->spellid == spell_id)
+			{
+				if (!this || caster->IsNPC() || !this->IsNPC())
+					goto OVERWRITE_SAME_SPELL_WITHOUT_REMOVING_FIRST;
+
+				if (buff->spellid == 2755)      // Lifeburn
+					is_stack_with_self_allowed = false;
+
+				if (!is_stack_with_self_allowed || caster->GetID() == buff->casterid)
+				{
+				OVERWRITE_SAME_SPELL_WITHOUT_REMOVING_FIRST:
+					if (caster->GetLevel() >= buff->casterlevel
+						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_EyeOfZomm) == -1
+						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_CompleteHeal) == -1 // Donal's BP
+						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_SummonHorse) == -1)
+					{
+						// overwrite same spell_id without removing first
+						*result_slotnum = buffslot;
+						return 1;
+					}
+					else
+					{
+						// did not take hold
+						*result_slotnum = -1;
+						return 0;
+					}
+				}
+				spell_id_already_affecting_target = true;
+			}
+		}
+	}
+
+	if (is_stack_with_self_allowed)
+	{
+		if (spell_id_already_affecting_target)
+		{
+			int first_open_buffslot = -1;
+			for (int i = 0; i < MaxSelectableBuffs; i++) {
+				int buffslot = BSP_ToBuffSlot(i, StartBuffOffset, MaxSelectableBuffs); // [Patch:SongWindow] Translates the 'i' value to the right buffslot order
+				Buffs_Struct* buff = &this->buffs[buffslot];
+				if (buff->spellid != SPELL_UNKNOWN)
+				{
+					if (spell_id == buff->spellid)
+					{
+						Mob* buff_caster = entity_list.GetMob(buff->casterid);
+						if (!buff_caster || buff_caster == this)
+						{
+							*result_slotnum = buffslot;
+							return 1; // overwrite same spell without removing first
+						}
+					}
+				}
+				else if (first_open_buffslot == -1)
+				{
+					first_open_buffslot = buffslot;
+				}
+			}
+			if (first_open_buffslot != -1)
+			{
+				*result_slotnum = first_open_buffslot;
+				return 1; // first empty slot, this is a DoT that will stack with itself because it's from another caster
+			}
+		}
+	}
+
+	if (false) // not entered here, jumped into with goto
+	{
+	STACK_OK_OVERWRITE_BUFF_IF_NEEDED:
+		// if we have a result slot already, overwrite the result slot if something is there and it's not this spell_id
+		if (*result_slotnum != -1)
+		{
+			if (this->buffs[*result_slotnum].spellid != SPELL_UNKNOWN && spell_id != this->buffs[*result_slotnum].spellid)
+			{
+				if (remove_replaced == 2)
+				{
+					this->BuffFadeBySlot(*result_slotnum, true, true, true); // remove it on the client too, used for overwriting secondary buffs once replacement slot found
+				}
+				else if (remove_replaced == 1)
+				{
+					this->BuffFadeBySlot(*result_slotnum, true, true, false); // Overwriting without removing explicitly, client will handle this
+				}
+			}
+			return 1;
+		}
+
+		// no result slot found yet, but the new spell is a debuff so overwrite a beneficial buff to make room for it
+		if (!new_spelldata->goodEffect)
+		{
+			if (this)
+			{
+				if (!(this->IsClient() && this->CastToClient()->GetGM()))
+				{
+					int curbuff_i = 0;
+					int curbuff_slot = BSP_ToBuffSlot(curbuff_i, StartBuffOffset, MaxSelectableBuffs); // [Patch:SongWindow] Translates the 'curbuff_i' value to the right buffslot order
+					
+					while (1)
+					{
+						int buff_spell_id = this->buffs[curbuff_slot].spellid;
+						if (BuffStacking::IsValidSpellIndex(buff_spell_id))
+						{
+							SPDat_Spell_Struct* buff_spell = (SPDat_Spell_Struct *)&spells[curbuff_slot];
+							if (buff_spell && buff_spell->goodEffect) // found a beneficial spell to overwrite
+								break;
+						}
+						if (++curbuff_i >= MaxSelectableBuffs)
+							return 0;
+						curbuff_slot = BSP_ToBuffSlot(curbuff_i, StartBuffOffset, MaxSelectableBuffs); // [Patch:SongWindow] Translates the 'curbuff_i' value to the right buffslot order
+					}
+					if (remove_replaced) // only 0 for Mob AI considering spells to cast
+					{
+						this->BuffFadeBySlot(curbuff_slot, true, true, true); // overwriting a beneficial buff to make room for a detrimental one.  this is server driven and we have to remove the buff from the client
+					}
+					else
+					{
+						*result_slotnum = -1;
+						return 0;
+					}
+					*result_slotnum = curbuff_slot;
+					goto RETURN_RESULT_SLOTNUM;
+					
+				}
+			}
+		}
+
+		return 0;
+	}
+
+
+	// iterate over each buff in turn below
+
+	while (1)
+	{
+		old_buff = &this->buffs[cur_slotnum7_buffslot];
+		if (old_buff->spellid == SPELL_UNKNOWN) // blank buff slot at cur_slotnum7
+			goto STACK_OK4;
+
+		// if a buff is in cur_slotnum7, break out of this block and keep comparing
+		old_buff_spellid = old_buff->spellid;
+		if (BuffStacking::IsValidSpellIndex(old_buff->spellid))
+		{
+			old_spelldata = (SPDat_Spell_Struct *)&spells[old_buff->spellid];
+			break;
+		}
+
+	STACK_OK4:
+		no_slot_found_yet = *result_slotnum == -1;
+	STACK_OK3:
+		if (no_slot_found_yet)
+		{
+		STACK_OK2:
+			*result_slotnum = cur_slotnum7_buffslot; // save first blank slot found
+		}
+	STACK_OK: // jump here when current buff and new buff don't interact to increment slot number and check next buff
+		if (++cur_slotnum7 >= MaxSelectableBuffs)
+		{
+			goto STACK_OK_OVERWRITE_BUFF_IF_NEEDED;
+		}
+		cur_slotnum7_buffslot = BSP_ToBuffSlot(cur_slotnum7, StartBuffOffset, MaxSelectableBuffs); // [Patch:SongWindow] Translates the 'cur_slotnum7' value to the right buffslot order
+	}
+	if (is_bard_song && !old_spelldata->bardsong) // [Patch:Main] Just checks 'is_bard_song' and not class
+	{
+		if (new_spelldata->goodEffect && is_movement_effect && GetSpellEffectIndex_PatchV1(old_spelldata->id, SE_MovementSpeed) != -1
+			|| new_spelldata->goodEffect && is_movement_effect && GetSpellEffectIndex_PatchV1(old_spelldata->id, SE_Root) != -1)
+		{
+			goto BLOCKED_BUFF; // [Patch:Main] This line isn't reachable, kept for consistency (formerly: "Bard Selos can't overwrite regular SoW type spell or rooting illusion")
+		}
+
+		// generally, bard songs stack with anything that's not a bard song
+		if (is_bard_song)
+			goto STACK_OK;
+	}
+
+	// [Patch:Main] Note - This section always reaches 'false', so SoW/Selos are not getting blocked here
+	if (new_spelldata->goodEffect)
+	{
+		if (old_spelldata->goodEffect)
+		{
+			if (is_movement_effect)
+			{
+				if (GetSpellEffectIndex_PatchV1(old_spelldata->id, SE_MovementSpeed) != -1)
+				{
+					if (old_spelldata->bardsong && !is_bard_song) {
+						goto BLOCKED_BUFF; // regular SoW type spell can't overwrite bard Selos
+					}
+				}
+			}
+		}
+	}
+
+
+	// below is a for loop that's kind of decomposed with gotos, comparing each effect slot
+	effect_slot_num = 0;
+	while (2)
+	{
+		uint8 old_buff_effectid = old_spelldata->effectid[effect_slot_num];
+		if (old_buff_effectid == SE_Blank) // blank effect slot in old spell, end of spell, don't check rest of slots
+			goto STACK_OK;
+
+		uint8 new_buff_effectid = new_spelldata->effectid[effect_slot_num];
+		if (new_buff_effectid == SE_Blank) // blank effect slot in new spell, end of spell, don't check rest of slots
+			goto STACK_OK;
+
+		if (new_buff_effectid == SE_Lycanthropy || new_buff_effectid == SE_Vampirism)
+			goto BLOCKED_BUFF;		
+
+		// this is so KEI can stack with mana song
+		if ((!is_bard_song && old_spelldata->bardsong)
+			|| old_buff_effectid != new_buff_effectid
+			|| BuffStacking::IsSPAIgnoredByStacking(new_buff_effectid))
+		{
+			goto NEXT_EFFECT_SLOT; // ignore if different effect, ignored effect, or if the existing buff is a bard song
+		}
+
+		// at this point the effect ids are the same in this slot
+
+		if (new_buff_effectid == SE_CurrentHP || new_buff_effectid == SE_ArmorClass)
+		{
+			if (new_spelldata->base[effect_slot_num] >= 0)
+				break;
+			goto NEXT_EFFECT_SLOT; // if the new spell has a DoT or negative AC debuff in this effect slot, ignore for stacking
+		}
+
+		if (new_buff_effectid == SE_CHA)
+		{
+			if (new_spelldata->base[effect_slot_num] == 0 || old_spelldata->base[effect_slot_num] == 0) // SE_CHA can be used as a spacer with 0 base
+			{
+			NEXT_EFFECT_SLOT:
+				if (++effect_slot_num >= 12u)
+					goto STACK_OK;
+				continue;
+			}
+		}
+		break;
+	}
+
+
+
+	// compare same effect id below
+
+
+	if (new_spelldata->goodEffect && (!old_spelldata->goodEffect || GetSpellEffectIndex_PatchV1(old_spelldata->id, SE_Illusion) != -1)
+		|| old_spelldata->effectid[effect_slot_num] == SE_CompleteHeal // Donal's BP effect
+		|| old_buff_spellid >= 775 && old_buff_spellid <= 785
+		|| old_buff_spellid >= 1200 && old_buff_spellid <= 1250
+		|| old_buff_spellid >= 1900 && old_buff_spellid <= 1924
+		|| old_buff_spellid == 2079 // ShapeChange65
+		|| old_buff_spellid == 2751 // Manaburn
+		|| old_buff_spellid == 756 // Resurrection Effects
+		|| old_buff_spellid == 757 // Resurrection Effect
+		|| old_buff_spellid == 836) // Diseased Cloud
+	{
+		goto BLOCKED_BUFF;
+	}
+
+	old_effect_value = CalcSpellEffectValue(old_spelldata->id, effect_slot_num, old_buff->casterlevel, 0, 10);
+	new_effect_value = CalcSpellEffectValue(new_spelldata->id, effect_slot_num, caster->GetLevel(), 0, 10);
+
+	if (spell_id == 1620 || spell_id == 1816 || spell_id == 833 || old_buff_spellid == 1814)
+		new_effect_value = -1;
+	if (old_buff_spellid == 1620 || old_buff_spellid == 1816 || old_buff_spellid == 833 || old_buff_spellid == 1814)
+		old_effect_value = -1;
+	old_effect_is_negative_or_zero = old_effect_value <= 0;
+	if (old_effect_value >= 0)
+	{
+	OVERWRITE_INCREASE_WITH_DECREASE2:
+		if (!old_effect_is_negative_or_zero && new_effect_value < 0)
+			goto OVERWRITE_INCREASE_WITH_DECREASE;
+		bool is_disease_cloud = (spell_id == 836);
+		if (new_spelldata->effectid[effect_slot_num] == SE_AttackSpeed)
+		{
+			if (new_effect_value < 100 && new_effect_value <= old_effect_value)
+				goto OVERWRITE;
+			if (old_effect_value <= 100)
+				goto BLOCKED_BUFF3;
+			if (new_effect_value >= 100)
+			{
+			OVERWRITE_IF_GREATER_BLOCK_OTHERWISE:
+				if (new_effect_value >= old_effect_value)
+					goto OVERWRITE;
+			BLOCKED_BUFF3:
+				if (!is_disease_cloud)
+					goto BLOCKED_BUFF;
+				if (!new_spelldata->goodEffect && !old_spelldata->goodEffect)
+				{
+					*result_slotnum = cur_slotnum7_buffslot;
+					if (spell_id != old_buff->spellid)
+						goto OVERWRITE_REMOVE_FIRST;
+					goto RETURN_RESULT_SLOTNUM;
+				}
+				if (*result_slotnum == -1)
+					goto STACK_OK2;
+				no_slot_found_yet = this->buffs[*result_slotnum].spellid == SPELL_UNKNOWN;
+				goto STACK_OK3;
+			}
+		OVERWRITE:
+			is_disease_cloud = true;
+			goto BLOCKED_BUFF3;
+		}
+		old_effect_value_is_negative_or_zero = old_effect_value <= 0;
+		if (old_effect_value < 0)
+		{
+			if (new_effect_value <= old_effect_value)
+				goto OVERWRITE;
+			old_effect_value_is_negative_or_zero = old_effect_value <= 0;
+		}
+		if (old_effect_value_is_negative_or_zero)
+			goto BLOCKED_BUFF3;
+		goto OVERWRITE_IF_GREATER_BLOCK_OTHERWISE;
+	}
+	if (new_effect_value <= 0)
+	{
+		old_effect_is_negative_or_zero = old_effect_value <= 0;
+		goto OVERWRITE_INCREASE_WITH_DECREASE2;
+	}
+OVERWRITE_INCREASE_WITH_DECREASE:
+	new_buff_effectid2 = new_spelldata->effectid[effect_slot_num];
+	if (new_buff_effectid2 != SE_MovementSpeed)
+	{
+		if (new_buff_effectid2 != SE_CurrentHP || old_effect_value >= 0 || new_effect_value <= 0)
+			goto OVERWRITE_REMOVE_FIRST_CUR_SLOTNUM;
+	BLOCKED_BUFF:
+		*result_slotnum = -1;
+		return 0; // this should be reached before overwriting anything if it doesn't stack?
+	}
+	if (new_effect_value >= 0)
+		goto BLOCKED_BUFF;
+OVERWRITE_REMOVE_FIRST_CUR_SLOTNUM:
+	*result_slotnum = cur_slotnum7_buffslot;
 	if (spell_id != old_buff->spellid)
 	{
 	OVERWRITE_REMOVE_FIRST:

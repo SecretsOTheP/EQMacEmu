@@ -1020,7 +1020,70 @@ void Client::Handle_Connect_OP_SetServerFilter(const EQApplicationPacket *app)
 
 void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 {
-	return;
+	SpawnAppearance_Struct* sa = (SpawnAppearance_Struct*)app->pBuffer;
+
+	// We use these SpawnAppearance message to support basic-messaging for Zeal/EqGameDll features (using a custom SpawnAppearanceType)
+	// This allows for doing 2-way handshake between the client<->server to negotiate feature flags that might need coordination on both sides.
+	// Messages/Handshakes are supported in either direction (either side can initiate).
+	if (sa && (sa->type == AppearanceType::ClientDllMessage || sa->type == AppearanceType::ClientZealMessage)) {
+
+		bool is_request = (sa->parameter >> 31) == 0; // highest bit of SpawnAppearance->parameter marks if the message is a request (0) or response (1).
+		bool send_response = is_request;
+		uint32 feature_id = (sa->parameter >> 16) & 0x7FFFu; // feature ID is in the hi-word of SpawnAppearance->paramter.
+		uint32 feature_value = sa->parameter & 0xFFFFu; // feature value is encoded in the lo-word of SpawnAppearance->parameter.
+
+		switch (feature_id) {
+			// -----------------------------------------------------------------------------------------------------------------------------------
+			// Any unknown feature is ignored.
+			// -----------------------------------------------------------------------------------------------------------------------------------
+		default:
+			return;
+			// -----------------------------------------------------------------------------------------------------------------------------------
+			// Buff Stacking Patch - Client can enable a patch to fix its broken buffstacking code, but the server must mirror it's logic.
+			// If they both agree to turn on this patch, the server will respond to the client with the feature enabled.
+			// See buffstacking.cpp for where this is mirrored on the server.
+			// * Handshake Type: Client initiates the request when zoning, server responds.
+			// -----------------------------------------------------------------------------------------------------------------------------------
+		case ClientFeature::BuffStackingPatchHandshake: // == 1
+		{
+			if (!RuleB(Spells, AllowBuffstackingPatch)) {
+				feature_value = 0; // Feature disabled
+			}
+			else if (feature_value == 0 || feature_value == 0xFFFF) {
+				feature_value = 0; // Disabled
+			}
+			else if (feature_value >= BUFFSTACKING_PATCH_V2) {
+				send_response |= feature_value > BUFFSTACKING_PATCH_V2;
+				feature_value = BUFFSTACKING_PATCH_V2;
+			}
+			// Handshake complete, set the flags
+			if (feature_value == BUFFSTACKING_PATCH_V2) {
+				SetBuffStackingPatch(true); // New buffstacking logic
+				SetSongWindowSlots(SONG_WINDOW_BUFF_SLOTS); // 6 song window slots
+			}
+			else if (feature_value == BUFFSTACKING_PATCH_V1) {
+				SetBuffStackingPatch(true); // New buffstacking logic
+				SetSongWindowSlots(0); // No song window slots
+			}
+			else {
+				SetBuffStackingPatch(false);
+				SetSongWindowSlots(0);
+			}
+			break;
+		}
+		// -----------------------------------------------------------------------------------------------------------------------------------
+		// End of Client/Server known feature messages
+		// -----------------------------------------------------------------------------------------------------------------------------------
+		}
+
+		// Respond to the client to complete the handshake.
+		if (send_response) {
+			feature_id = feature_id | 0x8000u; // Set the response bit
+			sa->parameter = (feature_id << 16) | feature_value;
+			sa->spawn_id = 0; // We don't need to set spawn_id on these special messages, they are always to the client's self.
+			QueuePacket(app, false);
+		}
+	}
 }
 
 void Client::Handle_Connect_OP_TGB(const EQApplicationPacket *app)
@@ -1607,31 +1670,32 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	if(RuleB(AlKabor, StripBuffsOnLowHP) && GetHP() < itembonuses.HP)
 		stripbuffs = true;
 
-	for (int i = 0; i < max_slots; i++) 
+	for (int i = 0; i < max_slots; i++)
 	{
+		SpellBuff_Struct& buff = i < 15 ? m_pp.buffs[i] : m_pp.buffs_ext[i - 15];
 		if ((buffs[i].spellid != SPELL_UNKNOWN && !stripbuffs) ||
 			IsResurrectionEffects(buffs[i].spellid) ||
 			SpellPersistsThroughDeath(buffs[i].spellid))
 		{
-			m_pp.buffs[i].spellid = buffs[i].spellid;
-			m_pp.buffs[i].bard_modifier = buffs[i].instrumentmod;
-			m_pp.buffs[i].bufftype = buffs[i].bufftype ? buffs[i].bufftype : 2;
-			m_pp.buffs[i].player_id = buffs[i].casterid;
-			m_pp.buffs[i].level = buffs[i].casterlevel;
-			m_pp.buffs[i].activated = spells[buffs[i].spellid].Activated;
-			m_pp.buffs[i].duration = buffs[i].ticsremaining;
-			m_pp.buffs[i].counters = buffs[i].counters;
+			buff.spellid = buffs[i].spellid;
+			buff.bard_modifier = buffs[i].instrumentmod;
+			buff.bufftype = buffs[i].bufftype ? buffs[i].bufftype : 2;
+			buff.player_id = buffs[i].casterid;
+			buff.level = buffs[i].casterlevel;
+			buff.activated = spells[buffs[i].spellid].Activated;
+			buff.duration = buffs[i].ticsremaining;
+			buff.counters = buffs[i].counters;
 		}
 		else
 		{
-			m_pp.buffs[i].spellid = SPELL_UNKNOWN;
-			m_pp.buffs[i].bard_modifier = 10;
-			m_pp.buffs[i].bufftype = 0;
-			m_pp.buffs[i].player_id = 0;
-			m_pp.buffs[i].level = 0;
-			m_pp.buffs[i].activated = 0;
-			m_pp.buffs[i].duration = 0;
-			m_pp.buffs[i].counters = 0;
+			buff.spellid = SPELL_UNKNOWN;
+			buff.bard_modifier = 10;
+			buff.bufftype = 0;
+			buff.player_id = 0;
+			buff.level = 0;
+			buff.activated = 0;
+			buff.duration = 0;
+			buff.counters = 0;
 		}
 	}
 
@@ -8789,6 +8853,11 @@ void Client::Handle_OP_SpawnAppearance(const EQApplicationPacket *app)
 		return;
 	}
 	SpawnAppearance_Struct* sa = (SpawnAppearance_Struct*)app->pBuffer;
+
+	if (sa->type == AppearanceType::ClientDllMessage || sa->type == AppearanceType::ClientZealMessage) {
+		Handle_Connect_OP_SpawnAppearance(app);
+		return;
+	}
 
 	if (sa->spawn_id != GetID())
 		return;

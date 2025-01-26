@@ -415,6 +415,7 @@ RULE_BOOL ( Spells, ReducePacifyDuration, false, "AK and the eqmac client have 6
 RULE_BOOL(Spells, ShowDotDmgMessages, false, "Enables LoY-era DoT damage messages. Disabled by default since this didn't exist on Al'Kabor.")
 RULE_BOOL(Spells, RainPreventKill, false, "Enables blocking rain spells from killing npcs")
 RULE_INT ( Spells, RainWizardResistChance, 0, "Chance for wizard rain spells to get resisted automatically")
+RULE_BOOL( Spells, AllowBuffstackingPatch, true, "Allows the client/server to negotiate using the patched buffstacking logic in eqgame.dll. Both sides exchange a handshake to safely enable the patch.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Combat )
