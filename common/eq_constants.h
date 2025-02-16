@@ -822,8 +822,26 @@ namespace ChallengeRules {
 		return true; // should not reach
 	}
 
-	static bool CanHelp(ChallengeRules::RuleSet self_type, uint8 self_level, uint8 self_level2, ChallengeRules::RuleSet target, uint8 target_level, uint8 target_level2) {
-		return CanGetLootCreditWith(target, target_level, target_level2, self_type, self_level, self_level2);
+	static bool CanHelp(ChallengeRules::RuleSet caster_ruleset, uint8 caster_level, uint8 caster_level2, ChallengeRules::RuleSet target_ruleset, uint8 target_level, uint8 target_level2)
+	{
+		switch (target_ruleset)
+		{
+		case ChallengeRules::NULL_CLASS:
+			return caster_ruleset == ChallengeRules::RuleSet::NULL_CLASS
+				&& InLevelRange(target_level, caster_level)
+				&& InLevelRange(target_level2, caster_level2);
+		case ChallengeRules::SOLO:
+			return false;
+		case ChallengeRules::SELF_FOUND_CLASSIC:
+			return IsSelfFoundAny(caster_ruleset)
+				&& InLevelRange(target_level, caster_level)
+				&& InLevelRange(target_level2, caster_level2);
+		case ChallengeRules::SELF_FOUND_FLEX:
+			return InLevelRange(target_level, caster_level);
+		case ChallengeRules::NORMAL:
+			return true;
+		}
+		return true; // should not reach
 	}
 }
 

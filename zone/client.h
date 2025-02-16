@@ -514,7 +514,7 @@ public:
 	bool CanGetExpCreditWith(ChallengeRules::RuleParams& data) { return CanGetExpCreditWith(data.type, data.max_level, data.max_level2); }
 	bool CanGetLootCreditWith(ChallengeRules::RuleParams& data, bool sf_fte) { return CanGetLootCreditWith(data) && (sf_fte || !IsFteRequired()); }
 	bool CanGetExpCreditWith(ChallengeRules::RuleParams& data, bool sf_fte) { return CanGetExpCreditWith(data) && (sf_fte || !IsFteRequired()); }
-	bool CanHelp(Client* target) { return target == this || target->CanGetLootCreditWith(GetRuleSet(), GetLevel(), GetLevel2()); }
+	bool CanHelp(Client* target);
 
 	inline void SetHardcore(uint8 in_hardcore) { m_epp.hardcore = in_hardcore; }
 	inline void SetSoloOnly(uint8 in_solo_only) { m_epp.solo_only = in_solo_only; }

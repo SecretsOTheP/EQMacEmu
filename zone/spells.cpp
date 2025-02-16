@@ -186,7 +186,7 @@ namespace {
 			return false;
 
 		// For whitelisted spells - Allow target to benefit if it was only a level-range conflict:
-		if (target->CanGetLootCreditWith(caster->GetRuleSet(), 1, 1)) {
+		if (ChallengeRules::CanHelp(caster->GetRuleSet(), 1, 1, target->GetRuleSet(), 1, 1)) {
 			if (spell_id == SPELL_WIND_OF_THE_NORTH || spell_id == SPELL_WIND_OF_THE_SOUTH ||
 				spell_id == SPELL_TISHANS_RELOCATION || spell_id == SPELL_MARKARS_RELOCATION)
 				return true;

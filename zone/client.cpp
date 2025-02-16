@@ -7184,6 +7184,14 @@ bool Client::CanGetExpCreditWith(ChallengeRules::RuleSet other, uint8 max_level,
 bool Client::CanGetLootCreditWith(ChallengeRules::RuleSet group, uint8 max_level, uint8 max_level2) {
 	return ChallengeRules::CanGetLootCreditWith(GetRuleSet(), GetLevel(), GetLevel2(), group, max_level, max_level2);
 }
+bool Client::CanHelp(Client* target)
+{
+	if (!target)
+		return false;
+	if (target == this)
+		return true;
+	return ChallengeRules::CanHelp(GetRuleSet(), GetLevel(), GetLevel2(), target->GetRuleSet(), target->GetLevel(), target->GetLevel2());
+}
 
 std::vector<int> Client::GetMemmedSpells() {
 	std::vector<int> memmed_spells;
