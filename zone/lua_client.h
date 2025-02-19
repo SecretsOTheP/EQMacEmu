@@ -291,6 +291,7 @@ public:
 	bool SendGMCommand(std::string message, bool ignore_status);
 	luabind::object GetRaidOrGroupOrSelf(lua_State *L);
 	luabind::object GetRaidOrGroupOrSelf(lua_State *L, bool clients_only);
+	luabind::object GetInventorySlots(lua_State *L);
 
 	void SetClientMaxLevel(uint8 max_level);
 	uint8 GetClientMaxLevel();

@@ -711,6 +711,16 @@
         OutF(LogSys, Logs::Detail, Logs::PlayerEvents, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
 } while (0)
 
+#define LogHTTP(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::General, Logs::HTTP))\
+        OutF(LogSys, Logs::General, Logs::HTTP, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
+#define LogHTTPDetail(message, ...) do {\
+    if (LogSys.IsLogEnabled(Logs::Detail, Logs::HTTP))\
+        OutF(LogSys, Logs::Detail, Logs::HTTP, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\
+} while (0)
+
 #define Log(debug_level, log_category, message, ...) do {\
     if (LogSys.IsLogEnabled(debug_level, log_category))\
         LogSys.Out(debug_level, log_category, __FILE__, __func__, __LINE__, message, ##__VA_ARGS__);\

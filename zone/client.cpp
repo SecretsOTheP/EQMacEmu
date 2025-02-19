@@ -924,6 +924,8 @@ bool Client::Save(uint8 iCommitNow) {
 	m_pp.thirst_level = EQ::Clamp(m_pp.thirst_level, (int16)0, (int16)32000);
 	database.SaveCharacterData(this->CharacterID(), this->AccountID(), &m_pp, &m_epp); /* Save Character Data */
 
+	SaveCharacterMageloStats();
+
 	return true;
 }
 
@@ -940,6 +942,196 @@ void Client::SendSound(uint16 soundID)
 	//Send the packet
 	QueuePacket(outapp);
 	safe_delete(outapp);
+}
+
+// this is meant to save 'unbuffed' stats for displaying character profiles
+bool Client::SaveCharacterMageloStats()
+{
+	CharacterMageloStats_Struct s;
+
+	memset(&s, 0, sizeof(CharacterMageloStats_Struct));
+
+	s.weight = GetWeight() / 10;
+
+	s.aa_points_unspent = GetAAPoints();
+	s.aa_points_spent = GetAAPointsSpent();
+
+	bool has_racial_regen_bonus = GetPlayerRaceBit(GetBaseRace()) & RuleI(Character, BaseHPRegenBonusRaces);
+	s.hp_regen_standing_base = LevelRegen(GetLevel(), false, false, false, false, has_racial_regen_bonus);
+	s.hp_regen_sitting_base = LevelRegen(GetLevel(), true, false, false, false, has_racial_regen_bonus);
+	s.hp_regen_resting_base = LevelRegen(GetLevel(), true, true, false, false, has_racial_regen_bonus);
+	s.hp_regen_standing_total = s.hp_regen_standing_base + aabonuses.HPRegen + itembonuses.HPRegen;
+	s.hp_regen_sitting_total = s.hp_regen_sitting_base + aabonuses.HPRegen + itembonuses.HPRegen;
+	s.hp_regen_resting_total = s.hp_regen_resting_base + aabonuses.HPRegen + itembonuses.HPRegen;
+	s.hp_regen_item = itembonuses.HPRegenUncapped;
+	s.hp_regen_item_cap = CalcHPRegenCap();
+	s.hp_regen_aa = aabonuses.HPRegen;
+
+	// this is partial logic from Client::CalcManaRegen()
+	if (GetMaxMana() > 0)
+	{
+		int mana_regen_standing = 1;
+		int mana_regen_sitting = 2;
+
+		if (GetClass() != Class::Bard && HasSkill(EQ::skills::SkillMeditate))
+		{
+			mana_regen_sitting = 3; // edge case with skill value 0 or 1
+			if (GetSkill(EQ::skills::SkillMeditate) > 1)
+			{
+				mana_regen_sitting = 4 + GetSkill(EQ::skills::SkillMeditate) / 15;
+			}
+		}
+
+		int mana_regen_from_level = 0;
+		if (GetLevel() > 61)
+		{
+			mana_regen_from_level += 1;
+		}
+		if (GetLevel() > 63)
+		{
+			mana_regen_from_level += 1;
+		}
+		mana_regen_standing += mana_regen_from_level;
+		mana_regen_sitting += mana_regen_from_level;
+
+		s.mana_regen_standing_base = mana_regen_standing;
+		s.mana_regen_sitting_base = mana_regen_sitting;
+		s.mana_regen_standing_total = s.mana_regen_standing_base + itembonuses.ManaRegen + aabonuses.ManaRegen;
+		s.mana_regen_sitting_total = s.mana_regen_sitting_base + itembonuses.ManaRegen + aabonuses.ManaRegen;
+	}
+	else
+	{
+		s.mana_regen_standing_base = 0;
+		s.mana_regen_sitting_base = 0;
+		s.mana_regen_standing_total = 0;
+		s.mana_regen_sitting_total = 0;
+	}
+	s.mana_regen_item = itembonuses.ManaRegenUncapped;
+	s.mana_regen_item_cap = CalcManaRegenCap();
+	s.mana_regen_aa = aabonuses.ManaRegen;
+
+	s.hp_max_total = CalcMaxHP(true); // Max HP without intoxication, STA buffs, HP buffs
+	s.hp_max_item = itembonuses.HP;
+
+	s.mana_max_total = GetMaxMana() > 0 ? CalcMaxMana() - spellbonuses.Mana : 0; // Max Mana without buffs
+	s.mana_max_item = itembonuses.Mana;
+
+	int shield_ac = 0;
+	GetRawACNoShield(shield_ac);
+	int agi = m_pp.AGI + itembonuses.AGI + aabonuses.AGI;
+	s.ac_item = itembonuses.AC;
+	s.ac_shield = shield_ac;
+	s.ac_avoidance = GetAvoidance(GetSkill(EQ::skills::SkillDefense), agi, GetLevel(), 0, 0);
+	s.ac_mitigation = GetMitigation(true, itembonuses.AC, shield_ac, itembonuses.SpellAC, GetClass(), GetLevel(), GetBaseRace(), GetWeight() / 10, agi, GetSkill(EQ::skills::SkillDefense), aabonuses.CombatStability);
+	s.ac_total = (s.ac_avoidance + s.ac_mitigation) * 1000 / 847;
+
+	s.atk_item = itembonuses.ATKUncapped;
+	s.atk_item_cap = RuleI(Character, ItemATKCap);
+	{
+		EQ::ItemInstance *weaponInst = GetInv().GetItem(EQ::invslot::slotPrimary); // main hand weapon
+		const EQ::ItemData *weapon = nullptr;
+		if (weaponInst && weaponInst->IsType(EQ::item::ItemClassCommon))
+			weapon = weaponInst->GetItem();
+		EQ::skills::SkillType skill = weapon != nullptr ? static_cast<EQ::skills::SkillType>(GetSkillByItemType(weapon->ItemType)) : EQ::skills::SkillHandtoHand; // main hand weapon skill in use
+
+		// atk_offense: copied and modified from Client::GetOffense
+		{
+
+			int statBonus;
+			if (skill == EQ::skills::SkillArchery || skill == EQ::skills::SkillThrowing)
+			{
+				statBonus = m_pp.DEX + itembonuses.DEX + aabonuses.DEX; // itembonuses is already capped
+				statBonus = statBonus > GetMaxDEX() ? GetMaxDEX() : statBonus;
+			}
+			else
+			{
+				statBonus = m_pp.STR + itembonuses.STR + aabonuses.STR;
+				statBonus = statBonus > GetMaxSTR() ? GetMaxSTR() : statBonus;
+			}
+
+			int offense = GetSkill(skill) + itembonuses.ATK + (statBonus > 75 ? ((2 * statBonus - 150) / 3) : 0);
+			if (offense < 1)
+				offense = 1;
+
+			if (GetClass() == Class::Ranger && GetLevel() > 54)
+			{
+				offense = offense + GetLevel() * 4 - 216;
+			}
+
+			s.atk_offense = offense;
+		}
+		// atk_tohit: copied and modified from Mob::GetToHit
+		{
+			int toHit = 7 + GetSkill(EQ::skills::SkillOffense) + GetSkill(skill);
+			s.atk_tohit = toHit;
+		}
+		s.atk_total = (s.atk_offense + s.atk_tohit) * 1000 / 744;
+	}
+
+	s.STR_total = m_pp.STR + itembonuses.STR + aabonuses.STR;
+	s.STR_base = m_pp.STR;
+	s.STR_item = itembonuses.STR;
+	s.STR_aa = aabonuses.STR;
+	s.STR_cap = GetMaxSTR();
+	s.STA_total = m_pp.STA + itembonuses.STA + aabonuses.STA;
+	s.STA_base = m_pp.STA;
+	s.STA_item = itembonuses.STA;
+	s.STA_aa = aabonuses.STA;
+	s.STA_cap = GetMaxSTA();
+	s.AGI_total = m_pp.AGI + itembonuses.AGI + aabonuses.AGI;
+	s.AGI_base = m_pp.AGI;
+	s.AGI_item = itembonuses.AGI;
+	s.AGI_aa = aabonuses.AGI;
+	s.AGI_cap = GetMaxAGI();
+	s.DEX_total = m_pp.DEX + itembonuses.DEX + aabonuses.DEX;
+	s.DEX_base = m_pp.DEX;
+	s.DEX_item = itembonuses.DEX;
+	s.DEX_aa = aabonuses.DEX;
+	s.DEX_cap = GetMaxDEX();
+	s.CHA_total = m_pp.CHA + itembonuses.CHA + aabonuses.CHA;
+	s.CHA_base = m_pp.CHA;
+	s.CHA_item = itembonuses.CHA;
+	s.CHA_aa = aabonuses.CHA;
+	s.CHA_cap = GetMaxCHA();
+	s.INT_total = m_pp.INT + itembonuses.INT + aabonuses.INT;
+	s.INT_base = m_pp.INT;
+	s.INT_item = itembonuses.INT;
+	s.INT_aa = aabonuses.INT;
+	s.INT_cap = GetMaxINT();
+	s.WIS_total = m_pp.WIS + itembonuses.WIS + aabonuses.WIS;
+	s.WIS_base = m_pp.WIS;
+	s.WIS_item = itembonuses.WIS;
+	s.WIS_aa = aabonuses.WIS;
+	s.WIS_cap = GetMaxWIS();
+
+	s.MR_total = CalcMR(true, false);
+	s.MR_item = itembonuses.MR;
+	s.MR_aa = aabonuses.MR;
+	s.MR_cap = GetMaxMR();
+	s.FR_total = CalcFR(true, false);
+	s.FR_item = itembonuses.FR;
+	s.FR_aa = aabonuses.FR;
+	s.FR_cap = GetMaxFR();
+	s.CR_total = CalcCR(true, false);
+	s.CR_item = itembonuses.CR;
+	s.CR_aa = aabonuses.CR;
+	s.CR_cap = GetMaxCR();
+	s.DR_total = CalcDR(true, false);
+	s.DR_item = itembonuses.DR;
+	s.DR_aa = aabonuses.DR;
+	s.DR_cap = GetMaxDR();
+	s.PR_total = CalcPR(true, false);
+	s.PR_item = itembonuses.PR;
+	s.PR_aa = aabonuses.PR;
+	s.PR_cap = GetMaxPR();
+
+	s.damage_shield_item = -(GetDS());
+	if (GetLevel() > 25) // 26+
+		s.haste_item += itembonuses.haste;
+	else // 1-25
+		s.haste_item += itembonuses.haste > 10 ? 10 : itembonuses.haste;
+
+	return database.SaveCharacterMageloStats(CharacterID(), &s);
 }
 
 CLIENTPACKET::CLIENTPACKET()
@@ -1990,15 +2182,13 @@ void Client::ChangeLastName(const char* in_lastname) {
 	memset(m_pp.last_name, 0, sizeof(m_pp.last_name));
 	memset(m_epp.temp_last_name, 0, sizeof(m_epp.temp_last_name));
 	strn0cpy(m_pp.last_name, in_lastname, sizeof(m_pp.last_name));
+	strn0cpy(lastname, m_pp.last_name, sizeof(lastname));
 	auto outapp = new EQApplicationPacket(OP_GMLastName, sizeof(GMLastName_Struct));
 	GMLastName_Struct* gmn = (GMLastName_Struct*)outapp->pBuffer;
 	strcpy(gmn->name, name);
 	strcpy(gmn->gmname, name);
 	strcpy(gmn->lastname, in_lastname);
-	gmn->unknown[0]=1;
-	gmn->unknown[1]=1;
-	gmn->unknown[2]=1;
-	gmn->unknown[3]=1;
+	gmn->response = 1;
 	entity_list.QueueClients(this, outapp, false);
 	// Send name update packet here... once know what it is
 	safe_delete(outapp);
@@ -3828,17 +4018,31 @@ bool Client::GetPickPocketSlot(EQ::ItemInstance* inst, int16& freeslotid)
 	return false;
 }
 
-bool Client::IsDiscovered(uint32 item_id) {
-	const auto &l = DiscoveredItemsRepository::GetWhere(
-		database,
-		fmt::format(
-			"item_id = {}",
+bool Client::IsDiscovered(uint32 item_id) 
+{
+	if (
+		std::find(
+			zone->discovered_items.begin(),
+			zone->discovered_items.end(),
 			item_id
-		)
-	);
-	if (l.empty()) {
-        return false;
-    }
+		) != zone->discovered_items.end()
+		) {
+		return true;
+	}
+
+	if (
+		DiscoveredItemsRepository::GetWhere(
+			database,
+			fmt::format(
+				"`item_id` = {} LIMIT 1",
+				item_id
+			)
+		).empty()
+		) {
+		return false;
+	}
+
+	zone->discovered_items.emplace_back(item_id);
 
 	return true;
 }
@@ -3853,8 +4057,6 @@ void Client::DiscoverItem(uint32 item_id) {
 
 	auto d = DiscoveredItemsRepository::InsertOne(database, e);
 
-	parse->EventPlayer(EVENT_DISCOVER_ITEM, this, "", item_id);
-
 	if (player_event_logs.IsEventEnabled(PlayerEvent::DISCOVER_ITEM)) {
 		const auto *item = database.GetItem(item_id);
 
@@ -3863,6 +4065,14 @@ void Client::DiscoverItem(uint32 item_id) {
 			.item_name = item->Name,
 		};
 		RecordPlayerEventLog(PlayerEvent::DISCOVER_ITEM, e);
+
+	}
+
+	if (parse->PlayerHasQuestSub(EVENT_DISCOVER_ITEM)) {
+		auto *item = database.CreateItem(item_id);
+		std::vector<std::any> args = { item };
+
+		parse->EventPlayer(EVENT_DISCOVER_ITEM, this, "", item_id, &args);
 	}
 }
 
@@ -7849,6 +8059,361 @@ PlayerEvent::PlayerEvent Client::GetPlayerEvent()
 	return e;
 }
 
+void Client::PlayerTradeEventLog(Trade *t, Trade *t2)
+{
+	Client *trader = t->GetOwner()->CastToClient();
+	Client *trader2 = t2->GetOwner()->CastToClient();
+	uint8  t_item_count = 0;
+	uint8  t2_item_count = 0;
+
+	auto money_t = PlayerEvent::Money{
+		.platinum = t->pp,
+		.gold = t->gp,
+		.silver = t->sp,
+		.copper = t->cp,
+	};
+	auto money_t2 = PlayerEvent::Money{
+		.platinum = t2->pp,
+		.gold = t2->gp,
+		.silver = t2->sp,
+		.copper = t2->cp,
+	};
+
+	// trader 1 item count
+	for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_END; i++) {
+		if (trader->GetInv().GetItem(i)) {
+			t_item_count++;
+		}
+	}
+
+	// trader 2 item count
+	for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_END; i++) {
+		if (trader2->GetInv().GetItem(i)) {
+			t2_item_count++;
+		}
+	}
+
+	std::vector<PlayerEvent::TradeItemEntry> t_entries = {};
+	t_entries.reserve(t_item_count);
+	if (t_item_count > 0) {
+		for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_END; i++) {
+			const EQ::ItemInstance *inst = trader->GetInv().GetItem(i);
+			if (inst) {
+				t_entries.emplace_back(
+					PlayerEvent::TradeItemEntry{
+						.slot = i,
+						.item_id = inst->GetItem()->ID,
+						.item_name = inst->GetItem()->Name,
+						.charges = static_cast<uint16>(inst->GetCharges()),
+						.in_bag = false,
+					}
+				);
+
+				if (inst->IsClassBag()) {
+					for (uint8 j = EQ::invbag::SLOT_BEGIN; j <= EQ::invbag::SLOT_END; j++) {
+						inst = trader->GetInv().GetItem(i, j);
+						if (inst) {
+							t_entries.emplace_back(
+								PlayerEvent::TradeItemEntry{
+									.slot = j,
+									.item_id = inst->GetItem()->ID,
+									.item_name = inst->GetItem()->Name,
+									.charges = static_cast<uint16>(inst->GetCharges()),
+									.in_bag = true,
+								}
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	std::vector<PlayerEvent::TradeItemEntry> t2_entries = {};
+	t_entries.reserve(t2_item_count);
+	if (t2_item_count > 0) {
+		for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_END; i++) {
+			const EQ::ItemInstance *inst = trader2->GetInv().GetItem(i);
+			if (inst) {
+				t2_entries.emplace_back(
+					PlayerEvent::TradeItemEntry{
+						.slot = i,
+						.item_id = inst->GetItem()->ID,
+						.item_name = inst->GetItem()->Name,
+						.charges = static_cast<uint16>(inst->GetCharges()),
+						.in_bag = false,
+					}
+				);
+
+				if (inst->IsClassBag()) {
+					for (uint8 j = EQ::invbag::SLOT_BEGIN; j <= EQ::invbag::SLOT_END; j++) {
+						inst = trader2->GetInv().GetItem(i, j);
+						if (inst) {
+							t2_entries.emplace_back(
+								PlayerEvent::TradeItemEntry{
+									.slot = j,
+									.item_id = inst->GetItem()->ID,
+									.item_name = inst->GetItem()->Name,
+									.charges = static_cast<uint16>(inst->GetCharges()),
+									.in_bag = true,
+								}
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	auto e = PlayerEvent::TradeEvent{
+		.character_1_id = trader->CharacterID(),
+		.character_1_name = trader->GetCleanName(),
+		.character_2_id = trader2->CharacterID(),
+		.character_2_name = trader2->GetCleanName(),
+		.character_1_give_money = money_t,
+		.character_2_give_money = money_t2,
+		.character_1_give_items = t_entries,
+		.character_2_give_items = t2_entries
+	};
+
+	RecordPlayerEventLogWithClient(trader, PlayerEvent::TRADE, e);
+	RecordPlayerEventLogWithClient(trader2, PlayerEvent::TRADE, e);
+}
+
+void Client::NPCHandinEventLog(Trade *t, NPC *n)
+{
+	Client *c = t->GetOwner()->CastToClient();
+
+	std::vector<PlayerEvent::HandinEntry> hi = {};
+	std::vector<PlayerEvent::HandinEntry> ri = {};
+	PlayerEvent::HandinMoney              hm{};
+	PlayerEvent::HandinMoney              rm{};
+
+	if (
+		c->EntityVariableExists("HANDIN_ITEMS") &&
+		c->EntityVariableExists("HANDIN_MONEY") &&
+		c->EntityVariableExists("RETURN_ITEMS") &&
+		c->EntityVariableExists("RETURN_MONEY")
+		) {
+		const std::string &handin_items = c->GetEntityVariable("HANDIN_ITEMS");
+		const std::string &return_items = c->GetEntityVariable("RETURN_ITEMS");
+		const std::string &handin_money = c->GetEntityVariable("HANDIN_MONEY");
+		const std::string &return_money = c->GetEntityVariable("RETURN_MONEY");
+
+		// Handin Items
+		if (!handin_items.empty()) {
+			if (Strings::Contains(handin_items, ",")) {
+				const auto handin_data = Strings::Split(handin_items, ",");
+				for (const auto &h : handin_data) {
+					const auto item_data = Strings::Split(h, "|");
+					if (
+						item_data.size() == 3 &&
+						Strings::IsNumber(item_data[0]) &&
+						Strings::IsNumber(item_data[1])
+						) {
+						const uint32 item_id = Strings::ToUnsignedInt(item_data[0]);
+						if (item_id != 0) {
+							const auto *item = database.GetItem(item_id);
+
+							if (item) {
+								hi.emplace_back(
+									PlayerEvent::HandinEntry{
+										.item_id = item_id,
+										.item_name = item->Name,
+										.charges = static_cast<uint16>(Strings::ToUnsignedInt(item_data[1]))
+									}
+								);
+							}
+						}
+					}
+				}
+			}
+			else if (Strings::Contains(handin_items, "|")) {
+				const auto item_data = Strings::Split(handin_items, "|");
+				if (
+					item_data.size() == 3 &&
+					Strings::IsNumber(item_data[0]) &&
+					Strings::IsNumber(item_data[1])
+					) {
+					const uint32 item_id = Strings::ToUnsignedInt(item_data[0]);
+					const auto *item = database.GetItem(item_id);
+
+					if (item) {
+						hi.emplace_back(
+							PlayerEvent::HandinEntry{
+								.item_id = item_id,
+								.item_name = item->Name,
+								.charges = static_cast<uint16>(Strings::ToUnsignedInt(item_data[1]))
+							}
+						);
+					}
+				}
+			}
+		}
+
+		// Handin Money
+		if (!handin_money.empty()) {
+			const auto hms = Strings::Split(handin_money, "|");
+
+			hm.copper = Strings::ToUnsignedInt(hms[0]);
+			hm.silver = Strings::ToUnsignedInt(hms[1]);
+			hm.gold = Strings::ToUnsignedInt(hms[2]);
+			hm.platinum = Strings::ToUnsignedInt(hms[3]);
+		}
+
+		// Return Items
+		if (!return_items.empty()) {
+			if (Strings::Contains(return_items, ",")) {
+				const auto return_data = Strings::Split(return_items, ",");
+				for (const auto &r : return_data) {
+					const auto item_data = Strings::Split(r, "|");
+					if (
+						item_data.size() == 3 &&
+						Strings::IsNumber(item_data[0]) &&
+						Strings::IsNumber(item_data[1])
+						) {
+						const uint32 item_id = Strings::ToUnsignedInt(item_data[0]);
+						const auto *item = database.GetItem(item_id);
+
+						if (item) {
+							ri.emplace_back(
+								PlayerEvent::HandinEntry{
+									.item_id = item_id,
+									.item_name = item->Name,
+									.charges = static_cast<uint16>(Strings::ToUnsignedInt(item_data[1]))
+								}
+							);
+						}
+					}
+				}
+			}
+			else if (Strings::Contains(return_items, "|")) {
+				const auto item_data = Strings::Split(return_items, "|");
+				if (
+					item_data.size() == 3 &&
+					Strings::IsNumber(item_data[0]) &&
+					Strings::IsNumber(item_data[1])
+					) {
+					const uint32 item_id = Strings::ToUnsignedInt(item_data[0]);
+					const auto *item = database.GetItem(item_id);
+
+					if (item) {
+						ri.emplace_back(
+							PlayerEvent::HandinEntry{
+								.item_id = item_id,
+								.item_name = item->Name,
+								.charges = static_cast<uint16>(Strings::ToUnsignedInt(item_data[1]))
+							}
+						);
+					}
+				}
+			}
+		}
+
+		// Return Money
+		if (!return_money.empty()) {
+			const auto rms = Strings::Split(return_money, "|");
+			rm.copper = static_cast<uint32>(Strings::ToUnsignedInt(rms[0]));
+			rm.silver = static_cast<uint32>(Strings::ToUnsignedInt(rms[1]));
+			rm.gold = static_cast<uint32>(Strings::ToUnsignedInt(rms[2]));
+			rm.platinum = static_cast<uint32>(Strings::ToUnsignedInt(rms[3]));
+		}
+
+		c->DeleteEntityVariable("HANDIN_ITEMS");
+		c->DeleteEntityVariable("HANDIN_MONEY");
+		c->DeleteEntityVariable("RETURN_ITEMS");
+		c->DeleteEntityVariable("RETURN_MONEY");
+
+		const bool handed_in_money = hm.platinum > 0 || hm.gold > 0 || hm.silver > 0 || hm.copper > 0;
+
+		const bool event_has_data_to_record = (
+			!hi.empty() || handed_in_money
+			);
+
+		if (player_event_logs.IsEventEnabled(PlayerEvent::NPC_HANDIN) && event_has_data_to_record) {
+			auto e = PlayerEvent::HandinEvent{
+				.npc_id = n->GetNPCTypeID(),
+				.npc_name = n->GetCleanName(),
+				.handin_items = hi,
+				.handin_money = hm,
+				.return_items = ri,
+				.return_money = rm,
+				.is_quest_handin = true
+			};
+
+			RecordPlayerEventLogWithClient(c, PlayerEvent::NPC_HANDIN, e);
+		}
+
+		return;
+	}
+
+	uint8 item_count = 0;
+
+	hm.platinum = t->pp;
+	hm.gold = t->gp;
+	hm.silver = t->sp;
+	hm.copper = t->cp;
+
+	for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_NPC_END; i++) {
+		if (c->GetInv().GetItem(i)) {
+			item_count++;
+		}
+	}
+
+	hi.reserve(item_count);
+
+	if (item_count > 0) {
+		for (uint16 i = EQ::invslot::TRADE_BEGIN; i <= EQ::invslot::TRADE_NPC_END; i++) {
+			const EQ::ItemInstance *inst = c->GetInv().GetItem(i);
+			if (inst) {
+				hi.emplace_back(
+					PlayerEvent::HandinEntry{
+						.item_id = inst->GetItem()->ID,
+						.item_name = inst->GetItem()->Name,
+						.charges = static_cast<uint16>(inst->GetCharges())
+					}
+				);
+
+				if (inst->IsClassBag()) {
+					for (uint8 j = EQ::invbag::SLOT_BEGIN; j <= EQ::invbag::SLOT_END; j++) {
+						inst = c->GetInv().GetItem(i, j);
+						if (inst) {
+							hi.emplace_back(
+								PlayerEvent::HandinEntry{
+									.item_id = inst->GetItem()->ID,
+									.item_name = inst->GetItem()->Name,
+									.charges = static_cast<uint16>(inst->GetCharges())
+								}
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	const bool handed_in_money = hm.platinum > 0 || hm.gold > 0 || hm.silver > 0 || hm.copper > 0;
+
+	ri = hi;
+	rm = hm;
+
+	const bool event_has_data_to_record = !hi.empty() || handed_in_money;
+
+	if (player_event_logs.IsEventEnabled(PlayerEvent::NPC_HANDIN) && event_has_data_to_record) {
+		auto e = PlayerEvent::HandinEvent{
+			.npc_id = n->GetNPCTypeID(),
+			.npc_name = n->GetCleanName(),
+			.handin_items = hi,
+			.handin_money = hm,
+			.return_items = ri,
+			.return_money = rm,
+			.is_quest_handin = false
+		};
+
+		RecordPlayerEventLogWithClient(c, PlayerEvent::NPC_HANDIN, e);
+	}
+}
+
 std::vector<Mob *> Client::GetRaidOrGroupOrSelf(bool clients_only)
 {
 	std::vector<Mob *> v;
@@ -7880,4 +8445,48 @@ std::vector<Mob *> Client::GetRaidOrGroupOrSelf(bool clients_only)
 	}
 
 	return v;
+}
+
+const std::vector<int16> &Client::GetInventorySlots()
+{
+	static const std::vector<std::pair<int16, int16>> slots = {
+		{EQ::invslot::POSSESSIONS_BEGIN,     EQ::invslot::POSSESSIONS_END},
+		{EQ::invbag::GENERAL_BAGS_BEGIN,     EQ::invbag::GENERAL_BAGS_END},
+		{EQ::invbag::CURSOR_BAG_BEGIN,       EQ::invbag::CURSOR_BAG_END},
+		{EQ::invslot::BANK_BEGIN,            EQ::invslot::BANK_END},
+		{EQ::invbag::BANK_BAGS_BEGIN,        EQ::invbag::BANK_BAGS_END},
+	};
+
+	static std::vector<int16> slot_ids;
+
+	if (slot_ids.empty()) {
+		for (const auto &[begin, end] : slots) {
+			for (int16 slot_id = begin; slot_id <= end; ++slot_id) {
+				slot_ids.emplace_back(slot_id);
+			}
+		}
+	}
+
+	return slot_ids;
+}
+
+void Client::CheckItemDiscoverability(uint32 item_id)
+{
+	if (!RuleB(Character, EnableDiscoveredItems) || IsDiscovered(item_id)) {
+		return;
+	}
+
+	if (GetGM()) {
+		const std::string &item_link = database.CreateItemLink(item_id);
+		Message(
+			Chat::White,
+			fmt::format(
+				"Your GM flag prevents {} from being added to discovered items.",
+				item_link
+			).c_str()
+		);
+		return;
+	}
+
+	DiscoverItem(item_id);
 }

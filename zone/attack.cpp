@@ -26,6 +26,7 @@
 #include "../common/strings.h"
 #include "../common/fastmath.h"
 #include "../common/misc_functions.h"
+#include "../common/events/player_event_logs.h"
 #include "quest_parser_collection.h"
 #include "string_ids.h"
 #include "water_map.h"
@@ -1274,6 +1275,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		spell,
 		static_cast<int>(attack_skill)
 	);	
+	
 	if(parse->EventPlayer(EVENT_DEATH, this, export_string, 0) != 0) {
 		if(GetHP() < 0) {
 			SetHP(0);
@@ -1602,6 +1604,20 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			killer_name = killerMob->GetCleanName();
 		}
 		QServ->QSDeathBy(this->CharacterID(), this->GetZoneID(), killer_name, spell, damage, killedby);
+	}
+
+	if (player_event_logs.IsEventEnabled(PlayerEvent::DEATH)) {
+		auto e = PlayerEvent::DeathEvent{
+			.killer_id = killerMob ? static_cast<uint32>(killerMob->GetID()) : static_cast<uint32>(0),
+			.killer_name = killerMob ? killerMob->GetCleanName() : "No Killer",
+			.damage = damage,
+			.spell_id = spell,
+			.spell_name = IsValidSpell(spell) ? spells[spell].name : "No Spell",
+			.skill_id = static_cast<int>(attack_skill),
+			.skill_name = !EQ::skills::GetSkillName(attack_skill).empty() ? EQ::skills::GetSkillName(attack_skill) : "No Skill",
+		};
+
+		RecordPlayerEventLog(PlayerEvent::DEATH, e);
 	}
 
 	parse->EventPlayer(EVENT_DEATH_COMPLETE, this, export_string, 0);
@@ -2117,6 +2133,17 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 
 	m_combat_record.Stop();
 
+	if (give_exp_client && !IsCorpse()) {
+		const auto &v = give_exp_client->GetRaidOrGroupOrSelf(true);
+		for (const auto &m : v) {
+			m->CastToClient()->RecordKilledNPCEvent(this);
+
+			if (parse->HasQuestSub(GetNPCTypeID(), EVENT_KILLED_MERIT)) {
+				parse->EventNPC(EVENT_KILLED_MERIT, this, m, "killed", 0);
+			}
+		}
+	}
+
 	if (parse->HasQuestSub(GetNPCTypeID(), EVENT_DEATH_COMPLETE)) {
 		const auto &export_string = fmt::format(
 			"{} {} {} {}",
@@ -2132,12 +2159,16 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 	/* Zone controller process EVENT_DEATH_ZONE (Death events) */
 	if (entity_list.GetNPCByNPCTypeID(ZONE_CONTROLLER_NPC_ID) && this->GetNPCTypeID() != ZONE_CONTROLLER_NPC_ID) {
 		const auto &export_string = fmt::format(
-			"{} {} {} {} {}",
+			"{} {} {} {} {} {} {} {} {}",
 			killer_mob ? killer_mob->GetID() : 0,
 			damage,
 			spell,
 			static_cast<int>(attack_skill),
-			this->GetNPCTypeID()
+			this->GetNPCTypeID(),
+			m_combat_record.GetStartTime(),
+			m_combat_record.GetEndTime(),
+			m_combat_record.GetDamageReceived(),
+			m_combat_record.GetHealingReceived()
 		);
 
 		parse->EventNPC(EVENT_DEATH_ZONE, entity_list.GetNPCByNPCTypeID(ZONE_CONTROLLER_NPC_ID)->CastToNPC(), nullptr, export_string, 0);

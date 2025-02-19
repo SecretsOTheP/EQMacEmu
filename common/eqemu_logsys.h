@@ -127,6 +127,7 @@ namespace Logs {
 		CombatRecord,
 		Cheat,
 		PlayerEvents,
+		HTTP,
 		MaxCategoryID	/* Don't Remove this*/
 	};
 
@@ -210,7 +211,8 @@ namespace Logs {
 		"Discord",
 		"CombatRecord",
 		"Cheat",
-		"PlayerEvents"
+		"PlayerEvents",
+		"HTTP"
 	};
 }
 

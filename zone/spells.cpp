@@ -3261,6 +3261,18 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 	// Figure out a slot for the buff.
 	Mob *buff_target = IsBindSightSpell(spell_id) ? this : spelltar;
 	int buffslot = -1, clevel = action_level;
+
+	// this is for suppressing mem blur on mez refresh https://www.takproject.net/forums/index.php?threads/mez-and-memblur-2.33569/
+	bool current_buff_refresh = false;
+	if (IsBuffSpell(spell_id) && buff_target && (buff_target->IsNPC() || buff_target->IsClient()))
+	{
+		for (int i = 0; i < GetMaxBuffSlots(); i++)
+		{
+			if (buff_target->buffs && buff_target->buffs[i].spellid == spell_id && buff_target->buffs[i].casterid != 0 && buff_target->buffs[i].casterid == GetID())
+				current_buff_refresh = true;
+		}
+	}
+
 	if (IsBuffSpell(spell_id) && !buff_target->AssignBuffSlot(this, spell_id, buffslot, clevel, action_packet))
 	{
 		// if AssignBuffSlot returned false there's a problem applying the spell. It's most likely a buff that can't stack.
@@ -3381,7 +3393,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 			TemporaryPets(spell_id, GetTarget(), pet_name, 2);
 		}
 	}
-	else if (!spelltar->SpellEffect(this, spell_id, buffslot, clevel, spell_effectiveness))
+	else if (!spelltar->SpellEffect(this, spell_id, buffslot, clevel, spell_effectiveness, current_buff_refresh))
 	{
 		// if SpellEffect() returned false there's a problem applying the effects (invalid spell.)
 		Log(Logs::General, Logs::Spells, "Spell %d could not apply its effects %s -> %s\n", spell_id, GetName(), spelltar->GetName());
@@ -3893,7 +3905,8 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 		return 100;
 	}
 
-	if (GetSpecialAbility(SpecialAbility::CastingFromRangeImmunity)) {
+	// belly caster
+	if (!tick_save && GetSpecialAbility(SpecialAbility::CastingFromRangeImmunity)) {
 		if (!caster->CombatRange(this)) {
 			return(0);
 		}
@@ -4072,7 +4085,7 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 		}
 	}
 
-	bool use_classic_resists = RuleR(World, CurrentExpansion) < (float)ExpansionEras::LuclinEQEra + 0.79;
+	bool use_classic_resists = !content_service.IsThePlanesOfPowerEnabled();
 
 	//Add our level, resist and -spell resist modifier to our roll chance
 	resist_chance += target_resist;

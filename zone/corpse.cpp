@@ -1864,16 +1864,8 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 
 		parse->EventItem(EVENT_LOOT, client, inst, this, export_string, 0);
 
-
-
-		if (
-			!IsPlayerCorpse() &&
-			RuleB(Character, EnableDiscoveredItems) &&
-			client &&
-			!client->GetGM() &&
-			!client->IsDiscovered(inst->GetItem()->ID)
-			) {
-			client->DiscoverItem(inst->GetItem()->ID);
+		if (!IsPlayerCorpse() && client) {
+			client->CheckItemDiscoverability(inst->GetID());
 		}
 
 		/* First add it to the looter - this will do the bag contents too */

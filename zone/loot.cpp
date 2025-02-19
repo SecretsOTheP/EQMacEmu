@@ -642,6 +642,9 @@ void NPC::AddLootDrop(
 
 	m_loot_items.push_back(item);
 
+	if (IsRecordLootStats()) {
+		m_rolled_items.emplace_back(item->item_id);
+	}
 
 	if (wearchange && outapp) {
 		entity_list.QueueClients(this, outapp);
@@ -1076,35 +1079,38 @@ bool NPC::MoveItemToGeneralInventory(LootItem* weapon)
 	return false;
 }
 
-void NPC::RemoveItem(LootItem* item_data, uint8 quantity) {
-
+void NPC::RemoveItem(LootItem* item_data, uint8 quantity) 
+{
 	if (!item_data)	{
 		return;
 	}
 
 	for (auto iter = m_loot_items.begin(); iter != m_loot_items.end(); ++iter) {
-		LootItem* sitem = *iter;
-		if (sitem != item_data) { continue; }
+		LootItem* item = *iter;
+		if (item != item_data) { 
+			continue; 
+		}
 
-		if (!sitem)
+		if (!item) {
 			return;
+		}
 
-		int16 eslot = sitem->equip_slot;
-		if (sitem->charges <= 1 || quantity == 0) {
+		int16 eslot = item->equip_slot;
+		if (item->charges <= 1 || quantity == 0) {
 			DeleteEquipment(eslot);
-
-			Log(Logs::General, Logs::Trading, "%s is deleting item %d from slot %d", GetName(), sitem->item_id, eslot);
+			LogTrading("[{}] is deleting item [{}] from slot [{}]", GetName(), item->item_id, eslot);
 			m_loot_items.erase(iter);
-
 			UpdateEquipmentLight();
-			if (UpdateActiveLight())
+			if (UpdateActiveLight()) {
 				SendAppearancePacket(AppearanceType::Light, GetActiveLightType());
+			}
+			safe_delete(item);
 		}
 		else {
-			sitem->charges -= quantity;
-			Log(Logs::General, Logs::Trading, "%s is deleting %d charges from item %d in slot %d", GetName(), quantity, sitem->item_id, eslot);
+			item->charges -= quantity;
+			LogTrading("[{}] is deleting [{}] charges from item [{}] in slot [{}]", GetName(), quantity, item->item_id, eslot);
 		}
-
+		
 		return;
 	}
 }

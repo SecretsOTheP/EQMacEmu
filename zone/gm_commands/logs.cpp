@@ -3,11 +3,7 @@
 
 extern WorldServer worldserver;
 
-inline void print_legend(Client* c) {
-	c->Message(Chat::White, "[Legend] [G = GM Say] [F = File] [C = Console]");
-}
-
-void command_logs(Client* c, const Seperator* sep)
+void command_logs(Client *c, const Seperator *sep)
 {
 	int arguments = sep->argnum;
 	if (!arguments) {
@@ -25,7 +21,7 @@ void command_logs(Client* c, const Seperator* sep)
 		);
 		c->Message(
 			Chat::White,
-			"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-3)] - Sets log settings during the lifetime of the zone"
+			"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-2)] - Sets log settings during the lifetime of the zone"
 		);
 		return;
 	}
@@ -49,7 +45,7 @@ void command_logs(Client* c, const Seperator* sep)
 		);
 		c->Message(
 			Chat::White,
-			"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-3)] - Sets log settings during the lifetime of the zone"
+			"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-2)] - Sets log settings during the lifetime of the zone"
 		);
 		return;
 	}
@@ -57,12 +53,11 @@ void command_logs(Client* c, const Seperator* sep)
 	if (is_list || (is_set && !sep->IsNumber(3))) {
 		uint32 start_category_id = 1;
 		if (sep->IsNumber(2)) {
-			start_category_id = std::stoul(sep->arg[2]);
+			start_category_id = Strings::ToUnsignedInt(sep->arg[2]);
 		}
 
 		uint32 max_category_id = (start_category_id + 49);
 
-		print_legend(c);
 		c->Message(Chat::White, "------------------------------------------------");
 
 		for (int index = start_category_id; index <= max_category_id; index++) {
@@ -71,58 +66,66 @@ void command_logs(Client* c, const Seperator* sep)
 				break;
 			}
 
-			bool is_deprecated_category = Strings::Contains(fmt::format("{}", Logs::LogCategoryName[index]), "Deprecated");
+			bool is_deprecated_category = Strings::Contains(
+				fmt::format("{}", Logs::LogCategoryName[index]),
+				"Deprecated"
+			);
 			if (is_deprecated_category) {
 				continue;
 			}
 
 			std::vector<std::string> gmsay;
-			for (int i = 0; i <= 3; i++) {
-				if (i == 2) {
-					continue;
-				}
+			for (int i = 0; i <= 2; i++) {
 				if (LogSys.log_settings[index].log_to_gmsay == i) {
 					gmsay.emplace_back(std::to_string(i));
 					continue;
 				}
 
 				gmsay.emplace_back(
-					EQ::SayLinkEngine::GenerateQuestSaylink(
+					Saylink::Create(
 						fmt::format("#logs set gmsay {} {}", index, i), false, std::to_string(i)
 					)
 				);
 			}
 
 			std::vector<std::string> file;
-			for (int i = 0; i <= 3; i++) {
-				if (i == 2) {
-					continue;
-				}
+			for (int i = 0; i <= 2; i++) {
 				if (LogSys.log_settings[index].log_to_file == i) {
 					file.emplace_back(std::to_string(i));
 					continue;
 				}
 
 				file.emplace_back(
-					EQ::SayLinkEngine::GenerateQuestSaylink(
+					Saylink::Create(
 						fmt::format("#logs set file {} {}", index, i), false, std::to_string(i)
 					)
 				);
 			}
 
 			std::vector<std::string> console;
-			for (int i = 0; i <= 3; i++) {
-				if (i == 2) {
-					continue;
-				}
+			for (int i = 0; i <= 2; i++) {
 				if (LogSys.log_settings[index].log_to_console == i) {
 					console.emplace_back(std::to_string(i));
 					continue;
 				}
 
 				console.emplace_back(
-					EQ::SayLinkEngine::GenerateQuestSaylink(
+					Saylink::Create(
 						fmt::format("#logs set console {} {}", index, i), false, std::to_string(i)
+					)
+				);
+			}
+
+			std::vector<std::string> discord;
+			for (int i = 0; i <= 2; i++) {
+				if (LogSys.log_settings[index].log_to_discord == i) {
+					discord.emplace_back(std::to_string(i));
+					continue;
+				}
+
+				discord.emplace_back(
+					Saylink::Create(
+						fmt::format("#logs set discord {} {}", index, i), false, std::to_string(i)
 					)
 				);
 			}
@@ -130,24 +133,20 @@ void command_logs(Client* c, const Seperator* sep)
 			std::string gmsay_string = Strings::Join(gmsay, "-");
 			std::string console_string = Strings::Join(console, "-");
 			std::string file_string = Strings::Join(file, "-");
+			std::string discord_string = Strings::Join(discord, "-");
 
 			c->Message(
 				0,
 				fmt::format(
-					"G [{}] C [{}] F [{}] [{}] [{}] ",
+					"[{}] GM [{}] Console [{}] File [{}] Discord [{}] [{}] ",
+					index,
 					Strings::RTrim(gmsay_string, "-"),
 					Strings::RTrim(console_string, "-"),
 					Strings::RTrim(file_string, "-"),
-					index,
+					Strings::RTrim(discord_string, "-"),
 					Logs::LogCategoryName[index]
 				).c_str()
 			);
-
-			if (index % 10 == 0) {
-				c->Message(Chat::White, "------------------------------------------------");
-				print_legend(c);
-				c->Message(Chat::White, "------------------------------------------------");
-			}
 		}
 
 		c->Message(Chat::White, "------------------------------------------------");
@@ -192,11 +191,12 @@ void command_logs(Client* c, const Seperator* sep)
 		bool is_console = !strcasecmp(sep->arg[2], "console");
 		bool is_file = !strcasecmp(sep->arg[2], "file");
 		bool is_gmsay = !strcasecmp(sep->arg[2], "gmsay");
+		bool is_discord = !strcasecmp(sep->arg[2], "discord");
 
-		if (!sep->IsNumber(4) || (!is_console && !is_file && !is_gmsay)) {
+		if (!sep->IsNumber(4) || (!is_console && !is_file && !is_gmsay && !is_discord)) {
 			c->Message(
 				Chat::White,
-				"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-3)] - Sets log settings during the lifetime of the zone"
+				"#logs set [console|file|gmsay] [Category ID] [Debug Level (1-2)] - Sets log settings during the lifetime of the zone"
 			);
 			c->Message(Chat::White, "Example: #logs set gmsay 20 1 - Would output Quest errors to gmsay");
 			return;
@@ -204,8 +204,8 @@ void command_logs(Client* c, const Seperator* sep)
 
 		logs_set = true;
 
-		auto category_id = std::stoul(sep->arg[3]);
-		auto setting = std::stoul(sep->arg[4]);
+		auto category_id = Strings::ToUnsignedInt(sep->arg[3]);
+		auto setting = Strings::ToUnsignedInt(sep->arg[4]);
 
 		if (is_console) {
 			LogSys.log_settings[category_id].log_to_console = setting;
@@ -215,6 +215,9 @@ void command_logs(Client* c, const Seperator* sep)
 		}
 		else if (is_gmsay) {
 			LogSys.log_settings[category_id].log_to_gmsay = setting;
+		}
+		else if (is_discord) {
+			LogSys.log_settings[category_id].log_to_discord = setting;
 		}
 
 		if (logs_set) {
@@ -233,3 +236,4 @@ void command_logs(Client* c, const Seperator* sep)
 		LogSys.log_settings[category_id].is_category_enabled = setting ? 1 : 0;
 	}
 }
+

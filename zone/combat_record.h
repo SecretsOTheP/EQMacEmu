@@ -12,10 +12,12 @@ public:
 	bool InCombat() const;
 	void ProcessHPEvent(int hp, int current_hp);
 	double TimeInCombat() const;
-	int64 GetDamageReceived() const;
-	int64 GetHealReceived() const;
 	float GetDamageReceivedPerSecond() const;
 	float GetHealedReceivedPerSecond() const;
+	time_t GetStartTime() const;
+	time_t GetEndTime() const;
+	int64 GetDamageReceived() const;
+	int64 GetHealingReceived() const;
 
 private:
 	std::string m_mob_name;

@@ -1208,7 +1208,7 @@ struct TradeMoneyUpdate_Struct{
 struct Surname_Struct
 {
 /*0000*/	char name[64];
-/*0064*/	uint32 unknown0064;
+/*0064*/	uint32 success;
 /*0068*/	char lastname[32];
 /*0100*/
 };
@@ -1339,8 +1339,8 @@ struct GMLastName_Struct {
 	char name[64];
 	char gmname[64];
 	char lastname[64];
-	uint16 unknown[4];	// 0x00, 0x00
-						// 0x01, 0x00 = Update the clients
+	char padding196[2];
+	int16 response; // request = 0, response = 1
 };
 
 //Combat Abilities

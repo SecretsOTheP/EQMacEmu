@@ -50,6 +50,8 @@ std::string GetPlatformName()
 		return "Launch";
 	case EQEmuExePlatform::ExePlatformTests:
 		return "Tests";
+	case EQEmuExePlatform::ExePlatformZoneSidecar:
+		return "ZoneSidecar";
 	default:
 		return "";
 	}

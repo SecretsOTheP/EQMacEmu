@@ -3390,3 +3390,30 @@ void NPC::ReloadSpells() {
 	AI_AddNPCSpells(GetNPCSpellsID());
 	AI_AddNPCSpellsEffects(GetNPCSpellsEffectsID());
 }
+
+bool NPC::IsRecordLootStats() const
+{
+	return m_record_loot_stats;
+}
+
+void NPC::SetRecordLootStats(bool record_loot_stats)
+{
+	NPC::m_record_loot_stats = record_loot_stats;
+}
+
+const std::vector<uint32> &NPC::GetRolledItems() const
+{
+	return m_rolled_items;
+}
+
+int NPC::GetRolledItemCount(uint32 item_id)
+{
+	int rolled_count = 0;
+	for (auto &e : m_rolled_items) {
+		if (item_id == e) {
+			rolled_count++;
+		}
+	}
+
+	return rolled_count;
+}

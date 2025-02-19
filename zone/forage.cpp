@@ -226,6 +226,7 @@ bool Client::CanFish() {
 
 		rod_position.x = m_Position.x + rod_length * sin(heading_degrees * M_PI / 180.0f);
 		rod_position.y = m_Position.y + rod_length * cos(heading_degrees * M_PI / 180.0f);
+		rod_position.z = m_Position.z;
 
 		float bestz = zone->zonemap->FindBestZ(rod_position, nullptr);
 		float len = m_Position.z - bestz;
@@ -254,6 +255,8 @@ bool Client::CanFish() {
 			bool in_lava = zone->watermap->InLava(dest);
 			bool in_water = zone->watermap->InWater(dest) || zone->watermap->InVWater(dest);
 
+			LogMaps("Fishing step size is : {}", i);
+
 			if (GetZoneID() == Zones::POWATER) {
 				if (zone->IsWaterZone(rod_position.z)) {
 					in_water = true;
@@ -280,7 +283,7 @@ bool Client::CanFish() {
 	return true;
 }
 
-void Client::GoFish()
+void Client::GoFish(bool guarantee, bool use_bait)
 {
 
 	fishing_timer.Disable();
@@ -330,7 +333,7 @@ void Client::GoFish()
 		fishing_mod = fishing_skill;
 
 	uint8 success = SKILLUP_FAILURE;
-	if (zone->random.Int(0,175) < fishing_mod) {
+	if (guarantee || zone->random.Int(0,175) < fishing_mod) {
 		uint32 food_id = 0;
 
 		if (zone->random.Int(0, 299) <= fishing_mod)
@@ -338,8 +341,10 @@ void Client::GoFish()
 			food_id = database.GetZoneFishing(m_pp.zone_id, fishing_skill);
 		}
 
-		//consume bait, should we always consume bait on success?
-		DeleteItemInInventory(bslot, 1, true);	//do we need client update?
+		if (use_bait) {
+			//consume bait, should we always consume bait on success?
+			DeleteItemInInventory(bslot, 1, true);    //do we need client update?
+		}
 
 		if(food_id == 0) {
 			int index = zone->random.Int(0, MAX_COMMON_FISH_IDS-1);
@@ -372,6 +377,8 @@ void Client::GoFish()
 				inst = m_inv.GetItem(EQ::invslot::slotCursor);
 				success = SKILLUP_SUCCESS;
 			}
+
+			CheckItemDiscoverability(inst->GetID());
 
 			if(inst) {
 				std::vector<std::any> args;
@@ -537,6 +544,8 @@ void Client::ForageItem(bool guarantee) {
 				safe_delete(inst);
 				inst = m_inv.GetItem(EQ::invslot::slotCursor);
 			}
+
+			CheckItemDiscoverability(inst->GetID());
 
 			if(inst) {
 				std::vector<std::any> args;

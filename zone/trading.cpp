@@ -613,8 +613,9 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 			//Do not reset the trade here, done by the caller.
 		}
 	}
-	else if (tradingWith && tradingWith->IsNPC())
-	{
+	else if (tradingWith && tradingWith->IsNPC()) {
+		NPCHandinEventLog(trade, tradingWith->CastToNPC());
+
 		NPC *npc = tradingWith->CastToNPC();
 
 		if (!npc)

@@ -1878,7 +1878,11 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 			}
 		}
 
-		RemoveDuplicateLore(false);
+		bool deletenorent = database.NoRentExpired(GetName());
+		if(deletenorent)
+			RemoveNoRent(false); //client was offline for more than 30 minutes, delete no rent items
+
+		RemoveDuplicateLore();
 		MoveSlotNotAllowed(false);
 
 		BulkSendInventoryItems();
@@ -4776,10 +4780,7 @@ void Client::Handle_OP_GMLastName(const EQApplicationPacket *app)
 
 				client->ChangeLastName(gmln->lastname);
 		}
-		gmln->unknown[0] = 1;
-		gmln->unknown[1] = 1;
-		gmln->unknown[2] = 1;
-		gmln->unknown[3] = 1;
+		gmln->response = 1;
 		entity_list.QueueClients(this, app, false);
 	}
 	return;
@@ -8368,9 +8369,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 		RecordPlayerEventLog(PlayerEvent::MERCHANT_PURCHASE, e);
 	}
 
-	if (RuleB(Character, EnableDiscoveredItems) && !GetGM() && !IsDiscovered(item_id)) {
-		DiscoverItem(item_id);
-	}
+	CheckItemDiscoverability(item->ID);
 
 	t1.stop();
 	return;
@@ -8920,18 +8919,36 @@ void Client::Handle_OP_Split(const EQApplicationPacket *app)
 
 void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 {
+	if (!content_service.IsContentFlagEnabled("OldPlane_Fear"))
+	{
+		Log(Logs::General, Logs::Info, "Received surname request but ignoring due to content flag OldPlane_Fear not being enabled.");
+		Message(Chat::Yellow, "Surname command is not available.");
+		return;
+	}
+
 	if (app->size != sizeof(Surname_Struct))
 	{
 		Log(Logs::General, Logs::Error, "Size mismatch in Surname expected %i got %i", sizeof(Surname_Struct), app->size);
 		return;
 	}
 
+	// surname already exists - the client does this as well
+	if (m_pp.last_name[0])
+	{
+		Message_StringID(Chat::Yellow, StringID::SURNAME_EXISTS);
+		return;
+	}
+
+	// the client doesn't let you change your surname at all if you have one already so this doesn't apply to TAKP
+	/*
 	if (!p_timers.Expired(&database, pTimerSurnameChange, false) && !GetGM())
 	{
 		Message(Chat::Yellow, "You may only change surnames once every 7 days, your /surname is currently on cooldown.");
 		return;
 	}
+	*/
 
+	// level 20 is required - the client does this as well
 	if (GetLevel() < 20)
 	{
 		Message_StringID(Chat::Yellow, StringID::SURNAME_LEVEL);
@@ -8950,23 +8967,31 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 		// Valid captialization will be checked by CheckNameFilter
 	}
 
-	if (strlen(surname->lastname) >= 20) {
+	// client truncates to 19 characters when submitting surname
+	if (strlen(surname->lastname) >= 20)
+	{
 		Message_StringID(Chat::Yellow, StringID::SURNAME_TOO_LONG);
 		return;
 	}
 
 	if (strlen(surname->lastname) > 0 && !database.CheckNameFilter(surname->lastname, true))
 	{
-		Message_StringID(Chat::Yellow, StringID::SURNAME_REJECTED);
+		// failure
+		EQApplicationPacket *outapp = app->Copy();
+		surname = (Surname_Struct *)outapp->pBuffer;
+		surname->success = 0;
+		FastQueuePacket(&outapp);
 		return;
 	}
 
 	ChangeLastName(surname->lastname);
-	p_timers.Start(pTimerSurnameChange, 604800);
+	// the client doesn't let you change your surname at all if you have one already so this doesn't apply to TAKP
+	//p_timers.Start(pTimerSurnameChange, 604800);
 
+	// success
 	EQApplicationPacket* outapp = app->Copy();
 	surname = (Surname_Struct*)outapp->pBuffer;
-	surname->unknown0064 = 1;
+	surname->success = 1;
 	FastQueuePacket(&outapp);
 	return;
 }
@@ -9002,16 +9027,18 @@ void Client::Handle_OP_SwapSpell(const EQApplicationPacket *app)
 void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 {
 	if (app->size != sizeof(ClientTarget_Struct)) {
-		Log(Logs::General, Logs::Error, "OP size error: OP_TargetMouse expected:%i got:%i", sizeof(ClientTarget_Struct), app->size);
+		LogError("OP size error: OP_TargetMouse expected:[{}] got:[{}]", sizeof(ClientTarget_Struct), app->size);
 		return;
 	}
 
 	// even if feared/charmed we need to save the client side target change so we can restore in AI_Stop()
 	ClientTarget_Struct* ct = (ClientTarget_Struct*)app->pBuffer;
+
 	pClientSideTarget = ct->new_target;
 
-	if (IsAIControlled() && !has_zomm)
+	if (IsAIControlled() && !has_zomm) {
 		return;
+	}
 
 	bool tar_cmd = (app->GetOpcode() == OP_TargetCommand);
 
@@ -9019,16 +9046,13 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 	Mob *cur_tar = GetTarget();
 
 	//Message(0, "Target: %d OP_TargetCommand: %s", ct->new_target, tar_cmd ? "true" : "false");
-	if (ct->new_target == 0)
-	{
-		if (tar_cmd)
-		{
+	if (ct->new_target == 0) {
+		if (tar_cmd) {
 			// searched for a target with /target (name), and not found.  Client sends over a new_target == 0
 			// dont do anything else, client keeps track of own current target.
 			Message_StringID(Chat::White, StringID::TARGET_NOT_FOUND2);
 		} 
-		else
-		{
+		else {
 			// cleared target
 			if (cur_tar) {
 				cur_tar->IsTargeted(-1);
@@ -9049,12 +9073,10 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 	if (tar_cmd) {
 		if (new_tar) {
 			if (!new_tar->CastToMob()->IsInvisible(this) && (DistanceSquared(m_Position, new_tar->GetPosition())  <= TARGETING_RANGE*TARGETING_RANGE || GetGM())) {
-				if (!GetGM() && new_tar->IsUnTargetable())
-				{
+				if (!GetGM() && new_tar->IsUnTargetable()) {
 					//Targeting something we shouldn't with /target
 					//but the client allows this without MQ so you don't flag it
-					if (!cur_tar) 
-					{
+					if (!cur_tar) {
 						Message_StringID(Chat::White, StringID::TARGET_NOT_FOUND2);
 						SendTargetCommand(0);
 						SetTarget(nullptr);
@@ -9067,8 +9089,7 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 				// send target packet later if pass validation checks
 				send_tar = true;
 			}
-			else
-			{
+			else {
 				Message_StringID(Chat::White, StringID::TARGET_NOT_FOUND2);
 				SendTargetCommand(cur_tar ? cur_tar->GetID() : 0);
 				if (!cur_tar) {
@@ -9090,27 +9111,24 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 	}
 
 	// validate target
-	if (new_tar)
-	{
-		if (GetGM())
-		{
+	if (new_tar) {
+		if (GetGM()) {
 			// always allow GM's to target
 		} 
-		else if (new_tar->IsUnTargetable())
-		{
+		else if (new_tar->IsUnTargetable()) {
 			auto message = fmt::format(
 				"[{}] attempting to target something untargetable [{}] bodytype [{}]",
 				GetName(),
-				GetTarget()->GetName(),
-				(int)GetTarget()->GetBodyType()
+				new_tar->GetName(),
+				(int)new_tar->GetBodyType()
 			);
 			RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
 
-			if (cur_tar)
-			{
+			if (cur_tar) {
 				SendTargetCommand(cur_tar->GetID());
 				SetTarget(cur_tar);
-			} else {
+			} 
+			else {
 				SendTargetCommand(0);
 				SetTarget(nullptr);
 			}
@@ -9129,10 +9147,8 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 			cheat_manager.SetExemptStatus(Sense, false);
 		}
 
-		if (new_tar != cur_tar && new_tar != this)
-		{
-			if (new_tar)
-			{
+		if (new_tar != cur_tar && new_tar != this) {
+			if (new_tar) {
 				EQApplicationPacket hp_app;
 				new_tar->CreateHPPacket(&hp_app);
 				QueuePacket(&hp_app);
@@ -9141,24 +9157,20 @@ void Client::Handle_OP_TargetCommand(const EQApplicationPacket *app)
 
 		SetTarget(new_tar);
 
-		if (cur_tar) 
-		{
-			if(cur_tar != new_tar) 
-			{
+		if (cur_tar) {
+			if(cur_tar != new_tar) {
 				cur_tar->IsTargeted(-1);
 				new_tar->IsTargeted(1);
 			}
 		} 
-		else 
-		{
+		else {
 			new_tar->IsTargeted(1);
 		}
-		if (send_tar)
+		if (send_tar) {
 			QueuePacket(app);
-
+		}
 	} 
-	else 
-	{
+	else {
 		SendTargetCommand(0);
 		SetTarget(nullptr);
 	}
@@ -9239,6 +9251,8 @@ void Client::Handle_OP_TradeAcceptClick(const EQApplicationPacket *app)
 				trade->Reset();
 			}
 			else  {
+				other->PlayerTradeEventLog(other->trade, trade);
+
 				// start QS code
 				if (RuleB(QueryServ, PlayerLogTrades)) {
 					QSPlayerLogTrade_Struct event_entry;

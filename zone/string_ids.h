@@ -1,4 +1,4 @@
-#ifndef STRING_IDS, //
+#ifndef STRING_IDS
 #define STRING_IDS
 
 //These strings are loaded from eqstr_us.txt, but may vary between client versions. Maybe we could make this an enum that's dependent on the client version?

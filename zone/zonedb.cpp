@@ -1456,6 +1456,292 @@ bool ZoneDatabase::SaveAccountShowHelm(uint32 account_id, bool value)
 	return true;
 }
 
+bool ZoneDatabase::SaveCharacterMageloStats(uint32 character_id, CharacterMageloStats_Struct *s)
+{
+	std::string query = StringFormat
+	(
+		"REPLACE INTO character_magelo_stats ("
+		"id, "
+		"weight, "
+		"aa_points_unspent, "
+		"aa_points_spent, "
+		"hp_regen_standing_base, "
+		"hp_regen_sitting_base, "
+		"hp_regen_resting_base, "
+		"hp_regen_standing_total, "
+		"hp_regen_sitting_total, "
+		"hp_regen_resting_total, "
+		"hp_regen_item, "
+		"hp_regen_item_cap, "
+		"hp_regen_aa, "
+		"mana_regen_standing_base, "
+		"mana_regen_sitting_base, "
+		"mana_regen_standing_total, "
+		"mana_regen_sitting_total, "
+		"mana_regen_item, "
+		"mana_regen_item_cap, "
+		"mana_regen_aa, "
+		"hp_max_total, "
+		"hp_max_item, "
+		"mana_max_total, "
+		"mana_max_item, "
+		"ac_total, "
+		"ac_item, "
+		"ac_shield, "
+		"ac_avoidance, "
+		"ac_mitigation, "
+		"atk_total, "
+		"atk_item, "
+		"atk_item_cap, "
+		"atk_offense, "
+		"atk_tohit, "
+		"STR_total, "
+		"STR_base, "
+		"STR_item, "
+		"STR_aa, "
+		"STR_cap, "
+		"STA_total, "
+		"STA_base, "
+		"STA_item, "
+		"STA_aa, "
+		"STA_cap, "
+		"AGI_total, "
+		"AGI_base, "
+		"AGI_item, "
+		"AGI_aa, "
+		"AGI_cap, "
+		"DEX_total, "
+		"DEX_base, "
+		"DEX_item, "
+		"DEX_aa, "
+		"DEX_cap, "
+		"CHA_total, "
+		"CHA_base, "
+		"CHA_item, "
+		"CHA_aa, "
+		"CHA_cap, "
+		"INT_total, "
+		"INT_base, "
+		"INT_item, "
+		"INT_aa, "
+		"INT_cap, "
+		"WIS_total, "
+		"WIS_base, "
+		"WIS_item, "
+		"WIS_aa, "
+		"WIS_cap, "
+		"MR_total, "
+		"MR_item, "
+		"MR_aa, "
+		"MR_cap, "
+		"FR_total, "
+		"FR_item, "
+		"FR_aa, "
+		"FR_cap, "
+		"CR_total, "
+		"CR_item, "
+		"CR_aa, "
+		"CR_cap, "
+		"DR_total, "
+		"DR_item, "
+		"DR_aa, "
+		"DR_cap, "
+		"PR_total, "
+		"PR_item, "
+		"PR_aa, "
+		"PR_cap, "
+		"damage_shield_item, "
+		"haste_item"
+		") VALUES ("
+		"%u, "	// id
+		"%d, "	// weight
+		"%d, "	// aa_points_unspent
+		"%d, "	// aa_points_spent
+		"%d, "	// hp_regen_standing_base
+		"%d, "	// hp_regen_sitting_base
+		"%d, "	// hp_regen_resting_base
+		"%d, "	// hp_regen_standing_total
+		"%d, "	// hp_regen_sitting_total
+		"%d, "	// hp_regen_resting_total
+		"%d, "	// hp_regen_item
+		"%d, "	// hp_regen_item_cap
+		"%d, "	// hp_regen_aa
+		"%d, "	// mana_regen_standing_base
+		"%d, "	// mana_regen_sitting_base
+		"%d, "	// mana_regen_standing_total
+		"%d, "	// mana_regen_sitting_total
+		"%d, "	// mana_regen_item
+		"%d, "	// mana_regen_item_cap
+		"%d, "	// mana_regen_aa
+		"%d, "	// hp_max_total
+		"%d, "	// hp_max_item
+		"%d, "	// mana_max_total
+		"%d, "	// mana_max_item
+		"%d, "	// ac_total
+		"%d, "	// ac_item
+		"%d, "	// ac_shield
+		"%d, "	// ac_avoidance
+		"%d, "	// ac_mitigation
+		"%d, "	// atk_total
+		"%d, "	// atk_item
+		"%d, "	// atk_item_cap
+		"%d, "	// atk_offense
+		"%d, "	// atk_tohit
+		"%d, "	// STR_total
+		"%d, "	// STR_base
+		"%d, "	// STR_item
+		"%d, "	// STR_aa
+		"%d, "	// STR_cap
+		"%d, "	// STA_total
+		"%d, "	// STA_base
+		"%d, "	// STA_item
+		"%d, "	// STA_aa
+		"%d, "	// STA_cap
+		"%d, "	// AGI_total
+		"%d, "	// AGI_base
+		"%d, "	// AGI_item
+		"%d, "	// AGI_aa
+		"%d, "	// AGI_cap
+		"%d, "	// DEX_total
+		"%d, "	// DEX_base
+		"%d, "	// DEX_item
+		"%d, "	// DEX_aa
+		"%d, "	// DEX_cap
+		"%d, "	// CHA_total
+		"%d, "	// CHA_base
+		"%d, "	// CHA_item
+		"%d, "	// CHA_aa
+		"%d, "	// CHA_cap
+		"%d, "	// INT_total
+		"%d, "	// INT_base
+		"%d, "	// INT_item
+		"%d, "	// INT_aa
+		"%d, "	// INT_cap
+		"%d, "	// WIS_total
+		"%d, "	// WIS_base
+		"%d, "	// WIS_item
+		"%d, "	// WIS_aa
+		"%d, "	// WIS_cap
+		"%d, "	// MR_total
+		"%d, "	// MR_item
+		"%d, "	// MR_aa
+		"%d, "	// MR_cap
+		"%d, "	// FR_total
+		"%d, "	// FR_item
+		"%d, "	// FR_aa
+		"%d, "	// FR_cap
+		"%d, "	// CR_total
+		"%d, "	// CR_item
+		"%d, "	// CR_aa
+		"%d, "	// CR_cap
+		"%d, "	// DR_total
+		"%d, "	// DR_item
+		"%d, "	// DR_aa
+		"%d, "	// DR_cap
+		"%d, "	// PR_total
+		"%d, "	// PR_item
+		"%d, "	// PR_aa
+		"%d, "	// PR_cap
+		"%d, "	// damage_shield_item
+		"%d"	// haste_item
+		")",
+		character_id,
+		s->weight,
+		s->aa_points_unspent,
+		s->aa_points_spent,
+		s->hp_regen_standing_base,
+		s->hp_regen_sitting_base,
+		s->hp_regen_resting_base,
+		s->hp_regen_standing_total,
+		s->hp_regen_sitting_total,
+		s->hp_regen_resting_total,
+		s->hp_regen_item,
+		s->hp_regen_item_cap,
+		s->hp_regen_aa,
+		s->mana_regen_standing_base,
+		s->mana_regen_sitting_base,
+		s->mana_regen_standing_total,
+		s->mana_regen_sitting_total,
+		s->mana_regen_item,
+		s->mana_regen_item_cap,
+		s->mana_regen_aa,
+		s->hp_max_total,
+		s->hp_max_item,
+		s->mana_max_total,
+		s->mana_max_item,
+		s->ac_total,
+		s->ac_item,
+		s->ac_shield,
+		s->ac_avoidance,
+		s->ac_mitigation,
+		s->atk_total,
+		s->atk_item,
+		s->atk_item_cap,
+		s->atk_offense,
+		s->atk_tohit,
+		s->STR_total,
+		s->STR_base,
+		s->STR_item,
+		s->STR_aa,
+		s->STR_cap,
+		s->STA_total,
+		s->STA_base,
+		s->STA_item,
+		s->STA_aa,
+		s->STA_cap,
+		s->AGI_total,
+		s->AGI_base,
+		s->AGI_item,
+		s->AGI_aa,
+		s->AGI_cap,
+		s->DEX_total,
+		s->DEX_base,
+		s->DEX_item,
+		s->DEX_aa,
+		s->DEX_cap,
+		s->CHA_total,
+		s->CHA_base,
+		s->CHA_item,
+		s->CHA_aa,
+		s->CHA_cap,
+		s->INT_total,
+		s->INT_base,
+		s->INT_item,
+		s->INT_aa,
+		s->INT_cap,
+		s->WIS_total,
+		s->WIS_base,
+		s->WIS_item,
+		s->WIS_aa,
+		s->WIS_cap,
+		s->MR_total,
+		s->MR_item,
+		s->MR_aa,
+		s->MR_cap,
+		s->FR_total,
+		s->FR_item,
+		s->FR_aa,
+		s->FR_cap,
+		s->CR_total,
+		s->CR_item,
+		s->CR_aa,
+		s->CR_cap,
+		s->DR_total,
+		s->DR_item,
+		s->DR_aa,
+		s->DR_cap,
+		s->PR_total,
+		s->PR_item,
+		s->PR_aa,
+		s->PR_cap,
+		s->damage_shield_item,
+		s->haste_item
+	);
+	QueryDatabase(query);
+
+	return true;
+}
+
 bool ZoneDatabase::DeleteCharacterSpell(uint32 character_id, uint32 spell_id, uint32 slot_id){
 	std::string query = StringFormat("DELETE FROM `character_spells` WHERE `slot_id` = %u AND `id` = %u", slot_id, character_id);
 	QueryDatabase(query);

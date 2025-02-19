@@ -92,6 +92,12 @@ class NPC : public Mob
 public:
 	static NPC* SpawnNPC(const char* spawncommand, const glm::vec4& position, Client* client = nullptr);
 
+	// loot recording / simulator
+	bool IsRecordLootStats() const;
+	void SetRecordLootStats(bool record_loot_stats);
+	const std::vector<uint32> &GetRolledItems() const;
+	int GetRolledItemCount(uint32 item_id);
+
 	NPC(const NPCType *npc_type_data, Spawn2* respawn, const glm::vec4& position, GravityBehavior iflymode, bool IsCorpse = false);
 
 	virtual ~NPC();
@@ -623,6 +629,8 @@ private:
 	float wall_normal2_y;
 	float corner_x;
 	float corner_y;
+	bool                m_record_loot_stats;
+	std::vector<uint32> m_rolled_items = {};
 };
 
 #endif

@@ -285,6 +285,8 @@ public:
 	std::vector<GridRepository::Grid> grids;
 	std::vector<GridEntriesRepository::GridEntries> grid_entries;
 
+	std::vector<uint32> discovered_items;
+
 	time_t	weather_timer;
 	Timer  hot_reload_timer;
 

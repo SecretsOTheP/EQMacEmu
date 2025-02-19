@@ -129,6 +129,20 @@ public:
 	int GetDR();
 	int GetPR();
 	int GetCR();
+
+	void SetSTR(int str);
+	void SetSTA(int sta);
+	void SetDEX(int dex);
+	void SetAGI(int agi);
+	void SetINT(int intel);
+	void SetWIS(int wis);
+	void SetCHA(int cha);
+	void SetMR(int mr);
+	void SetFR(int fr);
+	void SetDR(int dr);
+	void SetPR(int pr);
+	void SetCR(int cr);
+
 	int GetMaxSTR();
 	int GetMaxSTA();
 	int GetMaxDEX();

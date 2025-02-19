@@ -615,6 +615,10 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 				}
 			}
 
+			if (m_inst) {
+				sender->CheckItemDiscoverability(m_inst->GetID());
+			}
+
 			if(!m_ground_spawn)
 				safe_delete(m_inst);
 

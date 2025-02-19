@@ -62,6 +62,7 @@ SET(common_sources
 	packet_functions.cpp
 	path_manager.cpp
 	process/process.cpp
+	process.cpp
 	proc_launcher.cpp
 	profanity_manager.cpp
 	ptimer.cpp
@@ -100,6 +101,7 @@ SET(common_sources
 	net/tcp_server.cpp
 	net/websocket_server.cpp
 	net/websocket_server_connection.cpp
+	json/json.hpp
 	json/jsoncpp.cpp
 	patches/patches.cpp
 	patches/mac.cpp
@@ -415,6 +417,7 @@ SET(common_headers
 	path_manager.h
 	platform.h
 	process/process.h
+	process.h
 	proc_launcher.h
 	profanity_manager.h
 	profiler.h

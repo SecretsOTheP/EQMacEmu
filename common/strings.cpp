@@ -15,27 +15,20 @@
  */
 
 #include "strings.h"
+
 #include <algorithm>
 #include <unordered_map>
+
 #include <fmt/format.h>
+#include <algorithm>
+#include <cctype>
 
-#ifdef _WINDOWS
-#include <windows.h>
-
-#define snprintf	_snprintf
-#define strncasecmp	_strnicmp
-#define strcasecmp  _stricmp
-
-#else
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
 
-#endif
-
-#ifndef va_copy
-#define va_copy(d,s) ((d) = (s))
-#endif
+#include <random>
+#include <string>
 
  // original source:
  // https://github.com/facebook/folly/blob/master/folly/String.cpp
@@ -103,7 +96,26 @@ const std::string StringFormat(const char* format, ...)
 	return output;
 }
 
-std::vector<std::string> Strings::Split(const std::string& str, const char delim) {
+std::string Strings::Random(size_t length)
+{
+	static auto &chrs = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	thread_local static std::mt19937 rg{ std::random_device{}() };
+
+	thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+
+	std::string s;
+
+	s.reserve(length);
+
+	while (length--) {
+		s += chrs[pick(rg)];
+	}
+
+	return s;
+}
+
+std::vector<std::string> Strings::Split(const std::string &str, const char delim) {
 	std::vector<std::string> ret;
 	std::string::size_type start = 0;
 	auto end = str.find(delim);
@@ -326,6 +338,16 @@ std::string Strings::Replace(std::string subject, const std::string &search, con
 		pos += replace.length();
 	}
 	return subject;
+}
+
+std::string Strings::Repeat(std::string s, int n)
+{
+	std::string s1 = s;
+	for (int i = 1; i < n; i++) {
+		s += s1;
+	}
+
+	return s;
 }
 
 void ParseAccountString(const std::string& s, std::string &account, std::string &loginserver)
@@ -1036,21 +1058,6 @@ bool Strings::Contains(const std::string &subject, const std::string &search)
 
 
 	return subject.find(search) != std::string::npos;
-}
-
-// returns a random string of specified length
-std::string Strings::Random(size_t length)
-{
-	auto        randchar = []() -> char {
-		const char   charset[] = "0123456789"
-			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-			"abcdefghijklmnopqrstuvwxyz";
-		const size_t max_index = (sizeof(charset) - 1);
-		return charset[static_cast<size_t>(std::rand()) % max_index];
-	};
-	std::string str(length, 0);
-	std::generate_n(str.begin(), length, randchar);
-	return str;
 }
 
 // a wrapper for stoi which will return a fallback if the string

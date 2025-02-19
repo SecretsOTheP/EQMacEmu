@@ -1237,6 +1237,22 @@ Lua_Inventory Lua_Client::GetInventory() {
 	return &self->GetInv();
 }
 
+luabind::object Lua_Client::GetInventorySlots(lua_State *L)
+{
+	auto lua_table = luabind::newtable(L);
+
+	if (d_) {
+		auto self = reinterpret_cast<NativeType *>(d_);
+		int  index = 1;
+		for (const int16 &slot_id : self->GetInventorySlots()) {
+			lua_table[index] = slot_id;
+			index++;
+		}
+	}
+
+	return lua_table;
+}
+
 void Lua_Client::QueuePacket(Lua_Packet app) {
 	Lua_Safe_Call_Void();
 	self->QueuePacket(app);
@@ -1645,6 +1661,7 @@ luabind::scope lua_register_client() {
 		.def("PushItemOnCursor", (bool(Lua_Client::*)(Lua_ItemInst))&Lua_Client::PushItemOnCursor)
 		.def("PushItemOnCursorWithoutQueue", (bool(Lua_Client::*)(Lua_ItemInst))&Lua_Client::PushItemOnCursorWithoutQueue)
 		.def("GetInventory", (Lua_Inventory(Lua_Client::*)(void))&Lua_Client::GetInventory)
+		.def("GetInventorySlots", (luabind::object(Lua_Client:: *)(lua_State *L)) &Lua_Client::GetInventorySlots)
 		.def("QueuePacket", (void(Lua_Client::*)(Lua_Packet))&Lua_Client::QueuePacket)
 		.def("QueuePacket", (void(Lua_Client::*)(Lua_Packet, bool))&Lua_Client::QueuePacket)
 		.def("QueuePacket", (void(Lua_Client::*)(Lua_Packet, bool, int))&Lua_Client::QueuePacket)

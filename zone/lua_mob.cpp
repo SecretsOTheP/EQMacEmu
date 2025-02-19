@@ -505,6 +505,66 @@ int Lua_Mob::GetCR() {
 	return self->GetCR();
 }
 
+void Lua_Mob::SetSTR(int str) {
+	Lua_Safe_Call_Void();
+	self->SetSTR(str);
+}
+
+void Lua_Mob::SetSTA(int sta) {
+	Lua_Safe_Call_Void();
+	self->SetSTA(sta);
+}
+
+void Lua_Mob::SetDEX(int dex) {
+	Lua_Safe_Call_Void();
+	self->SetDEX(dex);
+}
+
+void Lua_Mob::SetAGI(int agi) {
+	Lua_Safe_Call_Void();
+	self->SetAGI(agi);
+}
+
+void Lua_Mob::SetINT(int intel) {
+	Lua_Safe_Call_Void();
+	self->SetINT(intel);
+}
+
+void Lua_Mob::SetWIS(int wis) {
+	Lua_Safe_Call_Void();
+	self->SetWIS(wis);
+}
+
+void Lua_Mob::SetCHA(int cha) {
+	Lua_Safe_Call_Void();
+	self->SetCHA(cha);
+}
+
+void Lua_Mob::SetMR(int mr) {
+	Lua_Safe_Call_Void();
+	self->SetMR(mr);
+}
+
+void Lua_Mob::SetFR(int fr) {
+	Lua_Safe_Call_Void();
+	self->SetFR(fr);
+}
+
+void Lua_Mob::SetDR(int dr) {
+	Lua_Safe_Call_Void();
+	self->SetDR(dr);
+}
+
+void Lua_Mob::SetPR(int pr) {
+	Lua_Safe_Call_Void();
+	self->SetPR(pr);
+}
+
+void Lua_Mob::SetCR(int cr) {
+	Lua_Safe_Call_Void();
+	self->SetCR(cr);
+}
+
 int Lua_Mob::GetMaxSTR() {
 	Lua_Safe_Call_Int();
 	return self->GetMaxSTR();
@@ -1741,6 +1801,18 @@ luabind::scope lua_register_mob() {
 		.def("GetDR", &Lua_Mob::GetDR)
 		.def("GetPR", &Lua_Mob::GetPR)
 		.def("GetCR", &Lua_Mob::GetCR)
+		.def("SetSTR", &Lua_Mob::SetSTR)
+		.def("SetSTA", &Lua_Mob::SetSTA)
+		.def("SetDEX", &Lua_Mob::SetDEX)
+		.def("SetAGI", &Lua_Mob::SetAGI)
+		.def("SetINT", &Lua_Mob::SetINT)
+		.def("SetWIS", &Lua_Mob::SetWIS)
+		.def("SetCHA", &Lua_Mob::SetCHA)
+		.def("SetMR", &Lua_Mob::SetMR)
+		.def("SetFR", &Lua_Mob::SetFR)
+		.def("SetDR", &Lua_Mob::SetDR)
+		.def("SetPR", &Lua_Mob::SetPR)
+		.def("SetCR", &Lua_Mob::SetCR)
 		.def("GetMaxSTR", &Lua_Mob::GetMaxSTR)
 		.def("GetMaxSTA", &Lua_Mob::GetMaxSTA)
 		.def("GetMaxDEX", &Lua_Mob::GetMaxDEX)

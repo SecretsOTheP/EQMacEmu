@@ -25,6 +25,8 @@
 #include "repositories/discord_webhooks_repository.h"
 #include "repositories/logsys_categories_repository.h"
 #include "termcolor/rang.hpp"
+#include "path_manager.h"
+#include "file.h"
 
 #include <iostream>
 #include <string>
@@ -85,12 +87,15 @@ EQEmuLogSys* EQEmuLogSys::LoadLogSettingsDefaults()
 	 * Set Defaults
 	 */
 	log_settings[Logs::Crash].log_to_console = static_cast<uint8>(Logs::General);
+	log_settings[Logs::Crash].log_to_file = static_cast<uint8>(Logs::General);
 	log_settings[Logs::MySQLError].log_to_console = static_cast<uint8>(Logs::General);
 	log_settings[Logs::HotReload].log_to_gmsay = static_cast<uint8>(Logs::General);
 	log_settings[Logs::HotReload].log_to_console = static_cast<uint8>(Logs::General);
 	log_settings[Logs::Loot].log_to_gmsay = static_cast<uint8>(Logs::General);
 	log_settings[Logs::Scheduler].log_to_console = static_cast<uint8>(Logs::General);
 	log_settings[Logs::Cheat].log_to_console = static_cast<uint8>(Logs::General);
+	log_settings[Logs::HTTP].log_to_console = static_cast<uint8>(Logs::General);
+	log_settings[Logs::HTTP].log_to_gmsay = static_cast<uint8>(Logs::General);
 	log_settings[Logs::CombatRecord].log_to_gmsay = static_cast<uint8>(Logs::General);
 	log_settings[Logs::Discord].log_to_console = static_cast<uint8>(Logs::General);
 	log_settings[Logs::QuestErrors].log_to_gmsay = static_cast<uint8>(Logs::General);
@@ -521,6 +526,11 @@ void EQEmuLogSys::CloseFileLogs()
 void EQEmuLogSys::StartFileLogs(const std::string& log_name)
 {
 	EQEmuLogSys::CloseFileLogs();
+
+	if (!File::Exists(path.GetLogPath())) {
+		LogInfo("Logs directory not found, creating [{}]", path.GetLogPath());
+		File::Makedir(path.GetLogPath());
+	}
 
 	/**
 	 * When loading settings, we must have been given a reason in category based logging to output to a file in order to even create or open one...

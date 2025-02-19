@@ -208,6 +208,110 @@ struct TraderCharges_Struct {
 	int32 Charges[80];
 };
 
+// This is written out for the benefit of the web tool that shows summarized character statistics outside of the game
+struct CharacterMageloStats_Struct {
+	int32 weight;
+
+	int32 aa_points_unspent;
+	int32 aa_points_spent;
+
+	int32 hp_regen_standing_base;
+	int32 hp_regen_sitting_base;
+	int32 hp_regen_resting_base;
+	int32 hp_regen_standing_total;
+	int32 hp_regen_sitting_total;
+	int32 hp_regen_resting_total;
+	int32 hp_regen_item;
+	int32 hp_regen_item_cap;
+	int32 hp_regen_aa;
+
+	int32 mana_regen_standing_base;
+	int32 mana_regen_sitting_base;
+	int32 mana_regen_standing_total;
+	int32 mana_regen_sitting_total;
+	int32 mana_regen_item;
+	int32 mana_regen_item_cap;
+	int32 mana_regen_aa;
+
+	int32 hp_max_total;
+	int32 hp_max_item;
+
+	int32 mana_max_total;
+	int32 mana_max_item;
+
+	int32 ac_total;
+	int32 ac_item;
+	int32 ac_shield;
+	int32 ac_avoidance;
+	int32 ac_mitigation;
+
+	int32 atk_total;
+	int32 atk_item;
+	int32 atk_item_cap;
+	int32 atk_offense;
+	int32 atk_tohit;
+
+	int32 STR_total;
+	int32 STR_base;
+	int32 STR_item;
+	int32 STR_aa;
+	int32 STR_cap;
+	int32 STA_total;
+	int32 STA_base;
+	int32 STA_item;
+	int32 STA_aa;
+	int32 STA_cap;
+	int32 AGI_total;
+	int32 AGI_base;
+	int32 AGI_item;
+	int32 AGI_aa;
+	int32 AGI_cap;
+	int32 DEX_total;
+	int32 DEX_base;
+	int32 DEX_item;
+	int32 DEX_aa;
+	int32 DEX_cap;
+	int32 CHA_total;
+	int32 CHA_base;
+	int32 CHA_item;
+	int32 CHA_aa;
+	int32 CHA_cap;
+	int32 INT_total;
+	int32 INT_base;
+	int32 INT_item;
+	int32 INT_aa;
+	int32 INT_cap;
+	int32 WIS_total;
+	int32 WIS_base;
+	int32 WIS_item;
+	int32 WIS_aa;
+	int32 WIS_cap;
+
+	int32 MR_total;
+	int32 MR_item;
+	int32 MR_aa;
+	int32 MR_cap;
+	int32 FR_total;
+	int32 FR_item;
+	int32 FR_aa;
+	int32 FR_cap;
+	int32 CR_total;
+	int32 CR_item;
+	int32 CR_aa;
+	int32 CR_cap;
+	int32 DR_total;
+	int32 DR_item;
+	int32 DR_aa;
+	int32 DR_cap;
+	int32 PR_total;
+	int32 PR_item;
+	int32 PR_aa;
+	int32 PR_cap;
+
+	int32 damage_shield_item;
+	int32 haste_item;
+};
+
 namespace NPCSpawnTypes {
 	enum : uint8 {
 		CreateNewSpawn,
@@ -280,6 +384,7 @@ public:
 	bool	SaveCharacterConsent(char grantname[64], char ownername[64]);
 	bool	SaveCharacterConsent(char grantname[64], char ownername[64], std::list<CharacterConsent> &consent_list);
 	bool	SaveAccountShowHelm(uint32 account_id, bool value);
+	bool	SaveCharacterMageloStats(uint32 character_id, CharacterMageloStats_Struct *s);
 	static void SaveCharacterBinds(Client* c);
 
 	/* Character Data Deletes   */

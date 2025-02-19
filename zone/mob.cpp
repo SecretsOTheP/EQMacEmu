@@ -396,7 +396,6 @@ Mob::Mob(const char* in_name,
 	npc_damage = 0;
 	gm_damage = 0;
 	PacifyImmune = false;
-	current_buff_refresh = false;
 	temporary_pets_effect = nullptr;
 	best_z_fail_count = 0;
 
@@ -3073,7 +3072,53 @@ void Mob::Teleport(const glm::vec4& pos)
 	mMovementManager->Teleport(this, pos.x, pos.y, pos.z, pos.w);
 }
 
+void Mob::SetSTR(int32 STR) {
+	this->STR = STR;
+}
 
+void Mob::SetSTA(int32 STA) {
+	this->STA = STA;
+}
+
+void Mob::SetDEX(int32 DEX) {
+	this->DEX = DEX;
+}
+
+void Mob::SetAGI(int32 AGI) {
+	this->AGI = AGI;
+}
+
+void Mob::SetINT(int32 INT) {
+	this->INT = INT;
+}
+
+void Mob::SetWIS(int32 WIS) {
+	this->WIS = WIS;
+}
+
+void Mob::SetCHA(int32 CHA) {
+	this->CHA = CHA;
+}
+
+void Mob::SetMR(int32 MR) {
+	this->MR = MR;
+}
+
+void Mob::SetFR(int32 FR) {
+	this->FR = FR;
+}
+
+void Mob::SetDR(int32 DR) {
+	this->DR = DR;
+}
+
+void Mob::SetPR(int32 PR) {
+	this->PR = PR;
+}
+
+void Mob::SetCR(int32 CR) {
+	this->CR = CR;
+}
 
 float Mob::GetDefaultRaceSize() const {
 	return GetRaceGenderDefaultHeight(race, gender);

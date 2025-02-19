@@ -311,7 +311,9 @@ void print_trace()
 		SendCrashReport(crash_report);
 	}
 
-	std::quick_exit(1);
+	LogSys.CloseFileLogs();
+
+	exit(1);
 }
 
 // crash is off or an unhandled platform

@@ -203,9 +203,11 @@ int command_init(void)
 		command_add("falltest", "[+Z] sends you to your current loc plus the Z specified.", AccountStatus::GMImpossible, command_falltest) ||
 		command_add("fillbuffs", "Casts 15 buffs on the target for testing.", AccountStatus::QuestTroupe, command_fillbuffs) ||
 		command_add("find", "Search command used to find various things", AccountStatus::Guide, command_find) ||
+		command_add("fish", "Fish for an item", AccountStatus::QuestTroupe, command_fish) ||
 		command_add("fixmob", "[race|gender|texture|helm|face|hair|haircolor|beard|beardcolor|heritage|tattoo|detail] [next|prev] - Manipulate appearance of your target.", AccountStatus::GMImpossible, command_fixmob) ||
 		command_add("flagedit", "Edit zone flags on your target.", AccountStatus::GMMgmt, command_flagedit) ||
 		command_add("fleeinfo", "Gives info about whether a NPC will flee or not, using the command issuer as top hate.", AccountStatus::QuestTroupe, command_fleeinfo) ||
+		command_add("forage", "Forage an item", AccountStatus::QuestTroupe, command_forage) ||
 
 		command_add("giveitem", "[itemid] [charges] - Summon an item onto your target's cursor. Charges are optional.", AccountStatus::GMLeadAdmin, command_giveitem) ||
 		command_add("givemoney", "[pp] [gp] [sp] [cp] - Gives specified amount of money to the target player.", AccountStatus::GMLeadAdmin, command_givemoney) ||
@@ -244,6 +246,7 @@ int command_init(void)
 		command_add("loc", "Print out your or your target's current location and heading.", AccountStatus::Player, command_loc) ||
 		command_add("logs", "Manage anything to do with logs.", AccountStatus::GMCoder, command_logs) ||
 		command_add("logtest", "Performs log performance testing.", AccountStatus::GMImpossible, command_logtest) ||
+		command_add("lootsim", "[npc_type_id] [loottable_id] [iterations] - Runs benchmark simulations using real loot logic to report numbers and data", AccountStatus::GMImpossible, command_lootsim) ||
 
 		command_add("makemule", "Flags the account of the player who runs the command as a mule.", AccountStatus::Player, command_makemule) ||
 		command_add("makepet", "[level] [class] [race] [texture] - Make a pet.", AccountStatus::QuestMaster, command_makepet) ||
@@ -935,9 +938,11 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/falltest.cpp"
 #include "gm_commands/fillbuffs.cpp"
 #include "gm_commands/find.cpp"
+#include "gm_commands/fish.cpp"
 #include "gm_commands/fixmob.cpp"
 #include "gm_commands/flagedit.cpp"
 #include "gm_commands/fleeinfo.cpp"
+#include "gm_commands/forage.cpp"
 #include "gm_commands/giveitem.cpp"
 #include "gm_commands/givemoney.cpp"
 #include "gm_commands/giveplayerfaction.cpp"
@@ -968,6 +973,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/logs.cpp"
 #include "gm_commands/logtest.cpp"
 #include "gm_commands/makemule.cpp"
+#include "gm_commands/lootsim.cpp"
 #include "gm_commands/makepet.cpp"
 #include "gm_commands/manaburn.cpp"
 #include "gm_commands/manastat.cpp"

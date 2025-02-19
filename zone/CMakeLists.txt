@@ -76,6 +76,8 @@ SET(zone_sources
 	quest_parser_collection.cpp
 	raids.cpp
 	raycast_mesh.cpp
+	sidecar_api/sidecar_api.cpp
+    	sidecar_api/loot_simulator_controller.cpp
 	spawn2.cpp
 	spawngroup.cpp
 	special_attacks.cpp
@@ -91,6 +93,7 @@ SET(zone_sources
 	waypoints.cpp
 	worldserver.cpp
 	zone.cpp
+	zone_cli.cpp
 	zone_config.cpp
 	zonedb.cpp
 	zone_event_scheduler.cpp
@@ -164,6 +167,7 @@ SET(zone_headers
 	quest_parser_collection.h
 	raids.h
 	raycast_mesh.h
+	sidecar_api/sidecar_api.h
 	spawn2.h
 	spawngroup.h
 	string_ids.h
@@ -178,6 +182,7 @@ SET(zone_headers
 	zone_config.h
 	zonedb.h
 	zonedump.h
+	zone_cli.h
 	zone_reload.h
 )
 

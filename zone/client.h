@@ -366,6 +366,7 @@ public:
 	/* New PP Save Functions */
 	bool SaveCurrency(){ return database.SaveCharacterCurrency(this->CharacterID(), &m_pp); }
 	bool SaveAA();
+	bool SaveCharacterMageloStats();
 
 	inline bool ClientDataLoaded() const { return client_data_loaded; }
 	inline bool Connected() const { return (client_state == CLIENT_CONNECTED); }
@@ -384,6 +385,7 @@ public:
 	inline ExtendedProfile_Struct& GetEPP() { return m_epp; }
 	inline EQ::InventoryProfile& GetInv() { return m_inv; }
 	inline const EQ::InventoryProfile& GetInv() const { return m_inv; }
+	const std::vector<int16> &GetInventorySlots();
 	inline PetInfo* GetPetInfo(uint16 pet) { return (pet==1)?&m_suspendedminion:&m_petinfo; }
 
 	bool CheckAccess(int16 iDBLevel, int16 iDefaultLevel);
@@ -973,7 +975,7 @@ public:
 	bool DecreaseByID(uint32 type, uint8 amt);
 	void Escape(); //AA Escape
 	void RemoveNoRent(bool client_update = true);
-	void RemoveDuplicateLore(bool client_update = true);
+	void RemoveDuplicateLore();
 	void MoveSlotNotAllowed(bool client_update = true);
 	virtual void RangedAttack(Mob* other);
 	virtual void ThrowingAttack(Mob* other, bool CanDoubleAttack = false);
@@ -988,7 +990,7 @@ public:
 	void LoadZoneFlags(LinkedList<ZoneFlags_Struct*>* ZoneFlags);
 
 	bool CanFish();
-	void GoFish();
+	void GoFish(bool guarantee = false, bool use_bait = true);
 	void ForageItem(bool guarantee = false);
 	//Calculate vendor price modifier based on CHA: (reverse==merchant buying)
 	float CalcPriceMod(Mob* other = 0, bool reverse = false);
@@ -1138,6 +1140,7 @@ public:
 	uint32 trapid; //ID of trap player has triggered. This is cleared when the player leaves the trap's radius, or it despawns.
 
 	void SendMerchantEnd();
+	void CheckItemDiscoverability(uint32 item_id);
 	float GetPortHeading(uint16 newx, uint16 newy);
 	bool IsMule() { return (Admin() < 80 && m_pp.mule); }
 	void SendCancelTrade(Mob* with);
@@ -1533,6 +1536,9 @@ private:
 	bool InterrogateInventory_error(int16 head, int16 index, const EQ::ItemInstance* inst, const EQ::ItemInstance* parent, int depth);
 
 	void UpdateZoneChangeCount(uint32 zoneid);
+
+	void PlayerTradeEventLog(Trade *t, Trade *t2);
+	void NPCHandinEventLog(Trade *t, NPC *n);
 
 	bool clicky_override; // On AK, clickies with 0 casttime did not enforce any restrictions (level, regeant consumption, etc) 
 	uint8 active_disc;

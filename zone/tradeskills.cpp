@@ -30,6 +30,8 @@
 #include "../common/strings.h"
 #include "../common/zone_store.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
+#include "../common/repositories/tradeskill_recipe_repository.h"
+#include "../common/repositories/tradeskill_recipe_entries_repository.h"
 
 #include "queryserv.h"
 #include "worldserver.h"
@@ -222,9 +224,10 @@ void Object::HandleCombine(Client* user, const Combine_Struct* in_combine, Objec
 }
 
 //returns true on success
-bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) {
-	if (spec == nullptr) {
-		return(false);
+bool Client::TradeskillExecute(DBTradeskillRecipe_Struct *spec) 
+{
+	if (!spec) {
+		return false;
 	}
 
 	uint16 user_skill = GetSkill(spec->tradeskill);
@@ -481,21 +484,25 @@ void Client::CheckIncreaseTradeskill(bool isSuccessfulCombine, EQ::skills::Skill
 	}
 }
 
-bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_type, uint32 some_id,
-	uint32 char_id, DBTradeskillRecipe_Struct *spec)
+bool ZoneDatabase::GetTradeRecipe(
+	const EQ::ItemInstance* container, 
+	uint8 c_type, 
+	uint32 some_id,
+	uint32 char_id, 
+	DBTradeskillRecipe_Struct *spec
+)
 {
-	if (container == nullptr) {
-		LogTradeskills("[GetTradeRecipe] Container null");
+	if (!container) {
 		return false;
 	}
 
-	std::string containers;// make where clause segment for container(s)
-	if (some_id < 75) {
-		containers = StringFormat("= %u", c_type); // world combiner so no item number
+	std::string containers;
+	if (some_id < 75) { // world combiner so no item number
+		containers = fmt::format("= {}", c_type);
 	}
-	else {
-		containers = StringFormat("IN (%u,%u)", c_type, some_id);
-	} // container in inventory
+	else { // container in inventory
+		containers = fmt::format("IN ({}, {})", c_type, some_id);
+	}
 
 	//Could prolly watch for stacks in this loop and handle them properly...
 	//just increment sum and count accordingly
@@ -503,40 +510,46 @@ bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_typ
 	std::string buf2;
 	uint32		count = 0;
 	uint32		sum = 0;
-	for (uint8 i = 0; i < 10; i++) { // <watch> TODO: need to determine if this is bound to world/item container size
-		LogTradeskills("[GetTradeRecipe] Fetching item [{}]", i);
 
-		const EQ::ItemInstance* inst = container->GetItem(i);
+	for (uint8 slot_id = 0; slot_id < EQ::invbag::SLOT_COUNT; slot_id++) { // <watch> TODO: need to determine if this is bound to world/item container size
+		LogTradeskills("Fetching item [{}]", slot_id);
+
+		const EQ::ItemInstance* inst = container->GetItem(slot_id);
 		if (!inst) {
 			continue;
 		}
 
-		const EQ::ItemData* item = GetItem(inst->GetItem()->ID);
+		const auto item = GetItem(inst->GetItem()->ID);
 		if (!item) {
-			LogTradeskills("[GetTradeRecipe] item [{}] not found!", inst->GetItem()->ID);
+			LogTradeskills("item [{}] not found!", inst->GetItem()->ID);
 			continue;
 		}
 
-		if(first) {
-			buf2 += StringFormat("%d", item->ID);
+		if (first) {
+			buf2 += fmt::format("{}", item->ID);
 			first = false;
 		}
 		else {
-			buf2 += StringFormat(",%d", item->ID);
+			buf2 += fmt::format(", {}", item->ID);
 		}
 
 		sum += item->ID;
 		count++;
 
-		LogTradeskills("[GetTradeRecipe] Item in container index [{}] item [{}] found [{}]", i, item->ID, count);
+		LogTradeskills(
+			"Item in container index [{}] item [{}] found [{}]", 
+			slot_id, 
+			item->ID, 
+			count
+		);
 	}
 
 	//no items == no recipe
-	if (count == 0) {
+	if (!count) {
 		return false;
 	}
 
-	std::string query = StringFormat(
+	std::string query = fmt::format(
 		SQL(
 			SELECT
 				tradeskill_recipe_entries.recipe_id
@@ -546,28 +559,29 @@ bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_typ
 				tradeskill_recipe ON (tradeskill_recipe_entries.recipe_id = tradeskill_recipe.id)
             WHERE 
 				tradeskill_recipe.enabled
-				 %s
 			AND 
 			(
-				(tradeskill_recipe_entries.item_id IN(%s) AND tradeskill_recipe_entries.componentcount > 0)
+				(tradeskill_recipe_entries.item_id IN({}) AND tradeskill_recipe_entries.componentcount > 0)
 			OR 
-				(tradeskill_recipe_entries.item_id %s AND tradeskill_recipe_entries.iscontainer=1 )
+				(tradeskill_recipe_entries.item_id {} AND tradeskill_recipe_entries.iscontainer = 1)
 			)
+			{}
 			GROUP BY 
 				tradeskill_recipe_entries.recipe_id
-				HAVING 
-				sum(tradeskill_recipe_entries.componentcount) = %u AND sum(tradeskill_recipe_entries.item_id * tradeskill_recipe_entries.componentcount) = %u
+				HAVING SUM(tradeskill_recipe_entries.componentcount) = {} 
+				AND sum(tradeskill_recipe_entries.item_id * tradeskill_recipe_entries.componentcount) = {}
 		),
-		ContentFilterCriteria::apply("tradeskill_recipe").c_str(),
-		buf2.c_str(),
-		containers.c_str(),
+		buf2,
+		containers,
+		ContentFilterCriteria::apply("tradeskill_recipe"),
 		count,
 		sum
 	);
+
 	auto results = QueryDatabase(query);
 	if (!results.Success()) {
-		Log(Logs::General, Logs::Error, "Error in GetTradeRecipe search, query: %s", query.c_str());
-		Log(Logs::General, Logs::Error, "Error in GetTradeRecipe search, error: %s", results.ErrorMessage().c_str());
+		LogError("Error in search, query: [{}]", query.c_str());
+		LogError("Error in search, error: [{}]", results.ErrorMessage().c_str());
 		return false;
 	}
 
@@ -578,32 +592,40 @@ bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_typ
 		first = true;
 		uint32 index = 0;
 		buf2 = "";
-		for (auto row = results.begin(); row != results.end(); ++row, ++index) {
-			uint32 recipeid = (uint32)atoi(row[0]);
-			if(first) {
-				buf2 += StringFormat("%u", recipeid);
+		for (auto row : results) {
+			const uint32 recipe_id = Strings::ToUnsignedInt(row[0]);
+			if (first) {
+				buf2 += fmt::format("{}", recipe_id);
 				first = false;
 			}
 			else {
-				buf2 += StringFormat(",%u", recipeid);
+				buf2 += fmt::format(", {}", recipe_id);
 			}
 
 			//length limit on buf2
 			if(index == 214) { //Maximum number of recipe matches (19 * 215 = 4096)
-				Log(Logs::General, Logs::Error, "GetTradeRecipe warning: Too many matches. Unable to search all recipe entries. Searched %u of %u possible entries.", index + 1, results.RowCount());
+				LogError(
+					"Warning: Too many matches. Unable to search all recipe entries. Searched [{}] of [{}] possible entries",
+					index + 1,
+					results.RowCount());
 				break;
 			}
+
+			++index;
 		}
 
-		query = StringFormat("SELECT tre.recipe_id "
-                            "FROM tradeskill_recipe_entries AS tre "
-                            "WHERE tre.recipe_id IN (%s) "
-                            "GROUP BY tre.recipe_id HAVING sum(tre.componentcount) = %u "
-                            "AND sum(tre.item_id * tre.componentcount) = %u", buf2.c_str(), count, sum);
+		query = fmt::format(
+			"SELECT tre.recipe_id FROM tradeskill_recipe_entries AS tre "
+            "WHERE tre.recipe_id IN ({}) GROUP BY tre.recipe_id HAVING sum(tre.componentcount) = {} "
+            "AND sum(tre.item_id * tre.componentcount) = {}", 
+			buf2, 
+			count, 
+			sum
+		);
 		results = QueryDatabase(query);
 		if (!results.Success()) {
-			Log(Logs::General, Logs::Error, "Error in GetTradeRecipe, re-query: %s", query.c_str());
-			Log(Logs::General, Logs::Error, "Error in GetTradeRecipe, error: %s", results.ErrorMessage().c_str());
+			LogError("Re-query: [{}]", query.c_str());
+			LogError("Error: [{}]", results.ErrorMessage().c_str());
 			return false;
 		}
 	}
@@ -614,75 +636,76 @@ bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_typ
 
 	if(results.RowCount() > 1) {
 		//The recipe is not unique, so we need to compare the container were using.
-		uint32 containerId = 0;
+		uint32 container_item_id = 0;
 
-		if (some_id) { //Standard container
-			containerId = some_id;
+		if (some_id) { // Standard container
+			container_item_id = some_id;
 		}
-		else if (c_type) {//World container
-			containerId = c_type;
+		else if (c_type) { // World container
+			container_item_id = c_type;
 		}
-		else { //Invalid container
+		else { // Invalid container
 			return false;
 		}
 
-		query = StringFormat("SELECT tre.recipe_id "
-                            "FROM tradeskill_recipe_entries AS tre "
-                            "WHERE tre.recipe_id IN (%s) "
-                            "AND tre.item_id = %u;", buf2.c_str(), containerId);
+		query = fmt::format(
+			"SELECT tre.recipe_id FROM tradeskill_recipe_entries AS tre WHERE tre.recipe_id IN ({}) AND tre.item_id = {}", 
+			buf2, 
+			container_item_id
+		);
+
 		results = QueryDatabase(query);
 		if (!results.Success()) {
-			Log(Logs::General, Logs::Error, "Error in GetTradeRecipe, re-query: %s", query.c_str());
-			Log(Logs::General, Logs::Error, "Error in GetTradeRecipe, error: %s", results.ErrorMessage().c_str());
+			LogError("Re-query: [{}]", query);
+			LogError("Error: [{}]", results.ErrorMessage());
 			return false;
 		}
 
-		if(results.RowCount() == 0) { //Recipe contents matched more than 1 recipe, but not in this container
-			Log(Logs::General, Logs::Error, "Combine error: Incorrect container is being used!");
+		if (!results.RowCount()) { //Recipe contents matched more than 1 recipe, but not in this container
+			LogError("Combine error: Incorrect container is being used!");
 			return false;
 		}
 
-		if (results.RowCount() > 1) {
-			//Recipe contents matched more than 1 recipe in this container
-			Log(Logs::General, Logs::Error, "Combine error: Recipe is not unique! %u matches found for container %u. Continuing with first recipe match.", results.RowCount(), containerId);
+		if (results.RowCount() > 1) { //Recipe contents matched more than 1 recipe in this container
+			LogError(
+				"Combine error: Recipe is not unique! [{}] matches found for container [{}]. Continuing with first recipe match",
+				results.RowCount(),
+				container_item_id
+			);
 		}
 	}
 
 	auto row = results.begin();
-	uint32 recipe_id = (uint32)atoi(row[0]);
+	const uint32 recipe_id = Strings::ToUnsignedInt(row[0]);
 
 	//Right here we verify that we actually have ALL of the tradeskill components..
 	//instead of part which is possible with experimentation.
 	//This is here because something's up with the query above.. it needs to be rethought out
-	bool has_components = true;
-	query = StringFormat("SELECT item_id, componentcount "
-                        "FROM tradeskill_recipe_entries "
-                        "WHERE recipe_id = %i AND componentcount > 0",
-                        recipe_id);
+	query = fmt::format(
+		"SELECT item_id, componentcount FROM tradeskill_recipe_entries WHERE componentcount > 0 AND recipe_id = {}",
+		recipe_id
+	);
+
 	results = QueryDatabase(query);
-	if (!results.Success()) {
+	if (!results.Success() || !results.RowCount()) {
 		return GetTradeRecipe(recipe_id, c_type, some_id, char_id, spec);
 	}
 
-	if (results.RowCount() == 0) {
-		return GetTradeRecipe(recipe_id, c_type, some_id, char_id, spec);
-	}
-
-	for (auto row = results.begin(); row != results.end(); ++row) {
+	for (auto row : results) {
 		int component_count = 0;
 
-		for(int x = EQ::invslot::SLOT_BEGIN; x < EQ::invtype::WORLD_SIZE; x++) {
-			const EQ::ItemInstance* inst = container->GetItem(x);
+		for(uint8 slot_id = EQ::invslot::SLOT_BEGIN; slot_id < EQ::invtype::WORLD_SIZE; slot_id++) {
+			const EQ::ItemInstance* inst = container->GetItem(slot_id);
 			if (!inst) {
 				continue;
 			}
 
-			const EQ::ItemData* item = GetItem(inst->GetItem()->ID);
+			const auto item = GetItem(inst->GetItem()->ID);
 			if (!item) {
 				continue;
 			}
 
-			if (item->ID == atoi(row[0])) {
+			if (item->ID == Strings::ToUnsignedInt(row[0])) {
 				component_count++;
 			}
 
@@ -690,35 +713,38 @@ bool ZoneDatabase::GetTradeRecipe(const EQ::ItemInstance* container, uint8 c_typ
 				"[GetTradeRecipe] Component count loop [{}] item [{}] recipe component_count [{}]",
 				component_count,
 				item->ID,
-				atoi(row[1])
+				Strings::ToInt(row[1])
 			);
 		}
 
-		if (component_count != atoi(row[1])) {
+		if (component_count != Strings::ToInt(row[1])) {
 			return false;
 		}
 	}
 
-	Log(Logs::General, Logs::Tradeskills, "Recipe %d is using container %d c_type %d char_id %d", recipe_id, some_id, c_type, char_id);
 	return GetTradeRecipe(recipe_id, c_type, some_id, char_id, spec);
 }
 
-bool ZoneDatabase::GetTradeRecipe(uint32 recipe_id, uint8 c_type, uint32 some_id,
-	uint32 char_id, DBTradeskillRecipe_Struct *spec)
+bool ZoneDatabase::GetTradeRecipe(
+	uint32 recipe_id, 
+	uint8 c_type, 
+	uint32 some_id,
+	uint32 char_id, 
+	DBTradeskillRecipe_Struct *spec
+)
 {
 
 	// make where clause segment for container(s)
-	std::string containers;
+	std::string container_where_filter;
 	if (some_id < 75) {
 		// world combiner so no item number
-		containers = StringFormat("= %u", c_type); 
+		container_where_filter = fmt::format("= {}", c_type);
 	}
-	else {
-		// container in inventory
-		containers = StringFormat("IN (%u,%u)", c_type, some_id); 
+	else { // container in inventory
+		container_where_filter = fmt::format("IN ({}, {})", c_type, some_id);
 	}
 
-	std::string query = StringFormat(
+	std::string query = fmt::format(
 		SQL (
 			SELECT 
 				tradeskill_recipe.id, 
@@ -733,42 +759,43 @@ bool ZoneDatabase::GetTradeRecipe(uint32 recipe_id, uint8 c_type, uint32 some_id
 				tradeskill_recipe
                 INNER JOIN tradeskill_recipe_entries ON tradeskill_recipe.id = tradeskill_recipe_entries.recipe_id
 			WHERE 
-				tradeskill_recipe.id = %lu 
-				AND tradeskill_recipe_entries.item_id %s 
+				tradeskill_recipe.id = {}
+				AND tradeskill_recipe_entries.item_id {}
 				AND tradeskill_recipe_entries.iscontainer = 1
                 AND tradeskill_recipe.enabled
-				%s
 			GROUP BY 
 				tradeskill_recipe.id
-			),
-            (unsigned long)recipe_id, 
-			containers.c_str(),
-			ContentFilterCriteria::apply("tradeskill_recipe").c_str()
+		),
+        recipe_id, 
+		container_where_filter
 	);
 	auto results = QueryDatabase(query);
 	if (!results.Success()) {
-		LogError("Error in GetTradeRecipe, query: [{}] ", query.c_str());
-		LogError("Error in GetTradeRecipe, error: [{}] ", results.ErrorMessage().c_str());
+		LogError("Error, query: [{}]", query.c_str());
+		LogError("Error: [{}]", results.ErrorMessage().c_str());
 		return false;
 	}
 
-	if (results.RowCount() != 1) {
+	if (!results.RowCount()) {
 		return false;
 	}
 
 	auto row = results.begin();
-	spec->tradeskill = (EQ::skills::SkillType)atoi(row[1]);
-	spec->skill_needed	= (int16)atoi(row[2]);
-	spec->trivial = (uint16)atoi(row[3]);
-	spec->nofail = atoi(row[4]) ? true : false;
-	spec->replace_container	= atoi(row[5]) ? true : false;
+
+	spec->tradeskill = static_cast<EQ::skills::SkillType>(Strings::ToUnsignedInt(row[1]));
+	spec->skill_needed = Strings::ToInt(row[2]);
+	spec->trivial = Strings::ToUnsignedInt(row[3]);
+	spec->nofail = Strings::ToBool(row[4]);
+	spec->replace_container = Strings::ToBool(row[5]);
 	spec->name = row[6];
-	spec->quest = atoi(row[7]) ? true : false;
+	spec->quest = Strings::ToBool(row[7]);
 	spec->recipe_id = recipe_id;
 
 	//Pull the on-success items...
-	query = StringFormat("SELECT item_id,successcount FROM tradeskill_recipe_entries "
-                        "WHERE successcount > 0 AND recipe_id = %u", recipe_id);
+	query = fmt::format(
+		"SELECT item_id,successcount FROM tradeskill_recipe_entries WHERE successcount > 0 AND recipe_id = {}", 
+		recipe_id
+	);
 	results = QueryDatabase(query);
 	if (!results.Success()) {
 		return false;
@@ -780,22 +807,25 @@ bool ZoneDatabase::GetTradeRecipe(uint32 recipe_id, uint8 c_type, uint32 some_id
 	}
 
 	spec->onsuccess.clear();
-	for(auto row = results.begin(); row != results.end(); ++row) {
-		uint32 item = (uint32)atoi(row[0]);
-		uint8 num = (uint8) atoi(row[1]);
-		spec->onsuccess.emplace_back(std::pair<uint32,uint8>(item, num));
+	for (auto row : results) {
+		const uint32 item_id = Strings::ToUnsignedInt(row[0]);
+		const uint8  success_count = Strings::ToUnsignedInt(row[1]);
+		spec->onsuccess.emplace_back(std::pair<uint32, uint8>(item_id, success_count));
 	}
 
 	spec->onfail.clear();
+
 	//Pull the on-fail items...
-	query = StringFormat("SELECT item_id, failcount FROM tradeskill_recipe_entries "
-                        "WHERE failcount > 0 AND recipe_id = %u", recipe_id);
+	query = fmt::format(
+		"SELECT item_id, failcount FROM tradeskill_recipe_entries WHERE failcount > 0 AND recipe_id = {}", 
+		recipe_id
+	);
 	results = QueryDatabase(query);
 	if (results.Success()) {
-		for (auto row = results.begin(); row != results.end(); ++row) {
-			uint32	item	= (uint32)atoi(row[0]);
-			uint8	num		= (uint8)atoi(row[1]);
-			spec->onfail.emplace_back(std::pair<uint32, uint8>(item, num));
+		for (auto row : results) {
+			const uint32 item_id = Strings::ToUnsignedInt(row[0]);
+			const uint8  fail_count = Strings::ToUnsignedInt(row[1]);
+			spec->onfail.emplace_back(std::pair<uint32, uint8>(item_id, fail_count));
 		}
 	}
 
@@ -806,8 +836,9 @@ bool Client::CanIncreaseTradeskill(EQ::skills::SkillType tradeskill) {
 	uint32 rawskill = GetRawSkill(tradeskill);
 	uint16 maxskill = MaxSkill(tradeskill);
 
-	if (rawskill >= maxskill) //Max skill sanity check
+	if (rawskill >= maxskill) { //Max skill sanity check
 		return false;
+		
 	if (rawskill >= RuleI(Quarm, MaxTradeskillCap)) //Max skill sanity check
 		return false;
 
