@@ -2358,7 +2358,7 @@ void Mob::WipeHateList(bool from_memblur)
 	{
 		SetTarget(nullptr);
 		hate_list.Wipe(from_memblur);
-		DamageTotalsWipe();
+		DamageTotalsWipe(from_memblur);
 	}
 
 	if (!from_memblur)
