@@ -8919,13 +8919,6 @@ void Client::Handle_OP_Split(const EQApplicationPacket *app)
 
 void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 {
-	if (!content_service.IsContentFlagEnabled("OldPlane_Fear"))
-	{
-		Log(Logs::General, Logs::Info, "Received surname request but ignoring due to content flag OldPlane_Fear not being enabled.");
-		Message(Chat::Yellow, "Surname command is not available.");
-		return;
-	}
-
 	if (app->size != sizeof(Surname_Struct))
 	{
 		Log(Logs::General, Logs::Error, "Size mismatch in Surname expected %i got %i", sizeof(Surname_Struct), app->size);
@@ -8940,13 +8933,11 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 	}
 
 	// the client doesn't let you change your surname at all if you have one already so this doesn't apply to TAKP
-	/*
 	if (!p_timers.Expired(&database, pTimerSurnameChange, false) && !GetGM())
 	{
 		Message(Chat::Yellow, "You may only change surnames once every 7 days, your /surname is currently on cooldown.");
 		return;
 	}
-	*/
 
 	// level 20 is required - the client does this as well
 	if (GetLevel() < 20)
@@ -8986,7 +8977,7 @@ void Client::Handle_OP_Surname(const EQApplicationPacket *app)
 
 	ChangeLastName(surname->lastname);
 	// the client doesn't let you change your surname at all if you have one already so this doesn't apply to TAKP
-	//p_timers.Start(pTimerSurnameChange, 604800);
+	p_timers.Start(pTimerSurnameChange, 604800);
 
 	// success
 	EQApplicationPacket* outapp = app->Copy();
