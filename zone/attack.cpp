@@ -2084,6 +2084,7 @@ bool NPC::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::SkillTyp
 		if (IsNPC() && ismerchant && RuleB(Merchant, ClearTempList)) {
 			database.DeleteMerchantTempList(GetNPCTypeID());
 			zone->tmpmerchanttable[GetNPCTypeID()].clear();
+			zone->tmpmerchanttable_ssf_purchase_limits[GetNPCTypeID()].clear();
 		}
 	}
 	else

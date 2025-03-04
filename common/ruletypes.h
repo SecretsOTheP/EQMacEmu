@@ -342,6 +342,8 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(SelfFound)
 RULE_BOOL(SelfFound, PetLootSupport, true, "Allow solo/self-found players to loot their own SF items back from pet/npc corpses. This allows SF players to recover their items they gave to charmed pets.")
+RULE_BOOL(SelfFound, TempMerchantSupport, true, "Allow solo/self-found players to repurchase their own SF Items sold to Merchant temp inventory, up to the amount of SF items sold that belonged to them. This allows SF players to vendor recharge their own items. Also makes temp inventory visible, but will get an error message if trying purchase items they are not permitted to buy.")
+RULE_BOOL(SelfFound, TempMerchantFiltering, false, "Make solo/self-found players only see merchant temp inventory for their own purchasable items, hiding the rest. If disabled, they can see the whole temp inventory, but can still only purchase their valid SF items back.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Map )

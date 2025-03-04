@@ -107,6 +107,29 @@ struct item_tick_struct {
     std::string qglobal;
 };
 
+struct SsfItemKey {
+	uint32 item_id;
+	uint32 character_id;
+	SsfItemKey(uint32 _item_id, uint32 _character_id)
+	{
+		item_id = _item_id;
+		character_id = _character_id;
+	}
+	bool operator==(const SsfItemKey& other) const {
+		return (item_id == other.item_id && character_id == other.character_id);
+	}
+};
+
+struct SsfItemKeyHash {
+	uint64_t operator() (const SsfItemKey& key) const {
+		const uint64_t item_id = key.item_id;
+		const uint64_t char_id = key.character_id;
+		return (item_id << 32) | char_id;
+	}
+};
+
+typedef std::unordered_map<SsfItemKey, uint32, SsfItemKeyHash> MerchantSsfPurchaseLimits; // (item_id,ssf_character_id) -> purchase_limit
+
 class Client;
 class Map;
 class Mob;
@@ -223,10 +246,14 @@ public:
 	void	LoadTempMerchantData();
 	uint32	GetTempMerchantQuantity(uint32 NPCID, uint32 Slot);
 	int32	GetTempMerchantQtyNoSlot(uint32 NPCID, int16 itemid);
-	int		SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold=false);
+	int		SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold=false, uint32 self_found_character_id = 0);
 	int		SaveReimbursementItem(std::list<TempMerchantList>& reimbursement_list, uint32 charid, uint32 item, int32 charges, bool sold = false);
 	void	SaveMerchantItem(uint32 merchantid, int16 item, int8 charges, int8 slot);
 	void	ResetMerchantQuantity(uint32 merchantid);
+	uint32  GetSelfFoundPurchaseLimit(uint32 npctype_id, uint32 item, uint32 self_found_character_id);
+	uint32  IncreaseSelfFoundPurchaseLimit(uint32 npctype_id, uint32 item, uint32 self_found_character_id, uint32 increment_by);
+	uint32  DecreaseSelfFoundPurchaseLimit(uint32 npctype_id, uint32 item, uint32 self_found_character_id, uint32 decrement_by);
+	void    CapSelfFoundPurchaseLimitsByAvailableQuantity(uint32 npctype_id, uint32 item, uint32 quantity_in_stock);
 	void	ClearMerchantLists();
 
 	uint8	GetZoneExpansion() { return newzone_data.expansion; }
@@ -239,6 +266,7 @@ public:
 	std::map<uint32,std::list<MerchantList> > merchanttable; //This may be dynamic if items are sold out (Crows' Brew)
 	std::map<uint32,std::list<MerchantList> > db_merchanttable; //This is static and should never be changed. 
 	std::map<uint32,std::list<TempMerchantList> > tmpmerchanttable;
+	std::unordered_map<uint32, MerchantSsfPurchaseLimits> tmpmerchanttable_ssf_purchase_limits;
 	std::map<uint32, ZoneEXPModInfo> level_exp_mod;
 	std::map<uint32, SkillDifficulty> skill_difficulty;
 

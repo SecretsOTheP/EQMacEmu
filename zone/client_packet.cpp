@@ -8128,6 +8128,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	int merchantid;
 	bool tmpmer_used = false;
+	bool sf_tmpmer_used = false;
 	bool reimbursement_used = false;
 
 	Mob* tmp = entity_list.GetMob(mp->npcid);
@@ -8223,7 +8224,7 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 			}
 		}
 
-		if (!IsSelfFoundAny())
+		if (!IsSelfFoundAny() || RuleB(SelfFound, TempMerchantSupport))
 		{
 			if (item_id == 0)
 			{
@@ -8237,6 +8238,19 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 						item_id = ml.item;
 						tmpmer_used = true;
 						prevcharges = ml.charges;
+						if (IsSelfFoundAny())
+						{
+							sf_tmpmer_used = true;
+							uint32 purchase_limit = zone->GetSelfFoundPurchaseLimit(tmp->GetNPCTypeID(), item_id, CharacterID());
+							if (purchase_limit <= 0)
+							{
+								Log(Logs::Detail, Logs::Trading, "[S/SF] TEMP: Blocked %s (%i) attempt to purchase item=%i slot=%i that had charges/qty %i/%i", name, CharacterID(), ml.item, ml.slot, ml.charges, ml.quantity);
+								Message(Chat::Red, "You may only repurchase items that belonged to you from merchants. Try selling a copy of this item first.");
+								QueuePacket(returnapp);
+								safe_delete(returnapp);
+								return;
+							}
+						}
 						break;
 					}
 				}
@@ -8299,6 +8313,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	// Temp / reimbursement merchantlist
 	if (reimbursement_used)
 		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
+	else if (sf_tmpmer_used)
+		tmp_qty = prevcharges > 0 ? 1 : 0; // We only support non-stackable S/SF items, so buying 1 at-a-time at most
 	else if(tmpmer_used)
 		tmp_qty = prevcharges > 240 ? 240 : prevcharges;
 	// Regular merchantlist with limited supplies
@@ -8351,6 +8367,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	int16 freeslotid = INVALID_INDEX;
 
 	EQ::ItemInstance* inst = database.CreateItem(item, quantity);
+	if (inst && IsSelfFoundAny())
+		inst->SetSelfFoundCharacter(CharacterID(), GetName()); // Purchasing the item, they will own it
 
 	int SinglePrice = 0;
 	float price_mod = CalcPriceMod(tmp);
@@ -8444,6 +8462,11 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 			new_charges = prevcharges - mp->quantity;
 			zone->SaveReimbursementItem(item_reimbursement_list, character_id, item_id, new_charges);
 		}
+		else if (sf_tmpmer_used)
+		{
+			new_charges = prevcharges - mp->quantity;
+			zone->SaveTempItem(merchantid, tmp->GetNPCTypeID(), item_id, new_charges, false, CharacterID());
+		}
 		else if(tmpmer_used)
 		{
 			new_charges = prevcharges - mp->quantity;
@@ -8467,6 +8490,15 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 		}
 		else 
 		{
+			if (RuleB(SelfFound, TempMerchantSupport) && RuleB(SelfFound, TempMerchantFiltering))
+			{
+				// The item isn't fully out of stock, but it could be for SF characters
+				// Hide it from those who cannot buy any quantity
+				if (tmpmer_used && !reimbursement_used && !inst->IsStackable())
+				{
+					entity_list.SendDeletedSelfFoundMerchantInventory(tmp, mp->itemslot, item_id);
+				}
+			}
 			inst->SetCharges(new_charges);
 			inst->SetPrice(SinglePrice);
 			inst->SetMerchantSlot(mp->itemslot);
@@ -8639,7 +8671,8 @@ void Client::Handle_OP_ShopPlayerSell(const EQApplicationPacket *app)
 
 	int charges = mp->quantity;
 	int freeslot = 0;
-	if (charges >= 0 && (freeslot = zone->SaveTempItem(vendor->CastToNPC()->MerchantType, vendor->GetNPCTypeID(), itemid, charges, true)) > 0)
+	uint32 self_found_character_id = inst->GetSelfFoundCharacterID();
+	if (charges >= 0 && (freeslot = zone->SaveTempItem(vendor->CastToNPC()->MerchantType, vendor->GetNPCTypeID(), itemid, charges, true, self_found_character_id)) > 0)
 	{
 		EQ::ItemInstance* inst2 = inst->Clone();
 		float merchant_mod = CalcPriceMod(vendor);

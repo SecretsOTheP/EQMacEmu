@@ -934,6 +934,18 @@ namespace Mac {
   
 			mac_pop_item->ItemClass = item->ItemClass;
 			strcpy(mac_pop_item->Name,item->Name);
+
+			// Append '*' to SelfFound item names
+			if (inst->GetSelfFoundCharacterID())
+			{
+				int namelen = strlen(mac_pop_item->Name);
+				if (namelen + 1 < sizeof(mac_pop_item->Name))
+				{
+					mac_pop_item->Name[namelen++] = '*';
+					mac_pop_item->Name[namelen] = '\0';
+				}
+			}
+
 			strcpy(mac_pop_item->Lore,item->Lore);       
 			strcpy(mac_pop_item->IDFile,item->IDFile);  
 			mac_pop_item->Weight = item->Weight;      

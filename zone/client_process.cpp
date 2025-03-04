@@ -997,7 +997,7 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 			merlist.push_back(ml);
 			++i;
 		}
-		if (!IsSelfFoundAny())
+		if (!IsSelfFoundAny() || RuleB(SelfFound, TempMerchantSupport))
 		{
 			std::list<TempMerchantList> origtmp_merlist = zone->tmpmerchanttable[npcid];
 			tmp_merlist.clear();
@@ -1019,14 +1019,34 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 						inst->SetMerchantCount(capped_charges);
 						inst->SetCharges(charges);
 
-						if (inst)
+						bool can_see_item = true;
+						if (IsSelfFoundAny())
 						{
+							bool can_purchase = zone->GetSelfFoundPurchaseLimit(npcid, item->ID, CharacterID()) > 0;
+							if (can_purchase)
+							{
+								// This line's purpose is so purchasable items are shown as SF items to the user (purely a visual thing for the Merchant inventory
+								inst->SetSelfFoundCharacter(CharacterID(), name);
+							}
+							if (RuleB(SelfFound, TempMerchantFiltering))
+							{
+								// This rule only lets you see items you can purchase
+								can_see_item = can_purchase;
+							}
+						}
+						if (can_see_item)
+						{
+							Log(Logs::Detail, Logs::Trading, "TEMP (%d): %s was added to merchant in slot %d with %d count and %d charges and price %d", i, item->Name, ml.slot, capped_charges, charges, inst->GetPrice());
 							std::string packet = inst->Serialize(ml.slot - 1);
 							ser_items[m] = packet;
 							size += packet.length();
 							m++;
 						}
-						Log(Logs::Detail, Logs::Trading, "TEMP (%d): %s was added to merchant in slot %d with %d count and %d charges and price %d", i, item->Name, ml.slot, capped_charges, charges, inst->GetPrice());
+						else
+						{
+							safe_delete(inst);
+						}
+						
 					}
 				}
 				tmp_merlist.push_back(ml);
