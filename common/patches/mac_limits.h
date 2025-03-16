@@ -40,7 +40,8 @@ namespace Mac
 		using namespace enum_;
 
 		const int16 POSSESSIONS_SIZE = 30;
-		const int16 BANK_SIZE = 8;
+		const int16 BANK_SIZE = 30;
+		const int16 BANK_8_SIZE = 8;
 		const int16 TRADE_SIZE = 8;
 		const int16 WORLD_SIZE = 10;
 		const int16 LIMBO_SIZE = 36;
@@ -125,6 +126,7 @@ namespace Mac
 
 		const int16 BANK_BEGIN = 2000;
 		const int16 BANK_END = (BANK_BEGIN + invtype::BANK_SIZE) - 1;
+		const int16 BANK_8_END = (BANK_BEGIN + invtype::BANK_8_SIZE) - 1;
 
 		const int16 TRADE_BEGIN = 3000;
 		const int16 TRADE_END = (TRADE_BEGIN + invtype::TRADE_SIZE) - 1;
