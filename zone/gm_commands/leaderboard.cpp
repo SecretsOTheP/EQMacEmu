@@ -11,19 +11,19 @@ void command_leaderboard(Client *c, const Seperator *sep)
 
 	if(strncasecmp(sep->arg[1], "SFHCOnly", 8) == 0)
 	{
-		query += "e_solo_only = 0 AND e_self_found = 1 AND e_hardcore = 1";
+		query += "e_solo_only = 0 AND e_self_found >= 1 AND e_hardcore >= 1";
 	}
 	else if(strncasecmp(sep->arg[1], "SFHC", 4) == 0)
 	{
-		query += "e_self_found = 1 AND e_hardcore = 1";
+		query += "(e_self_found >= 1 OR e_solo_only >= 1) AND e_hardcore >= 1";
 	}
 	else if(strncasecmp(sep->arg[1], "SSFHC", 5) == 0)
 	{
-		query += "e_solo_only = 1 AND e_self_found = 1 AND e_hardcore = 1";
+		query += "e_solo_only >= 1 AND e_hardcore >= 1";
 	}
 	else if(strncasecmp(sep->arg[1], "HC", 2) == 0)
 	{
-		query += "e_hardcore = 1";
+		query += "e_hardcore >= 1";
 	}
 	else
 	{
