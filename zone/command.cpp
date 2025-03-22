@@ -256,7 +256,7 @@ int command_init(void)
 		command_add("mule", "[account name] [0/1] - Toggles the mule status of the specified account ", AccountStatus::GMImpossible, command_mule) ||
 		command_add("mysql", "Mysql CLI, see 'help' for options.", AccountStatus::GMImpossible, command_mysql) ||
 		command_add("mysqltest", "Akkadius MySQL Bench Test.", AccountStatus::GMImpossible, command_mysqltest) ||
-		command_add("mystats", "Show details about you or your pet.", AccountStatus::Guide, command_mystats) ||
+		command_add("mystats", "Show details about you or your pet.", AccountStatus::Player, command_mystats) ||
 
 		command_add("ngpermaclass", "<class> [deity] [city] [stats...] [force] - Change your or your target's class (disconnects client). Optionally change deity, home city, and stats.", AccountStatus::GMMgmt, command_ngperma_class) ||
 		command_add("ngpermarace", "<race> [deity] [city] [stats...] [force] - Change your or your target's race (zone to take effect). Optionally change deity, home city, and stats.", AccountStatus::GMMgmt, command_ngperma_race) ||
