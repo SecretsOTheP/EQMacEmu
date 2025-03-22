@@ -818,6 +818,7 @@ public:
 	void	SetLanguageSkill(int langid, int value);
 
 	void	SendStats(Client* client);
+	void    SendStatsToPlayer(Client* client);  // Limited subset allowed for AccountStatus::Player.
 	void	SendQuickStats(Client* client);
 
 	uint16 MaxSkill(EQ::skills::SkillType skill_id, uint8 class_id, uint8 level) const;

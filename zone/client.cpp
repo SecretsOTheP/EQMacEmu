@@ -4895,6 +4895,21 @@ void Client::SendStats(Client* client)
 	}
 }
 
+void Client::SendStatsToPlayer(Client* client)
+{
+	int shield_ac = 0;
+	GetRawACNoShield(shield_ac);
+
+	client->Message(Chat::Yellow, "~~~~~ %s %s ~~~~~", GetCleanName(), GetLastName());
+	client->Message(Chat::White, " AAs: %i  HP: %i/%i  Per: %0.2f HP Regen: %i/%i", GetAAPoints() + GetSpentAA(), GetHP(), GetMaxHP(), GetHPRatio(), CalcHPRegen(), CalcHPRegenCap());
+	client->Message(Chat::White, " AC: %i (Mit.: %i/%i + Avoid.: %i/%i) | Item AC: %i  Buff AC: %i  Shield AC: %i  DS: %i", CalcAC(), GetMitigation(), GetMitigation(true), GetAvoidance(true), GetAvoidance(), itembonuses.AC, spellbonuses.AC, shield_ac, GetDS());
+	client->Message(Chat::White, " Offense: %i  To-Hit: %i  Displayed ATK: %i  Worn +ATK: %i (cap: %i)  Spell +ATK: %i  Dmg Bonus: %i", GetOffenseByHand(), GetToHitByHand(), GetATK(), GetATKBonusItem(), RuleI(Character, ItemATKCap), GetATKBonusSpell(), GetDamageBonus());
+	client->Message(Chat::White, " Haste: %i (cap %i) (Item: %i + Spell: %i + Over: %i)  Double Attack: %i%%  Dual Wield: %i%%", GetHaste(), GetHasteCap(), itembonuses.haste, spellbonuses.haste + spellbonuses.hastetype2, spellbonuses.hastetype3 + ExtraHaste, GetDoubleAttackChance(), GetDualWieldChance());
+	if(CalcMaxMana() > 0)
+		client->Message(Chat::White, " Mana: %i/%i  Mana Regen: %i/%i", GetMana(), GetMaxMana(), CalcManaRegen(), CalcManaRegenCap());
+	client->Message(Chat::White, " Runspeed: %0.2f  Walkspeed: %0.2f Encumbered: %i", GetRunspeed(), GetWalkspeed(), IsEncumbered());
+}
+
 void Client::SendQuickStats(Client* client)
 {
 	client->Message(Chat::Yellow, "~~~~~ %s %s ~~~~~", GetCleanName(), GetLastName());
