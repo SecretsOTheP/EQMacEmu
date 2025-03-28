@@ -4097,8 +4097,8 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	if (use_classic_resists && IsClient())
 	{
 		if (caster->IsNPC()) {
-			if (spell_id == 837 || spell_id == 843) {
-				// Stun Breath & Immolating Breath; these were not given a -mod in the revamp for some reason
+			if (spell_id == 837 || spell_id == 843 || spell_id == 844) {
+				// Stun Breath, Immolating Breath, Ceticious Cloud; these were not given a -mod in the revamp for some reason
 				resist_modifier = -150;
 			}
 

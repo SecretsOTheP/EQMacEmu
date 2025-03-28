@@ -197,6 +197,10 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 					caster->SetHP(caster->GetMaxHP() * 2 / 10 + 1);
 					caster->SendHPUpdate();
 				}
+				else if (spell_id == 844)	// Ceticious Cloud; this spell did not do damage in any of our eras
+				{
+					dmg = -1;	// making it -1 instead of 0 so players get the spell land text
+				}
 
 				//do any AAs apply to these spells?
 				if(dmg < 0) {
