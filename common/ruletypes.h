@@ -340,6 +340,7 @@ RULE_BOOL(Quarm, UseFixedShowHelmBehavior, true, "Fixes ShowHelm to be a persona
 RULE_INT(Quarm, WarnDllVersionBelow, 1, "Sends a Client-out-of-date warning message to clients below this dll version.")
 RULE_INT(Quarm, CurrentPVPExpansion, 1, "The currently enabled expansion for PVP zones.")
 RULE_INT(Quarm, SharedBankBags, 10, "The number of shared bank slots the client can deposit to. '0' will only allow withdrawing. '-1' competely disables the client.")
+RULE_BOOL(Quarm, CustomFrogloks, true, "Enable Quarm froglok race 330.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(SelfFound)

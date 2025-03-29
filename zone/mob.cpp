@@ -5012,7 +5012,7 @@ int32 Mob::GetSkillStat(EQ::skills::SkillType skillid)
 
 bool Mob::IsPlayableRace(uint16 race)
 {
-	if(race > 0 && (race <= GNOME || race == IKSAR || race == VAHSHIR))
+	if(race > 0 && (race <= GNOME || race == IKSAR || race == VAHSHIR || race == GUKTAN))
 	{
 		return true;
 	}
@@ -5238,11 +5238,19 @@ void Mob::ApplyIllusion(const SPDat_Spell_Struct &spell, int i, Mob* caster)
 	}
 	else // Racial Illusions
 	{
+		bool custom_racial_illision = false;
+		if (RuleB(Quarm, CustomFrogloks) && IsClient() && spell_id == 3063)
+		{
+			// Quarm - PCs when using Illusion: Froglok become 'PC Froglok/Guktan' race (330)
+			custom_racial_illision = true;
+			spell_base = Race::Guktan;
+		}
+
 		int8 gender = Mob::GetDefaultGender(spell_base, GetGender());
 		// Texture doesn't seem to be in our spell data :I
 		int8 texture = 0;
 		int8 helmtexture = spell.max[i];
-		if (IsRacialIllusion(spell_id))
+		if (IsRacialIllusion(spell_id) || custom_racial_illision)
 		{
 			if (RuleB(Quarm, UseFixedShowHelmBehavior) && IsClient() && CastToClient()->ShowHelm()) {
 				helmtexture = 0xFF;
@@ -5332,7 +5340,6 @@ void Mob::ApplyIllusion(const SPDat_Spell_Struct &spell, int i, Mob* caster)
 
 				break;
             }
-
 			}
 		}
 

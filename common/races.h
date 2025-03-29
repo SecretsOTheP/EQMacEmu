@@ -101,6 +101,7 @@ namespace Gender {
 #define HORSE				216
 #define TELEPORT_MAN		240
 #define MITHANIEL_MARR		296
+#define GUKTAN              330
 #define EMU_RACE_NPC		131069 // was 65533
 #define EMU_RACE_PET		131070 // was 65534
 #define EMU_RACE_UNKNOWN	131071 // was 65535
@@ -509,6 +510,7 @@ namespace Race {
 	constexpr uint16 CrystalSpider = 327;
 	constexpr uint16 ZebuxoruksCage = 328;
 	constexpr uint16 Portal = 329;
+	constexpr uint16 Guktan = 330;
 
 	constexpr uint16 ALL_RACES_BITMASK = 16383;
 }

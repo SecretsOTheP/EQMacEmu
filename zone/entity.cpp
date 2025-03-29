@@ -1676,10 +1676,6 @@ void EntityList::QueueWearChange(Mob *sender, const EQApplicationPacket *app, bo
 				else
 					wc->material = 240;
 				break;
-			case 241:
-				if (sender && sender->GetRace() != Race::Ogre)
-					wc->material = 240;
-				break;
 
 				// unfortunately the tint is wrong when a tinted custom helm is worn by a client using old models and there seems to be no good way to work around this.
 				// when the same helm is worn by a luclin model client it just treats it as a normal tinted item so they will appear inconsistent to luclin model using viewers
