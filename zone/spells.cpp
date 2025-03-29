@@ -4198,7 +4198,8 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 		}
 	}
 
-	if (use_classic_resists && !tick_save)	// this DID apply to tick saves in classic but it would enrage people to apply it on the emus (huge charm nerf)
+	// this DID apply to tick saves in classic but it would enrage people to apply it on the emus (huge charm nerf)
+	if (use_classic_resists && !tick_save && (!IsPartialCapableSpell(spell_id) || !IsDOTSpell(spell_id)))	// exclude druid dots, necro fire dots
 	{	// these floors are doubled here because of the 0-200 roll
 		if (IsNPC())
 		{
@@ -4247,7 +4248,7 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 				}
 
 				if (target_level >= 30 && (caster_level <= 50 || use_classic_resists)) {
-					partial_modifier += (caster_level - 25);
+					partial_modifier += (target_level - 25);
 				}
 
 				if(target_level < 15) {
