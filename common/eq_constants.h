@@ -63,8 +63,8 @@ namespace ClientFeature {
 	constexpr uint16 BuffStackingPatchWithSongWindowHandshake = 2; // Sent by the official/stable release of the eqgame.dll (New UI users)
 	constexpr uint16 BuffStackingPatchWithoutSongWindowHandshake = 3; // Sent by the official/stable release of the eqgame.dll (Old UI users)
 	constexpr uint16 CodeVersion = 4; // Sent by eqgame.dll, provides its DLL_VERSION value to the server. Could theoretically be used by Zeal too if desired.
-	constexpr uint16 SharedBankBagsSupported = 5; // Number of SharedBank bag supported (0-30)
-	constexpr uint16 SharedBankMode = 6; // 0 = Disabled, 1 = Enabled, 2 = SelfFound
+	constexpr uint16 SharedBankBagsSupported = 5; // No longer used
+	constexpr uint16 SharedBankMode = 6; // No longer used
 }
 
 // solar: Animations for AnimationType:Animation

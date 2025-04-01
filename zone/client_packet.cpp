@@ -1037,6 +1037,7 @@ void Client::Handle_Connect_OP_SetServerFilter(const EQApplicationPacket *app)
 	return;
 }
 
+// TODO: Gracefully remove after giving clients time to upgrade. Will wait for a dll release cycle
 void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 {
 	SpawnAppearance_Struct* sa = (SpawnAppearance_Struct*)app->pBuffer;
@@ -1056,19 +1057,28 @@ void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 		{
 			return; // no response
 		}
+
+		// TODO: Gracefully remove after giving clients time to upgrade. Will wait for a dll release cycle
 		case ClientFeature::CodeVersion: // Client is telling us its version
 		{
 			if (sa->type == AppearanceType::ClientDllMessage)
 				m_dll_version = feature_value;
 			return; // no response
 		}
+
+		// TODO: Gracefully remove after giving clients time to upgrade. Will wait for a dll release cycle
 		case ClientFeature::BuffStackingPatchHandshakeV1: // Deprecated handshake of older eqgame.dll's buffstacking patch, no longer supported.
 		{
 			m_old_feature_detected = true; // Tells the user their eqgame.dll is out of date
 			return; // no response
 		}
+
+		// TODO: Gracefully remove after giving clients time to upgrade. Will wait for a dll release cycle
 		case ClientFeature::BuffStackingPatchWithSongWindowHandshake: // Enables BuffStacking + Song Window (NewUI Uesrs)
 		{
+			if (GetBuffStackingPatch())
+				return; // ignore - already enabled via ClientZoneEntry
+
 			if (!RuleB(Spells, AllowBuffstackingPatch))
 			{
 				feature_value = 0;
@@ -1089,8 +1099,13 @@ void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 			}
 			break;
 		}
+
+		// TODO: Gracefully remove after giving clients time to upgrade. Will wait for a dll release cycle
 		case ClientFeature::BuffStackingPatchWithoutSongWindowHandshake: // Enables BuffStacking, but no Song Window (OldUI Users)
 		{
+			if (GetBuffStackingPatch())
+				return; // ignore - already enabled via ClientZoneEntry
+
 			if (!RuleB(Spells, AllowBuffstackingPatch))
 			{
 				feature_value = 0;
@@ -1110,45 +1125,6 @@ void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 				SetSongWindowSlots(0);
 			}
 			break;
-		}
-		case ClientFeature::SharedBankBagsSupported:
-		{
-			if (GetSharedBankMode() != 0 || GetSharedBankBagsCount() != 0)
-				return; // Already initialized
-			
-			int max_shared_bank = RuleI(Quarm, SharedBankBags);
-			uint8 bags = 0;
-			uint8 mode = 0;
-
-			if (IsSelfFoundAny())
-			{
-				bags = 0;
-				mode = 2; // disabled (with self-found error message)
-			}
-			else if (max_shared_bank >= 0)
-			{
-				bags = feature_value > max_shared_bank ? max_shared_bank : feature_value;
-				mode = 1; // enabled
-			}
-			feature_value = bags; // response value
-
-			SetSharedBankBagsCount(bags);
-			SetSharedBankMode(mode);
-
-			// Also send Mode Packet to Client
-			auto outapp = new EQApplicationPacket(OP_SpawnAppearance, sizeof(SpawnAppearance_Struct));
-			SpawnAppearance_Struct* sa_mode = (SpawnAppearance_Struct*)outapp->pBuffer;
-			sa_mode->spawn_id = 0;
-			sa_mode->type = sa->type;
-			sa_mode->parameter = (1 << 31) | ((uint32)ClientFeature::SharedBankMode << 16) | (uint32)mode;
-			outapp->priority = 6;
-			QueuePacket(outapp);
-			safe_delete(outapp);
-
-			if (mode == 1)
-			{
-				BulkSendSharedBankItems();
-			}
 		}
 		// -----------------------------------------------------------------------------------------------------------------------------------
 		// End of Client/Server known feature messages
@@ -1188,8 +1164,20 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		return;
 	ClientZoneEntry_Struct *cze = (ClientZoneEntry_Struct *)app->pBuffer;
 
-	if (strlen(cze->char_name) > 63)
+	if (strlen(cze->char_name) > sizeof(cze->char_name) - 1)
 		return;
+
+	// The newer dll sets the unknown00 field to '0', zero's out all unused memory, and provides values for the 'custom' fields in ClientZoneEntry_Struct.
+	// Other values will be checked later.
+	if (cze->unknown00 == 0)
+	{
+		m_dll_version = *(WORD*)(&cze->dll_version[0]);
+	}
+	else
+	{
+		// If the 'unknown00' hash is anything other than 0, then we know their client is on an old dll and isn't sending any feature flags.
+		m_old_feature_detected = true;
+	}
 
 	if (conn_state != NoPacketsReceived && client_state != CLIENT_AUTH_RECEIVED) {
 		// have a ghost maybe?
@@ -1744,6 +1732,31 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 
 	Mob::SetMana(m_pp.mana); // mob function doesn't send the packet
 
+	// Song Window & BuffStacking Patch Detection
+	m_buff_stacking_patch = 0;
+	m_song_window_slots = 0;
+	if (cze->unknown00 == 0 && RuleB(Spells, AllowBuffstackingPatch) && cze->buffstacking_support == 1)
+	{
+		m_buff_stacking_patch = 1;
+		if (cze->song_window_slots >= SONG_WINDOW_BUFF_SLOTS)
+		{
+			m_song_window_slots = SONG_WINDOW_BUFF_SLOTS;
+		}
+		else
+		{
+			m_song_window_slots = 0;
+		}
+
+		auto bsi_app = new EQApplicationPacket(OP_BuffStackingPatchInfo, sizeof(BuffStackingInfo_Struct));
+		BuffStackingInfo_Struct* bsi = (BuffStackingInfo_Struct*)bsi_app->pBuffer;
+		bsi->buffstacking = m_buff_stacking_patch;
+		bsi->song_window_slots = m_song_window_slots;
+		bsi->standard_buff_slots = 15;
+		bsi_app->priority = 6;
+		QueuePacket(bsi_app);
+		safe_delete(bsi_app);
+	}
+
 	uint32 max_slots = GetMaxBuffSlots();
 	bool stripbuffs = false;
 
@@ -2140,7 +2153,41 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		RemoveDuplicateLore(false);
 		MoveSlotNotAllowed(false);
 
-		BulkSendInventoryItems();
+		// Calculate Shared Bank Access
+		bool send_shared_bank_items = false;
+		int server_shared_bank_bags = RuleI(Quarm, SharedBankBags);
+
+		if (m_epp.solo_only > 0 || m_epp.self_found > 0) // Self-found cannot use the shared bank
+		{
+			m_shared_bank_mode = 2; // 2 == Disabled (Self Found)
+			m_shared_bank_bags_count = 0;
+		}
+		else if (server_shared_bank_bags < 0) // Quarm:SharedBankBags set to -1 disables all access to shared bank entirely
+		{
+			m_shared_bank_mode = 3; // 3 == Disabled (Server-side)
+			m_shared_bank_bags_count = 0;
+		}
+		else if (cze->unknown00 == 0 && cze->shared_bank > 0) // Shared bank detected found in ClientZoneEntry
+		{
+			send_shared_bank_items = true;
+			m_shared_bank_mode = 1; // 1 == Enabled
+			m_shared_bank_bags_count = cze->shared_bank > server_shared_bank_bags ? server_shared_bank_bags : cze->shared_bank;
+		}
+		else
+		{
+			m_shared_bank_mode = 4; // 4 == Disabled (Out of date)
+			m_shared_bank_bags_count = 0;
+		}
+
+		BulkSendInventoryItems(send_shared_bank_items);
+
+		auto sbi_app = new EQApplicationPacket(OP_SharedBankInfo, sizeof(SharedBankInfo_Struct));
+		SharedBankInfo_Struct* sbi = (SharedBankInfo_Struct*)sbi_app->pBuffer;
+		sbi->bag_count = m_shared_bank_bags_count;
+		sbi->mode = m_shared_bank_mode;
+		sbi_app->priority = 6;
+		QueuePacket(sbi_app);
+		safe_delete(sbi_app);
 	}
 
 	/*

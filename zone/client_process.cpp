@@ -773,7 +773,7 @@ void Client::BulkSendSharedBankItems()
 }
 
 // Sends the client complete inventory used in character login
-void Client::BulkSendInventoryItems() {
+void Client::BulkSendInventoryItems(bool include_shared_bank) {
 
 	EQ::OutBuffer ob;
 	EQ::OutBuffer::pos_type last_pos = ob.tellp();
@@ -845,6 +845,37 @@ void Client::BulkSendInventoryItems() {
 
 		last_pos = ob.tellp();
 	}	
+
+	if (include_shared_bank)
+	{
+		// Shared Bank items
+		for (int16 slot_id = EQ::invslot::SHARED_BANK_BEGIN; slot_id <= EQ::invslot::SHARED_BANK_END; slot_id++) {
+			const EQ::ItemInstance* inst = m_inv[slot_id];
+			if (!inst)
+				continue;
+
+			inst->Serialize(ob, slot_id);
+
+			if (ob.tellp() == last_pos)
+				Log(Logs::General, Logs::Inventory, "Serialization failed on item slot %d during BulkSendSharedBankItems.  Item skipped.", slot_id);
+
+			last_pos = ob.tellp();
+		}
+
+		//Items in Shared Bank Bags
+		for (int16 slot_id = EQ::invbag::SHARED_BANK_BAGS_BEGIN; slot_id <= EQ::invbag::SHARED_BANK_BAGS_END; slot_id++) {
+			const EQ::ItemInstance* inst = m_inv[slot_id];
+			if (!inst)
+				continue;
+
+			inst->Serialize(ob, slot_id);
+
+			if (ob.tellp() == last_pos)
+				Log(Logs::General, Logs::Inventory, "Serialization failed on item slot %d during BulkSendSharedBankItems.  Item skipped.", slot_id);
+
+			last_pos = ob.tellp();
+		}
+	}
 
 	std::string serialized = ob.str();
 

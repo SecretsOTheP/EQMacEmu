@@ -211,11 +211,18 @@ struct NewSpawn_Struct
 	struct Spawn_Struct spawn;	// Spawn Information
 };
 
-struct ClientZoneEntry_Struct {
-/*0000*/	uint32	unknown00;
-/*0004*/	char	char_name[64];			// Character Name
-};
-
+// Note: Normally this packet is just char_name[64], and extra data is NOT zero'd out.
+// On Quarm we support custom values in this packet, starting from the end.
+// If custom values are present, unknown00 is set to 0, and all padding bytes are zero'd out.
+struct ClientZoneEntry_Struct
+{
+/*0000*/	uint32	unknown00;              // Hash of first 32 bytes (zero if packet contains custom fields)
+/*0004*/	char	char_name[59];          // Character Name / Padding
+/*0063*/	char    buffstacking_support;   // [custom] The client support flag for the buffstacking modifications
+/*0064*/	char	song_window_slots;      // [custom] Number of song window slots the client can support
+/*0065*/	char	shared_bank;            // [custom] Number of shared bank slots the client can support
+/*0066*/	char	dll_version[2];         // [custom] Dll Version (uint16)
+/*0068*/ };
 
 /*
 ** Server Zone Entry Struct
@@ -2861,6 +2868,19 @@ struct PlayerEngagementRecord
 	bool CanGetLootCreditWith(ChallengeRules::RuleParams& group, bool sf_credit_check) {
 		return CanGetLootCreditWith(group) && (sf_credit_check || !IsFteRequired());
 	}
+};
+
+struct BuffStackingInfo_Struct
+{
+	uint8 buffstacking; // 0 = Legacy Stacking, 1 = New Buffstacking (V1)
+	uint8 song_window_slots;
+	uint8 standard_buff_slots; // Not used yet, just a placeholder if we ever support this
+};
+
+struct SharedBankInfo_Struct
+{
+	uint8 mode; // 0 = Disabled, 1 = Enabled, 2 = Disabled (Self-found), 3 = Disabled (Server-side), 4 = Disabled (out of date)
+	uint8 bag_count; // Number of usable bag slots
 };
 
 // Restore structure packing to default

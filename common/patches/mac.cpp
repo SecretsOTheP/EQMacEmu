@@ -627,8 +627,8 @@ namespace Mac {
 		}
 		int buffer = 2;
 
-		auto outapp = new EQApplicationPacket(OP_CharInventory, 35446);
-		outapp->size = buffer + DeflatePacket((uchar*)mac_item_string.c_str(), mac_item_string.length(), &outapp->pBuffer[buffer], 35444);
+		auto outapp = new EQApplicationPacket(OP_CharInventory, 65536);
+		outapp->size = buffer + DeflatePacket((uchar*)mac_item_string.c_str(), mac_item_string.length(), &outapp->pBuffer[buffer], 65534);
 		*(uint16*)outapp->pBuffer = itemcount;
 		
 		dest->FastQueuePacket(&outapp);
