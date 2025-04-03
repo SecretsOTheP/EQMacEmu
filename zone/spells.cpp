@@ -4199,7 +4199,8 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	}
 
 	// this DID apply to tick saves in classic but it would enrage people to apply it on the emus (huge charm nerf)
-	if (use_classic_resists && !tick_save && !IsLifetapSpell(spell_id) && (!IsPartialCapableSpell(spell_id) || !IsDOTSpell(spell_id)))	// exclude druid dots, necro fire dots
+	if (use_classic_resists && !tick_save && spells[spell_id].ResistDiff > -300							// exclude unresistables (rapture, dictate etc) and wiz lures
+		&& !IsLifetapSpell(spell_id) && (!IsPartialCapableSpell(spell_id) || !IsDOTSpell(spell_id)))	// exclude druid dots, necro fire dots
 	{	// these floors are doubled here because of the 0-200 roll
 		if (IsNPC())
 		{
