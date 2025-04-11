@@ -2409,6 +2409,43 @@ void Client::AddMoneyToPP(uint32 copper, uint32 silver, uint32 gold, uint32 plat
 	}
 }
 
+void Client::TakeMoneyFromPP(uint32 copper, uint32 silver, uint32 gold, uint32 platinum, bool updateclient){
+	this->EVENT_ITEM_ScriptStopReturn();
+
+	int32 new_value = m_pp.platinum - platinum;
+	if(new_value >= 0 && new_value < m_pp.platinum)
+		m_pp.platinum -= platinum;
+	if(updateclient)
+		SendClientMoneyUpdate(3,-platinum);
+
+	new_value = m_pp.gold - gold;
+	if(new_value >= 0 && new_value < m_pp.gold)
+		m_pp.gold -= gold;
+	if(updateclient)
+		SendClientMoneyUpdate(2,-gold);
+
+	new_value = m_pp.silver - silver;
+	if(new_value >= 0 && new_value < m_pp.silver)
+		m_pp.silver -= silver;
+	if(updateclient)
+		SendClientMoneyUpdate(1,-silver);
+
+	new_value = m_pp.copper - copper;
+	if(new_value >= 0 && new_value < m_pp.copper)
+		m_pp.copper -= copper;
+	if(updateclient)
+		SendClientMoneyUpdate(0,-copper);
+
+	RecalcWeight();
+	SaveCurrency();
+
+	if (copper != 0 || silver != 0 || gold != 0 || platinum != 0)
+	{
+		Log(Logs::General, Logs::Inventory, "Client::TakeMoneyFromPP() Added %d copper %d silver %d gold %d platinum", copper, silver, gold, platinum);
+		Log(Logs::General, Logs::Inventory, "%s should have: plat:%i gold:%i silver:%i copper:%i", GetName(), m_pp.platinum, m_pp.gold, m_pp.silver, m_pp.copper);
+	}
+}
+
 bool Client::HasMoney(uint64 Copper) {
 
 	if ((static_cast<uint64>(m_pp.copper) +

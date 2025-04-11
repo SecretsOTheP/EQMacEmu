@@ -336,6 +336,7 @@ int command_init(void)
 		command_add("synctod", "Send a time of day update to every client in zone.", AccountStatus::GMAdmin, command_synctod) ||
 		command_add("showlootlockouts", "Shows your currently active loot lockouts. These do not apply to earthquake creatures.", AccountStatus::Player, command_showlootlockouts) ||
 		command_add("showquake", "Shows current earthquake timer. Requires you to be a guild officer or leader.", AccountStatus::Player, command_showquake) ||
+		command_add("takemoney", "[pp] [gp] [sp] [cp] [reason] - Takes specified amount of money from the target player.", AccountStatus::GMLeadAdmin, command_takemoney) ||
 		command_add("testcommand", "Template for temporary commands as needed. Don't delete.", AccountStatus::GMImpossible, command_testcommand) ||
 		command_add("testspawn", "[memloc] [value] - spawns a NPC for you only, with the specified values set in the spawn struct.", AccountStatus::GMCoder, command_testspawn) ||
 		command_add("togglepvp", "Toggles PVP for a client.", AccountStatus::Player, command_togglepvp) ||
@@ -1038,6 +1039,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/summonitem.cpp"
 #include "gm_commands/suspend.cpp"
 #include "gm_commands/synctod.cpp"
+#include "gm_commands/takemoney.cpp"
 #include "gm_commands/testcommand.cpp"
 #include "gm_commands/testspawn.cpp"
 #include "gm_commands/togglepvp.cpp"
