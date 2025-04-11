@@ -2412,36 +2412,51 @@ void Client::AddMoneyToPP(uint32 copper, uint32 silver, uint32 gold, uint32 plat
 void Client::TakeMoneyFromPP(uint32 copper, uint32 silver, uint32 gold, uint32 platinum, bool updateclient){
 	this->EVENT_ITEM_ScriptStopReturn();
 
-	int32 new_value = m_pp.platinum - platinum;
-	if(new_value >= 0 && new_value < m_pp.platinum)
+	int32 adj_plat = m_pp.platinum - platinum;
+	int32 adj_gold = m_pp.gold - gold;
+	int32 adj_silver = m_pp.silver - silver;
+	int32 adj_copper = m_pp.copper - copper;
+	
+	if (adj_plat < 0 || adj_gold < 0 || adj_silver < 0 || adj_copper < 0)
+	{
+		Message(Chat::Red, "%s does not have enough money to take that much. Current Plat:%i Gold:%i Silver:%i Copper:%i", GetName(), m_pp.platinum, m_pp.gold, m_pp.silver, m_pp.copper);
+		return;
+	}
+	
+	if(adj_plat >= 0 && adj_plat < m_pp.platinum){
 		m_pp.platinum -= platinum;
-	if(updateclient)
-		SendClientMoneyUpdate(3,-platinum);
+		if(updateclient)
+			SendClientMoneyUpdate(3,-platinum);
+	}
 
-	new_value = m_pp.gold - gold;
-	if(new_value >= 0 && new_value < m_pp.gold)
+	if(adj_gold >= 0 && adj_gold < m_pp.gold){
 		m_pp.gold -= gold;
-	if(updateclient)
-		SendClientMoneyUpdate(2,-gold);
+		if(updateclient)
+			SendClientMoneyUpdate(2,-gold);
+	}
 
-	new_value = m_pp.silver - silver;
-	if(new_value >= 0 && new_value < m_pp.silver)
+	if(adj_silver >= 0 && adj_silver < m_pp.silver){
 		m_pp.silver -= silver;
-	if(updateclient)
-		SendClientMoneyUpdate(1,-silver);
+		if(updateclient)
+			SendClientMoneyUpdate(1,-silver);
+	}
 
-	new_value = m_pp.copper - copper;
-	if(new_value >= 0 && new_value < m_pp.copper)
+	if(adj_copper >= 0 && adj_copper < m_pp.copper){
 		m_pp.copper -= copper;
-	if(updateclient)
-		SendClientMoneyUpdate(0,-copper);
+		if(updateclient)
+			SendClientMoneyUpdate(0,-copper);
+	}
+	
 
 	RecalcWeight();
 	SaveCurrency();
+	
+	
+	Message(Chat::White, "Took %i Platinum, %i Gold, %i Silver, and %i Copper from %s's inventory.", platinum, gold, silver, copper, GetName());
 
 	if (copper != 0 || silver != 0 || gold != 0 || platinum != 0)
 	{
-		Log(Logs::General, Logs::Inventory, "Client::TakeMoneyFromPP() Added %d copper %d silver %d gold %d platinum", copper, silver, gold, platinum);
+		Log(Logs::General, Logs::Inventory, "Client::TakeMoneyFromPP() took %d copper %d silver %d gold %d platinum", copper, silver, gold, platinum);
 		Log(Logs::General, Logs::Inventory, "%s should have: plat:%i gold:%i silver:%i copper:%i", GetName(), m_pp.platinum, m_pp.gold, m_pp.silver, m_pp.copper);
 	}
 }

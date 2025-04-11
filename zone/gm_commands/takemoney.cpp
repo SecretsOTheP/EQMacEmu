@@ -28,7 +28,6 @@ void command_takemoney(Client *c, const Seperator *sep){
 	else {
 		//TODO: update this to the client, otherwise the client doesn't show any weight change until you zone, move an item, etc
 		c->GetTarget()->CastToClient()->TakeMoneyFromPP(atoi(sep->arg[4]), atoi(sep->arg[3]), atoi(sep->arg[2]), atoi(sep->arg[1]), true);
-		c->Message(Chat::White, "Took %i Platinum, %i Gold, %i Silver, and %i Copper from %s's inventory.", atoi(sep->arg[1]), atoi(sep->arg[2]), atoi(sep->arg[3]), atoi(sep->arg[4]), c->GetTarget()->GetName());
 	}
 }
 
