@@ -904,7 +904,7 @@ bool Client::Save(uint8 iCommitNow) {
 	m_pp.lastlogin = time(nullptr);
 
 	// we don't reload the pet data for TAKP so don't really need this
-	/*
+	
 	if (GetPet() && !GetPet()->IsFamiliar() && GetPet()->CastToNPC()->GetPetSpellID() && !dead) {
 		NPC *pet = GetPet()->CastToNPC();
 		m_petinfo.SpellID = pet->CastToNPC()->GetPetSpellID();
@@ -917,7 +917,7 @@ bool Client::Save(uint8 iCommitNow) {
 		memset(&m_petinfo, 0, sizeof(struct PetInfo));
 	}
 	database.SavePetInfo(this);
-	*/
+	
 
 	p_timers.Store(&database);
 
