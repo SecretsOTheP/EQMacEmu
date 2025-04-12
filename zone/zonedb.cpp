@@ -2487,8 +2487,8 @@ void ZoneDatabase::LoadPetInfo(Client *client) {
         uint32 caster_level = atoi(row[3]);
         int caster_id = 0;
         // The castername field is currently unused
-        uint32 ticsremaining = atoul(row[5]);
-        uint32 counters = atoul(row[6]);
+        uint16 ticsremaining = atoul(row[5]);
+        uint16 counters = atoul(row[6]);
 
         pi->Buffs[slot_id].spellid = spell_id;
         pi->Buffs[slot_id].level = caster_level;
