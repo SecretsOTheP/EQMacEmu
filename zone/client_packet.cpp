@@ -5691,6 +5691,14 @@ void Client::Handle_OP_GroupFollow(const EQApplicationPacket *app)
 	}
 	else
 	{
+		auto pack = new ServerPacket(ServerOP_GroupFollow, sizeof(ServerGroupFollow_Struct));
+		ServerGroupFollow_Struct* sgfs = (ServerGroupFollow_Struct*)pack->pBuffer;
+		sgfs->CharacterID = this->CharacterID();
+		strn0cpy(sgfs->gf.name1, gf->name1, 64);
+		strn0cpy(sgfs->gf.name2, this->GetName(), 64);
+		worldserver.SendPacket(pack);
+		safe_delete(pack);
+
 		//Message and invite clear are handled by the client, but just in case.
 		Message_StringID(Chat::Red, CANNOT_JOIN_GROUP, gf->name1);
 		ClearGroupInvite();
@@ -5822,9 +5830,10 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 	}
 	else
 	{
+		Message(Chat::White, "Attempting to cross-zone invite %s.", gis->invitee_name);
+
 		auto pack = new ServerPacket(ServerOP_GroupInvite, sizeof(ServerGroupInvite_Struct));
 		ServerGroupInvite_Struct* sgis = (ServerGroupInvite_Struct*)pack->pBuffer;
-
 		memcpy(pack->pBuffer, gis, sizeof(ServerGroupInvite_Struct));
 		sgis->group_ruleset = group_ruleset;
 		worldserver.SendPacket(pack);
@@ -7391,6 +7400,18 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 			rg->action = 3;
 			i->QueuePacket(outapp);
 			safe_delete(outapp);
+		}
+		else
+		{
+			Message("Attempting to cross-zone raid invite %s.", ri->player_name);
+			auto pack = new EQApplicationPacket(ServerOP_RaidInvite, sizeof(RaidGeneral_Struct));
+			RaidGeneral_Struct* rg = (RaidGeneral_Struct*)outapp->pBuffer;
+			strn0cpy(rg->leader_name, ri->leader_name, 64);
+			strn0cpy(rg->player_name, ri->player_name, 64);
+			rg->parameter = 0;
+			rg->action = 3;
+			worldserver.SendPacket(pack);
+			safe_delete(pack);
 		}
 		break;
 	}

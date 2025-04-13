@@ -210,11 +210,11 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		break;
 	}
 	case ServerOP_GroupInvite: {
-		if (pack->size != sizeof(GroupInvite_Struct)) {
+		if (pack->size != sizeof(ServerGroupInvite_Struct)) {
 			break;
 		}
 
-		auto gis = (GroupInvite_Struct*)pack->pBuffer;
+		auto gis = (ServerGroupInvite_Struct*)pack->pBuffer;
 		client_list.SendPacket(gis->invitee_name, pack);
 		break;
 	}
@@ -277,6 +277,15 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		}
 
 		zoneserver_list.SendPacket(pack); //bounce it to all zones
+		break;
+	}
+	case ServerOP_RaidInvite: {
+		if (pack->size != sizeof(RaidGeneral_Struct)) {
+			break;
+		}
+
+		auto rgs = (RaidGeneral_Struct*)pack->pBuffer;
+		client_list.SendPacket(rgs->player_name, pack);
 		break;
 	}
 	case ServerOP_RaidGroupJoin: {

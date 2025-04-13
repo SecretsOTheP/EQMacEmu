@@ -1075,6 +1075,27 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			}
 			break;
 		}
+		case ServerOP_RaidInvite: {
+			// A player in another zone invited a player in this zone to join their group.
+			RaidGeneral_Struct* rgs = (RaidGeneral_Struct*)pack->pBuffer;
+
+			Mob* Invitee = entity_list.GetMob(rgs->player_name);
+
+			if (Invitee && Invitee->IsClient())
+			{
+				if (Invitee->CastToClient()->Admin() > 0)
+					break;
+
+				if (Invitee->IsRaidGrouped())
+					break;
+				
+				auto outapp = new EQApplicationPacket(OP_RaidInvite, sizeof(RaidGeneral_Struct));
+				memcpy(outapp->pBuffer, gis, sizeof(RaidGeneral_Struct));
+				Invitee->CastToClient()->QueuePacket(outapp);
+				safe_delete(outapp);
+			}
+			break;
+		}
 		case ServerOP_RaidGroupJoin: {
 			ServerRaidGroupJoin_Struct* gj = (ServerRaidGroupJoin_Struct*)pack->pBuffer;
 			if (zone) {
