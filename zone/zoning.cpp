@@ -438,9 +438,6 @@ void Client::DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 zone_gu
 
 	EndShield();		// warrior /shield
 
-	// depop pet
-	DepopPet();
-
 	LogInfo("Zoning [{}] to: [{}] ([{}]) x = [{}], y = [{}], z = [{}]", m_pp.name, ZoneName(zone_id), zone_id, dest_x, dest_y, dest_z);
 
 	//set the player's coordinates in the new zone so they have them
@@ -455,6 +452,9 @@ void Client::DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 zone_gu
 
 	//Force a save so its waiting for them when they zone
 	Save(2);
+
+	// depop pet
+	//DepopPet();
 
 	m_lock_save_position = true;
 
@@ -508,9 +508,6 @@ void Client::DoZoneMove(uint16 zone_id, uint32 zone_guild_id, float dest_x, floa
 
 	EndShield();		// warrior /shield
 
-	// depop pet
-	DepopPet();
-
 	Log(Logs::General, Logs::Status, "Zoning '%s' to: %s (%i) x=%f, y=%f, z=%f", m_pp.name, ZoneName(zone_id), zone_id, dest_x, dest_y, dest_z);
 
 	//set the player's coordinates in the new zone so they have them
@@ -525,6 +522,9 @@ void Client::DoZoneMove(uint16 zone_id, uint32 zone_guild_id, float dest_x, floa
 
 	//Force a save so its waiting for them when they zone
 	Save(2);
+
+	// depop pet
+	//DepopPet();
 
 	m_lock_save_position = true;
 }

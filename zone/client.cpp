@@ -905,14 +905,17 @@ bool Client::Save(uint8 iCommitNow) {
 
 	// we don't reload the pet data for TAKP so don't really need this
 	
-	if (GetPet() && !GetPet()->IsFamiliar() && GetPet()->CastToNPC()->GetPetSpellID() && !dead) {
+	if (GetPet() && GetPet()->IsNPC()) {
 		NPC *pet = GetPet()->CastToNPC();
-		m_petinfo.SpellID = pet->CastToNPC()->GetPetSpellID();
-		m_petinfo.HP = pet->GetHP();
-		m_petinfo.Mana = pet->GetMana();
-		pet->GetPetState(m_petinfo.Buffs, m_petinfo.Items, m_petinfo.Name);
-		m_petinfo.petpower = pet->GetPetPower();
-		m_petinfo.size = pet->GetSize();
+		if (pet)
+		{
+			m_petinfo.SpellID = pet->CastToNPC()->GetPetSpellID();
+			m_petinfo.HP = pet->GetHP();
+			m_petinfo.Mana = pet->GetMana();
+			pet->GetPetState(m_petinfo.Buffs, m_petinfo.Items, m_petinfo.Name);
+			m_petinfo.petpower = pet->GetPetPower();
+			m_petinfo.size = pet->GetSize();
+		}
 	} else {
 		memset(&m_petinfo, 0, sizeof(struct PetInfo));
 	}
