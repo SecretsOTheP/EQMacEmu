@@ -7403,9 +7403,10 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 		}
 		else
 		{
-			Message("Attempting to cross-zone raid invite %s.", ri->player_name);
-			auto pack = new EQApplicationPacket(ServerOP_RaidInvite, sizeof(RaidGeneral_Struct));
-			RaidGeneral_Struct* rg = (RaidGeneral_Struct*)outapp->pBuffer;
+			
+			Message(Chat::White, "Attempting to cross-zone raid invite %s.", ri->player_name);
+			auto pack = new ServerPacket(ServerOP_RaidInvite, sizeof(RaidGeneral_Struct));
+			RaidGeneral_Struct* rg = (RaidGeneral_Struct*)pack->pBuffer;
 			strn0cpy(rg->leader_name, ri->leader_name, 64);
 			strn0cpy(rg->player_name, ri->player_name, 64);
 			rg->parameter = 0;

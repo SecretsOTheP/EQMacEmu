@@ -1090,7 +1090,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					break;
 				
 				auto outapp = new EQApplicationPacket(OP_RaidInvite, sizeof(RaidGeneral_Struct));
-				memcpy(outapp->pBuffer, gis, sizeof(RaidGeneral_Struct));
+				memcpy(outapp->pBuffer, rgs, sizeof(RaidGeneral_Struct));
 				Invitee->CastToClient()->QueuePacket(outapp);
 				safe_delete(outapp);
 			}
