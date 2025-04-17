@@ -420,8 +420,14 @@ void Client::OPCombatAbility(const EQApplicationPacket *app)
 	if(!GetTarget() || GetTarget() == this)
 		return;
 
+	if (spellend_timer.Enabled())
+	{
+		if (GetBaseClass() != Class::Bard || !IsValidSpell(casting_spell_id) || !spells[casting_spell_id].bardsong)
+			return;
+	}
+
 	//make sure were actually able to use such an attack.
-	if(spellend_timer.Enabled() || IsFeared() || IsStunned() || IsMezzed() || DivineAura() || dead)
+	if(IsFeared() || IsStunned() || IsMezzed() || DivineAura() || dead)
 		return;
 
 	CombatAbility_Struct* ca_atk = (CombatAbility_Struct*) app->pBuffer;
