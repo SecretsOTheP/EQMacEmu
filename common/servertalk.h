@@ -105,6 +105,7 @@
 #define	ServerOP_RaidSay			0x0106 //in use
 #define	ServerOP_DetailsChange		0x0107 //in use
 #define ServerOP_RaidRemoveLD		0x0108 //in use
+#define ServerOP_RaidInvite         0x0109
 
 #define ServerOP_UpdateGroup		0x010A //in use
 #define ServerOP_RaidGroupDisband	0x010B //in use
