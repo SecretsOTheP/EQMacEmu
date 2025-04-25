@@ -2266,7 +2266,7 @@ void NPC::CreateCorpse(Mob* killer, int32 dmg_total, bool &corpse_bool)
 	if (killer != 0 && killer->IsClient())
 	{
 		
-		Raid* raid = killer->IsRaidGrouped() ? killer->GetRaid() : nullptr;
+		Raid* raid = killer->GetRaid();
 		Group* group = killer->GetGroup();
 		ChallengeRules::RuleParams ruleset = raid ? raid->GetRuleSetParams() : group ? group->GetRuleSetParams() : killer->CastToClient()->GetRuleSetParams();
 

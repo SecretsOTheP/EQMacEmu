@@ -800,7 +800,7 @@ void Client::SetLevel(uint8 set_level, bool command)
 
 	level = set_level;
 
-	if(IsRaidGrouped()) {
+	{
 		Raid *r = this->GetRaid();
 		if(r){
 			r->UpdateLevel(GetName(), set_level);
