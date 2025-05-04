@@ -1281,17 +1281,14 @@ void Raid::SplitExp(uint32 exp, Mob* killed_mob)
 	//Grabs membercount and maxlevel.
 	for (int i = 0; i < MAX_RAID_MEMBERS; i++) 
 	{
-		if (members[i].member != nullptr) 
+		Client* member = members[i].GetMember();
+		if (member != nullptr)
 		{
-			Client *cmember = members[i].member;
-			if (cmember && cmember->GetZoneID() == zone->GetZoneID())
+			if ((member->GetLevelCon(killed_mob->GetLevel()) != CON_GREEN || killed_mob->IsZomm()) &&
+				member->IsInExpRange(killed_mob))
 			{
-				if ((cmember->GetLevelCon(killed_mob->GetLevel()) != CON_GREEN || killed_mob->IsZomm()) &&
-					cmember->IsInExpRange(killed_mob))
-				{
-					weighted_levels += cmember->GetLevel();
-					++membercount;
-				}
+				weighted_levels += member->GetLevel();
+				++membercount;
 			}
 		}
 	}
@@ -1300,23 +1297,20 @@ void Raid::SplitExp(uint32 exp, Mob* killed_mob)
 		return;
 
 	//Check to make sure we're all in level range now that we know our maxlevel.
-	for (int i = 0; i < MAX_RAID_MEMBERS; i++) 
+	for (int i = 0; i < MAX_RAID_MEMBERS; i++)
 	{
-		if (members[i].member != nullptr)
+		Client* cmember = members[i].GetMember();
+		if (cmember && !cmember->CanGetExpCreditWith(raidData))
 		{
-			Client *cmember = members[i].member;
-			if(cmember && !cmember->CanGetExpCreditWith(raidData))
+			if (membercount != 0)
 			{
-				if(membercount != 0)
-				{
-					Log(Logs::Detail, Logs::Group, "%s is not within level range, removing from XP gain.", cmember->GetName());
-					if(weighted_levels >= cmember->GetLevel())
-						weighted_levels -= cmember->GetLevel();
-					--membercount;
-				}
-				else
-					return;
+				Log(Logs::Detail, Logs::Group, "%s is not within level range, removing from XP gain.", cmember->GetName());
+				if (weighted_levels >= cmember->GetLevel())
+					weighted_levels -= cmember->GetLevel();
+				--membercount;
 			}
+			else
+				return;
 		}
 	}
 
@@ -1328,13 +1322,12 @@ void Raid::SplitExp(uint32 exp, Mob* killed_mob)
 	Log(Logs::Detail, Logs::Group, "Raid XP: %d Final XP: %0.2f", exp, groupexp);
 
 	//Assigns XP if the qualifications are met.
-	for (int i = 0; i < MAX_RAID_MEMBERS; i++) 
+	for (int i = 0; i < MAX_RAID_MEMBERS; i++)
 	{
-		if (members[i].member != nullptr)
+		Client* cmember = members[i].GetMember();
+		if (cmember != nullptr)
 		{
-			Client *cmember = members[i].member;
-			if(cmember && cmember->GetZoneID() == zone->GetZoneID() && 
-				(cmember->GetLevelCon(killed_mob->GetLevel()) != CON_GREEN || killed_mob->IsZomm()) && 
+			if ((cmember->GetLevelCon(killed_mob->GetLevel()) != CON_GREEN || killed_mob->IsZomm()) &&
 				cmember->IsInExpRange(killed_mob))
 			{
 				if (cmember->CanGetExpCreditWith(raidData))
@@ -1351,7 +1344,9 @@ void Raid::SplitExp(uint32 exp, Mob* killed_mob)
 					Log(Logs::Detail, Logs::Group, "%s is too low in level to gain XP from this raid.", cmember->GetName());
 			}
 			else
+			{
 				Log(Logs::Detail, Logs::Group, "%s is not in the kill zone, is out of range, or %s is green to them. They won't receive raid XP.", cmember->GetName(), killed_mob->GetCleanName());
+			}
 		}
 	}
 }

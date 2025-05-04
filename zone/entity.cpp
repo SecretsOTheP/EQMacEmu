@@ -2035,15 +2035,20 @@ Raid *EntityList::GetRaidByID(uint32 id)
 
 Raid *EntityList::GetRaidByClient(Client* client)
 {
+	if (client == nullptr)
+		return nullptr;
+
 	std::list<Raid *>::iterator iterator;
 
 	iterator = raid_list.begin();
 
 	while (iterator != raid_list.end()) {
 		for (int x = 0; x < MAX_RAID_MEMBERS; x++)
-			if ((*iterator)->members[x].member)
-				if((*iterator)->members[x].member == client)
-					return *iterator;
+		{
+			Client* member = (*iterator)->members[x].GetMember();
+			if (member != nullptr && member == client)
+				return *iterator;
+		}
 		++iterator;
 	}
 	return nullptr;

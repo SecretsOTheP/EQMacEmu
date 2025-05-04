@@ -28,7 +28,7 @@ void ShowGroupInfo(Client* c, const Seperator* sep)
 			if (t->IsRaidGrouped()) {
 				for (int i = 0; i < MAX_RAID_MEMBERS; i++)
 				{
-					Client* rmember = r->members[i].member;
+					Client* rmember = r->members[i].GetMember();
 					if (r->members[i].GroupNumber == t_group_id) {
 						if (rmember) {
 							c->Message(Chat::White,

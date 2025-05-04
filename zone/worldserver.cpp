@@ -1221,7 +1221,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					if (rga->gleader) {
 						// they were a group leader
 						for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-							if(strlen(r->members[x].membername) > 0 && rga->gid == r->members[x].GroupNumber)
+							if(strlen(r->members[x].membername.c_str()) > 0 && rga->gid == r->members[x].GroupNumber)
 							{
 								group_members++;
 								if (r->members[x].IsGroupLeader) {
@@ -1234,16 +1234,16 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 							if (group_members > 1) {
 								// still have a functional group, so reassign leader
 								for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-									if(strlen(r->members[x].membername) > 0 && rga->gid == r->members[x].GroupNumber) {
-										r->SetGroupLeader(r->members[x].membername, rga->gid, true);
+									if(!r->members[x].membername.empty() && rga->gid == r->members[x].GroupNumber) {
+										r->SetGroupLeader(r->members[x].membername.c_str(), rga->gid, true);
 										break;
 									}
 								}
 							} else {
 								// only one member left, so move them down to ungrouped.
 								for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-									if(strlen(r->members[x].membername) > 0 && rga->gid == r->members[x].GroupNumber) {
-										r->MoveMember(r->members[x].membername, 0xFFFFFFFF);
+									if(!r->members[x].membername.empty() && rga->gid == r->members[x].GroupNumber) {
+										r->MoveMember(r->members[x].membername.c_str(), 0xFFFFFFFF);
 									}
 								}
 							}
@@ -1253,15 +1253,15 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					if (rga->zoneid) {
 						// they were a raid leader, see if they still are
 						for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-							if(strlen(r->members[x].membername) > 0 && r->members[x].IsRaidLeader) {
+							if(!r->members[x].membername.empty() && r->members[x].IsRaidLeader) {
 								noleader = false;
 								break;
 							}
 						}
 						if (noleader) {
 							for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-								if(strlen(r->members[x].membername)) {
-									r->SetRaidLeader(rga->playername, r->members[x].membername);
+								if(!r->members[x].membername.empty()) {
+									r->SetRaidLeader(rga->playername, r->members[x].membername.c_str());
 									break;
 								}
 							}
@@ -1275,8 +1275,8 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 						rg->action = RaidCommandRemoveLooter;
 						strn0cpy(rg->leader_name, rga->playername, 64);
 
-						if (strlen(r->leadername) > 0) {
-							strn0cpy(rg->player_name, r->leadername, 64);
+						if (strlen(r->leadername.c_str()) > 0) {
+							strn0cpy(rg->player_name, r->leadername.c_str(), 64);
 						}
 						else {
 							strn0cpy(rg->player_name, rga->playername, 64);
@@ -1317,8 +1317,9 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Raid *r = entity_list.GetRaidByID(rga->rid);
 				if(r){
 					for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-						if(r->members[x].member) {
-							r->SendGroupDisband(r->members[x].member);
+						Client* member = r->members[x].GetMember();
+						if(member) {
+							r->SendGroupDisband(member);
 						}
 					}
 					r->SendRaidDisbandAll();
@@ -1387,10 +1388,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Raid *r = entity_list.GetRaidByID(rga->rid);
 				if(r){
 					Client *c = entity_list.GetClientByName(rga->playername);
-					strn0cpy(r->leadername, rga->playername, 64);
-					if(c){
-						r->SetLeader(c);
-					}
+					r->leadername = rga->playername;
 					r->LearnMembers();
 					r->VerifyRaid();
 					r->SendMakeLeaderPacket(rga->playername);
@@ -1416,7 +1414,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 					rg->action = RaidCommandAddLooter;
 					strn0cpy(rg->leader_name, rga->playername, 64);
-					strn0cpy(rg->player_name, r->leadername, 64);
+					strn0cpy(rg->player_name, r->leadername.c_str(), 64);
 					r->QueuePacket(outapp);
 
 					// this sends message out that the looter was added
@@ -1452,7 +1450,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 					rg->action = RaidCommandRemoveLooter;
 					strn0cpy(rg->leader_name, rga->playername, 64);
-					strn0cpy(rg->player_name, r->leadername, 64);
+					strn0cpy(rg->player_name, r->leadername.c_str(), 64);
 					r->QueuePacket(outapp);
 
 					// this sends message out that the looter was added
@@ -1548,11 +1546,12 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					gj->action = groupActJoin;
 
 					for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-						if(r->members[x].member) {
-							if(strcmp(r->members[x].member->GetName(), rga->membername) != 0){
+						Client* member = r->members[x].GetMember();
+						if(member) {
+							if(strcmp(member->GetName(), rga->membername) != 0){
 								if((rga->gid >= 0 && rga->gid < MAX_RAID_GROUPS) && rga->gid == r->members[x].GroupNumber) {
-									strn0cpy(gj->yourname, r->members[x].member->GetName(), 64);
-									r->members[x].member->QueuePacket(outapp);
+									strn0cpy(gj->yourname, member->GetName(), 64);
+									member->QueuePacket(outapp);
 								}
 							}
 						}
@@ -1588,11 +1587,12 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Raid *r = entity_list.GetRaidByID(rmsg->rid);
 				if(r) {
 					for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-						if(r->members[x].member) {
-							if(strcmp(rmsg->from, r->members[x].member->GetName()) != 0) {
+						Client* member = r->members[x].GetMember();
+						if(member) {
+							if(strcmp(rmsg->from, member->GetName()) != 0) {
 								if(r->members[x].GroupNumber == rmsg->gid){
-									if(r->members[x].member->GetFilter(FilterGroupChat)!=0) {
-										r->members[x].member->ChannelMessageSend(rmsg->from, r->members[x].member->GetName(), ChatChannel_Group, rmsg->language, rmsg->lang_skill, rmsg->message);
+									if(member->GetFilter(FilterGroupChat)!=0) {
+										member->ChannelMessageSend(rmsg->from, member->GetName(), ChatChannel_Group, rmsg->language, rmsg->lang_skill, rmsg->message);
 									}
 								}
 							}
@@ -1608,10 +1608,11 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Raid *r = entity_list.GetRaidByID(rmsg->rid);
 				if(r) {
 					for(int x = 0; x < MAX_RAID_MEMBERS; x++) {
-						if(r->members[x].member) {
-							if(strcmp(rmsg->from, r->members[x].member->GetName()) != 0) {
-								if(r->members[x].member->GetFilter(FilterGroupChat)!=0) {
-									r->members[x].member->ChannelMessageSend(rmsg->from, r->members[x].member->GetName(), ChatChannel_Raid, rmsg->language, rmsg->lang_skill, rmsg->message);
+						Client* member = r->members[x].GetMember();
+						if(member) {
+							if(strcmp(rmsg->from, member->GetName()) != 0) {
+								if(member->GetFilter(FilterGroupChat)!=0) {
+									member->ChannelMessageSend(rmsg->from, member->GetName(), ChatChannel_Raid, rmsg->language, rmsg->lang_skill, rmsg->message);
 								}
 							}
 						}

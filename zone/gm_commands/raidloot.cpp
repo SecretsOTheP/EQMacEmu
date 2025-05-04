@@ -13,7 +13,7 @@ void command_raidloot(Client *c, const Seperator *sep){
 	{
 		for (int x = 0; x < 72; ++x)
 		{
-			if (r->members[x].member == c)
+			if (r->members[x].membername.compare(c->GetCleanName()) == 0)
 			{
 				if (r->members[x].IsRaidLeader == 0)
 				{

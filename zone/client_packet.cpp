@@ -5418,9 +5418,9 @@ void Client::Handle_OP_GroupDisband(const EQApplicationPacket *app)
 				{
 					if (raid->members[x].GroupNumber == grp)
 					{
-						if (strlen(raid->members[x].membername) > 0 && strcmp(raid->members[x].membername, memberToDisband->GetName()) != 0)
+						if (!raid->members[x].membername.empty() && raid->members[x].membername.compare(memberToDisband->GetName()) != 0)
 						{
-							raid->SetGroupLeader(raid->members[x].membername, grp);
+							raid->SetGroupLeader(raid->members[x].membername.c_str(), grp);
 							newleader = true;
 							break;
 						}
@@ -5433,9 +5433,9 @@ void Client::Handle_OP_GroupDisband(const EQApplicationPacket *app)
 					{
 						if (raid->members[x].GroupNumber != grp)
 						{
-							if (strlen(raid->members[x].membername) > 0 && raid->members[x].IsGroupLeader)
+							if (!raid->members[x].membername.empty() && raid->members[x].IsGroupLeader)
 							{
-								raid->UnSetGroupLeader(memberToDisband->GetName(), raid->members[x].membername, grp);
+								raid->UnSetGroupLeader(memberToDisband->GetName(), raid->members[x].membername.c_str(), grp);
 								break;
 							}
 						}
@@ -7633,12 +7633,12 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 			if (r->GetLootType() < 3 )
 				return;
 			// dont add raid leader to selected list, they are in it by default
-			if (strlen(ri->leader_name) > 0 && strncasecmp(ri->leader_name, r->leadername, 64) == 0)
+			if (strlen(ri->leader_name) > 0 && strncasecmp(ri->leader_name, r->leadername.c_str(), 64) == 0)
 				return;
 
 			int looters = 0;
 			for (int x = 0; x < MAX_RAID_MEMBERS; x++){
-				if (strlen(r->members[x].membername) > 0 && r->members[x].IsLooter)
+				if (strlen(r->members[x].membername.c_str()) > 0 && r->members[x].IsLooter)
 					looters++;
 			}
 			if (looters > 9) {
@@ -7701,8 +7701,8 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 		Raid *r = entity_list.GetRaidByClient(this);
 		if (r)
 		{
-			if (strcmp(r->leadername, GetName()) == 0){
-				r->SetRaidLeader(GetName(), ri->leader_name);
+			if (strcmp(r->leadername.c_str(), GetCleanName()) == 0) {
+				r->SetRaidLeader(GetCleanName(), ri->leader_name);
 			}
 		}
 		break;

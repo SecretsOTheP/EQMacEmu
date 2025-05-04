@@ -2352,11 +2352,12 @@ void NPC::CreateCorpse(Mob* killer, int32 dmg_total, bool &corpse_bool)
 						{
 							corpse->AllowPlayerLoot(r->members[x].membername);
 						}
-						if (r->members[x].member)
+						Client* member_client = r->members[x].GetMember();
+						if (member_client)
 						{
-							bool kill_credit = r->members[x].member->CanGetLootCreditWith(ruleset, sf_raid_credit);
+							bool kill_credit = member_client->CanGetLootCreditWith(ruleset, sf_raid_credit);
 							if (kill_credit) {
-								corpse->AddKillCredit(r->members[x].member->GetCleanName(), r->members[x].member->IsSelfFoundAny());
+								corpse->AddKillCredit(member_client->GetCleanName(), member_client->IsSelfFoundAny());
 							}
 						}
 						else if (r->members[x].membername[0])
@@ -2409,9 +2410,9 @@ void NPC::GiveExp(Client* give_exp_client, bool &xp)
 		std::list<uint32>charids;
 		for (int i = 0; i < MAX_RAID_MEMBERS; i++)
 		{
-			if (kr->members[i].member != nullptr && kr->members[i].member->IsClient() && IsOnHatelist(kr->members[i].member))
-			{ // If Group Member is Client
-				Client *c = kr->members[i].member;
+			Client* c = kr->members->GetMember();
+			if (c != nullptr && c->IsClient() && IsOnHatelist(c))
+			{
 				parse->EventNPC(EVENT_KILLED_MERIT, this, c, "killed", 0);
 
 				charids.push_back(c->CharacterID());

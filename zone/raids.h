@@ -55,9 +55,52 @@ enum {
 #define MAX_RAID_GROUPS 12
 #define MAX_RAID_MEMBERS 72
 
-struct RaidMember{
-	char membername[64];
-	Client *member;
+class RaidMember
+{
+public:
+	RaidMember()
+	{
+		membername = "";
+		GroupNumber = 0;
+		guildid = 0;
+		_class = 0;
+		level = 0;
+		IsGroupLeader = false;
+		IsGuildOfficer = false;
+		IsRaidLeader = false;
+		IsLooter = false;
+	}
+
+
+	RaidMember(RaidMember& member)
+	{
+		membername = member.membername;
+		GroupNumber = member.GroupNumber;
+		guildid = member.guildid;
+		_class = member._class;
+		level = member.level;
+		IsGroupLeader = member.IsGroupLeader;
+		IsGuildOfficer = member.IsGuildOfficer;
+		IsRaidLeader = member.IsRaidLeader;
+		IsLooter = member.IsLooter;
+	}
+
+	inline Client* GetMember()
+	{
+		if (membername.empty())
+			return nullptr;
+		return entity_list.GetClientByName(membername.c_str());
+	}
+
+	inline Client* GetMember() const
+	{
+		if (membername.empty())
+			return nullptr;
+		return entity_list.GetClientByName(membername.c_str());
+	}
+
+
+	std::string membername;
 	uint32 GroupNumber;
 	uint32 guildid;
 	uint8 _class;
@@ -73,11 +116,9 @@ public:
 	Raid(Client *nLeader);
 	Raid(uint32 raidID);
 	~Raid();
-
-	void SetLeader(Client *newLeader) { leader = newLeader; }
-	Client* GetLeader() { return leader; }
-	bool IsLeader(Client *c) { return leader==c; }
-	bool IsLeader(const char* name) { return (strcmp(leadername, name)==0); }
+	bool IsLeader(Client* c);
+	Client* GetLeader() { return entity_list.GetClientByName(leadername.c_str()); }
+	bool IsLeader(const char* name) { return leadername.compare(name) == 0; }
 	void SetRaidLeader(const char *wasLead, const char *name);
 	uint32 GetLeaderGuildID();
 
@@ -185,11 +226,11 @@ public:
 	void	QueuePacket(const EQApplicationPacket *app, Client *skip = nullptr, bool ack_req = true);
 
 	RaidMember members[MAX_RAID_MEMBERS];
-	char leadername[64];
+	std::string leadername;
 	uint32 currentleaderguildid;
 
 protected:
-	Client *leader;
+
 	uint32 LootType;
 	bool disbandCheck;
 	bool forceDisband;

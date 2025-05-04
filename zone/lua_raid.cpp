@@ -118,7 +118,7 @@ Lua_Client Lua_Raid::GetMember(int index) {
 		return Lua_Client();
 	}
 
-	return self->members[index].member;
+	return self->members[index].GetMember();
 }
 
 

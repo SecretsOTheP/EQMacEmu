@@ -796,11 +796,14 @@ void HateList::RecordInitialClientHateIds(Mob* const ent) {
 		if (raid) {
 			m_initialEngageEntry.m_raidId = raid->GetID();
 			for (const auto& raidMember : raid->members) {
-				if (raidMember.member == nullptr) {
+
+				Client* memberClient = raidMember.GetMember();
+
+				if (memberClient == nullptr) {
 					continue;
 				}
 
-				const auto& memberId = raidMember.member->CharacterID();
+				const auto& memberId = memberClient->CharacterID();
 				if (memberId == client->CharacterID()) {
 					continue;
 				}
@@ -1042,7 +1045,7 @@ void HateList::Add(Mob *ent, int32 in_hate, int32 in_dam, bool bFrenzy, bool iAd
 					ChallengeRules::RuleParams raid_data = kr->GetRuleSetParams();
 					for (int x = 0; x < MAX_RAID_MEMBERS; x++)
 					{
-						auto member = kr->members[x].member;
+						auto member = kr->members[x].GetMember();
 						if (member && member->CanGetLootCreditWith(raid_data) && member->IsSelfFoundAny())
 						{
 							owner->CastToNPC()->sf_fte_list.emplace_back(member->GetCleanName());

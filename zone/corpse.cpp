@@ -2368,7 +2368,7 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 			{
 				for (uint32 i = 0; i < MAX_RAID_MEMBERS; i++)
 				{
-					Client* mclient = kr->members[i].member;
+					Client* mclient = kr->members[i].GetMember();
 
 					if (kr->members[i].membername[0])
 					{
@@ -2417,12 +2417,12 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 							{
 
 
-								uint32 message_len = strlen(kr->members[i].membername) + 1;
+								uint32 message_len = strlen(kr->members[i].membername.c_str()) + 1;
 								uint32 message_len2 = strlen(message.c_str()) + 1;
 								auto pack = new ServerPacket(ServerOP_CZMessagePlayer, sizeof(CZMessagePlayer_Struct) + message_len + message_len2);
 								CZMessagePlayer_Struct* CZSC = (CZMessagePlayer_Struct*)pack->pBuffer;
 								CZSC->Type = Chat::Yellow;
-								strn0cpy(CZSC->CharName, kr->members[i].membername, 64);
+								strn0cpy(CZSC->CharName, kr->members[i].membername.c_str(), 64);
 								strn0cpy(CZSC->Message, message.c_str(), 512);
 								worldserver.SendPacket(pack);
 								safe_delete(pack);
@@ -2445,12 +2445,12 @@ void Corpse::ProcessLootLockouts(Client* give_exp_client, NPC* in_npc)
 								message += in_npc->GetCleanName();
 								message += " and receive no loot.";
 
-								uint32 message_len = strlen(kr->members[i].membername) + 1;
+								uint32 message_len = strlen(kr->members[i].membername.c_str()) + 1;
 								uint32 message_len2 = strlen(message.c_str()) + 1;
 								auto pack = new ServerPacket(ServerOP_CZMessagePlayer, sizeof(CZMessagePlayer_Struct) + message_len + message_len2);
 								CZMessagePlayer_Struct* CZSC = (CZMessagePlayer_Struct*)pack->pBuffer;
 								CZSC->Type = Chat::Yellow;
-								strn0cpy(CZSC->CharName, kr->members[i].membername, 64);
+								strn0cpy(CZSC->CharName, kr->members[i].membername.c_str(), 64);
 								strn0cpy(CZSC->Message, message.c_str(), 512);
 								worldserver.SendPacket(pack);
 								safe_delete(pack);

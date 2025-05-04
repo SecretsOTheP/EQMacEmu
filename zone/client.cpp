@@ -6406,14 +6406,17 @@ void Client::WarCry(uint8 rank)
 				for (int z = 0; z < MAX_RAID_MEMBERS; z++)
 				{
 					// skip self
-					if (r->members[z].member != nullptr && r->members[z].member != this && r->members[z].GroupNumber == rgid)
+					if (r->members[z].GroupNumber == rgid)
 					{
-						Client *member = r->members[z].member;
-						float distance = DistanceSquared(GetPosition(), member->GetPosition());
-						if (distance <= rangesq)
+						Client* member = r->members[z].GetMember();
+						if (member != nullptr && member != this)
 						{
-							member->EnableAAEffect(aaEffectWarcry, time);
-							member->Message_StringID(Chat::Spells, WARCRY_ACTIVATE);
+							float distance = DistanceSquared(GetPosition(), member->GetPosition());
+							if (distance <= rangesq)
+							{
+								member->EnableAAEffect(aaEffectWarcry, time);
+								member->Message_StringID(Chat::Spells, WARCRY_ACTIVATE);
+							}
 						}
 					}
 				}
