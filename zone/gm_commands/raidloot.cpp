@@ -1,14 +1,13 @@
 #include "../client.h"
 #include "../raids.h"
 #include "../raids.h"
-
-void command_raidloot(Client *c, const Seperator *sep){
+void command_raidloot(Client* c, const Seperator* sep) {
 	if (!sep->arg[1][0]) {
 		c->Message(Chat::White, "Usage: #raidloot [LEADER/GROUPLEADER/SELECTED/ALL]");
 		return;
 	}
 
-	Raid *r = c->GetRaid();
+	Raid* r = c->GetRaid();
 	if (r)
 	{
 		for (int x = 0; x < 72; ++x)

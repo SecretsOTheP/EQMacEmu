@@ -361,6 +361,7 @@ void Raid::MoveMember(const char *name, uint32 newGroup)
 
 	LearnMembers();
 	VerifyRaid();
+
 	SendRaidChangeGroup(name, newGroup);
 
 	auto pack = new ServerPacket(ServerOP_RaidChangeGroup, sizeof(ServerRaidGeneralAction_Struct));
@@ -1193,8 +1194,6 @@ void Raid::SendRaidCreate(Client *to){
 }
 
 void Raid::SendRaidMembers(Client* to) {
-	if (!to)
-		return;
 
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct* rg = (RaidGeneral_Struct*)outapp->pBuffer;
@@ -1202,7 +1201,10 @@ void Raid::SendRaidMembers(Client* to) {
 	// send out a set loot type 1, this clears array on client for list of looters
 	rg->action = RaidCommandSetLootType;
 	rg->parameter = 1;
-	to->QueuePacket(outapp);
+	if (to)
+		to->QueuePacket(outapp);
+	else
+		QueuePacket(outapp);
 	safe_delete(outapp);
 
 	outapp = new EQApplicationPacket();
@@ -1241,7 +1243,7 @@ void Raid::SendRaidMembers(Client* to) {
 
 	for (int x = 0; x < MAX_RAID_MEMBERS; x++)
 	{
-		if (!members->membername.empty()) {
+		if (!members[x].membername.empty()) {
 			size += members[x].membername.length();
 			size += 9;
 
@@ -1326,7 +1328,15 @@ void Raid::SendRaidMembers(Client* to) {
 	memcpy(outapp->pBuffer, buff, size);
 	safe_delete_array(buff);
 	outapp->size = size;
-	to->QueuePacket(outapp);
+	if(to)
+	{
+		to->QueuePacket(outapp);
+		SendMakeLeaderPacketTo(leadername.c_str(), to);
+	}
+	else
+	{
+		QueuePacket(outapp);
+	}
 	safe_delete(outapp);
 }
 
@@ -1340,7 +1350,7 @@ void Raid::SendRaidAddAll(const char *who, Client *skip)
 			RaidAddMember_Struct *ram = (RaidAddMember_Struct*)outapp->pBuffer;
 			ram->raidGen.action = RaidCommandInviteIntoExisting;
 			ram->raidGen.parameter = members[x].GroupNumber;
-			strcpy(ram->raidGen.leader_name, members[x].membername.c_str());
+			strcpy(ram->raidGen.leader_name, leadername.c_str());
 			strcpy(ram->raidGen.player_name, members[x].membername.c_str());
 			ram->_class = members[x]._class;
 			ram->level = members[x].level;
@@ -1349,6 +1359,11 @@ void Raid::SendRaidAddAll(const char *who, Client *skip)
 			safe_delete(outapp);
 			return;
 		}
+	}
+
+	if (skip)
+	{
+		SendRaidMembers(skip);
 	}
 }
 
@@ -1361,13 +1376,18 @@ void Raid::SendRaidRemoveAll(const char *who, Client *skip)
 			auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 			RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 			rg->action = RaidCommandRemoveMember;
-			strn0cpy(rg->leader_name, who, 64);
+			strn0cpy(rg->leader_name, leadername.c_str(), 64);
 			strn0cpy(rg->player_name, who, 64);
 			rg->parameter = 0;
 			QueuePacket(outapp, skip);
 			safe_delete(outapp);
 			return;
 		}
+	}
+
+	if (skip)
+	{
+		SendRaidMembers(skip);
 	}
 }
 
@@ -1376,6 +1396,7 @@ void Raid::SendRaidDisband(Client *to)
 	if(!to)
 		return;
 
+	to->SetRaidGrouped(false);
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = RaidCommandRemoveMember;
@@ -1391,7 +1412,7 @@ void Raid::SendRaidDisbandAll()
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = RaidCommandRaidDisband;
-	strn0cpy(rg->leader_name, "RaidMember", 64);
+	strn0cpy(rg->leader_name, leadername.empty() ? "RaidMember" : leadername.c_str(), 64);
 	strn0cpy(rg->player_name, "RaidMember", 64);
 	rg->parameter = 0;
 	QueuePacket(outapp);
@@ -1400,18 +1421,17 @@ void Raid::SendRaidDisbandAll()
 
 void Raid::SendRaidChangeGroup(const char* name, uint32 gid)
 {
-	Client *c = entity_list.GetClientByName(name);
+	Client* c = entity_list.GetClientByName(name);
 	if (c && gid == 0xFFFFFFFF)
 		SendGroupDisband(c);
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
-	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
+	RaidGeneral_Struct* rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = raidCommandChangeRaidGroup;
-	strcpy(rg->leader_name, name);
+	strcpy(rg->leader_name, leadername.empty() ? name : leadername.c_str());
 	strcpy(rg->player_name, name);
 	rg->parameter = gid;
 	this->QueuePacket(outapp);
 	safe_delete(outapp);
-
 }
 
 void Raid::QueuePacket(const EQApplicationPacket* app, Client* skip, bool ack_req)
@@ -1432,7 +1452,7 @@ void Raid::SendMakeLeaderPacket(const char *who)
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = RaidCommandChangeRaidLeader;
-	strn0cpy(rg->leader_name, who, 64);
+	strn0cpy(rg->leader_name, leadername.c_str(), 64);
 	strn0cpy(rg->player_name, who, 64);
 	QueuePacket(outapp);
 	safe_delete(outapp);
@@ -1446,7 +1466,7 @@ void Raid::SendMakeLeaderPacketTo(const char *who, Client *to)
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = RaidCommandChangeRaidLeader;
-	strn0cpy(rg->leader_name, who, 64);
+	strn0cpy(rg->leader_name, leadername.c_str(), 64);
 	strn0cpy(rg->player_name, who, 64);
 	to->QueuePacket(outapp);
 	safe_delete(outapp);
@@ -1457,7 +1477,7 @@ void Raid::SendMakeGroupLeaderPacket(const char *who, uint32 gid) //13
 	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 	RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 	rg->action = RaidCommandChangeGroupLeader;
-	strn0cpy(rg->leader_name, who, 64);
+	strn0cpy(rg->leader_name, leadername.c_str(), 64);
 	strn0cpy(rg->player_name, who, 64);
 	rg->parameter = gid;
 	QueuePacket(outapp);
@@ -1786,7 +1806,7 @@ bool Raid::LearnMembers()
 	}
 
 	std::string query = StringFormat("SELECT name, groupid, _class, level, "
-                                    "isgroupleader, israidleader, islooter, guild_id, is_officer "
+                                    "isgroupleader, israidleader, islooter, guild_id, is_officer, charid "
                                     "FROM raid_members WHERE raidid = %lu",
                                     (unsigned long)GetID());
     auto results = database.QueryDatabase(query);
@@ -1821,6 +1841,7 @@ bool Raid::LearnMembers()
         members[index].IsLooter = atoi(row[6]);
 		members[index].guildid = atoi(row[7]);
 		members[index].IsGuildOfficer = atoi(row[8]);
+		members[index].memberid = atoi(row[9]);
         ++index;
     }
 

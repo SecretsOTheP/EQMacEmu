@@ -1085,6 +1085,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				Raid* r = entity_list.GetRaidByID(gj->rid);
 				if (r) {
 					r->GroupJoin(gj->member_name, gj->gid);
+					r->SendRaidMembers(nullptr);
 				}
 			}
 			break;
@@ -1197,7 +1198,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 					RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 					rg->action = RaidCommandRemoveMember;
-					strn0cpy(rg->leader_name, rga->playername, 64);
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					strn0cpy(rg->player_name, rga->playername, 64);
 					rg->parameter = 0;
 					r->QueuePacket(outapp, rem);
@@ -1298,7 +1299,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 					RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 					rg->action = RaidCommandRemoveMember;
-					strn0cpy(rg->leader_name, rga->playername, 64);
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					strn0cpy(rg->player_name, rga->playername, 64);
 					rg->parameter = 0;
 					r->QueuePacket(outapp);
@@ -1342,6 +1343,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					r->LearnMembers();
 					r->VerifyRaid();
 					r->SendRaidChangeGroup(rga->playername, rga->gid);
+					r->SendRaidMembers(nullptr);
 				}
 			}
 			break;
@@ -1419,11 +1421,13 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 
 					// this sends message out that the looter was added
 					rg->action = RaidCommandRaidMessage;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					rg->parameter = 5104; // 5104 %1 was added to raid loot list.
 					r->QueuePacket(outapp);
 
 					// send out a set loot type, to force an update the options window
 					rg->action = RaidCommandSetLootType;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					rg->parameter = 3;
 					r->QueuePacket(outapp);
 					safe_delete(outapp);
@@ -1455,11 +1459,13 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 
 					// this sends message out that the looter was added
 					rg->action = RaidCommandRaidMessage;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					rg->parameter = 5105; // 5105 %1 was removed from the loot list
 					r->QueuePacket(outapp);
 
 					// send out a set loot type, to force an update the options window
 					rg->action = RaidCommandSetLootType;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					rg->parameter = 3;
 					r->QueuePacket(outapp);
 					safe_delete(outapp);
@@ -1501,12 +1507,14 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 					RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
 					rg->action = RaidCommandLootTypeResponse;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					rg->parameter = rga->looter;
 
 					r->QueuePacket(outapp);
 
 					// now send out to update loot setting on other clients
 					rg->action = RaidCommandSetLootType;
+					strn0cpy(rg->leader_name, r->leadername.empty() ? rga->playername : r->leadername.c_str(), 64);
 					r->QueuePacket(outapp);
 					safe_delete(outapp);
 				}
@@ -1556,6 +1564,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 							}
 						}
 					}
+					r->SendRaidMembers(nullptr);
 					safe_delete(outapp);
 				}
 			}
@@ -1577,6 +1586,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 						r->SendGroupDisband(c);
 					}
 					r->SendGroupLeave(rga->playername, rga->gid);
+					r->SendRaidMembers(nullptr);
 				}
 			}
 			break;

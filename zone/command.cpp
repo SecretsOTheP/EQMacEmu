@@ -289,6 +289,7 @@ int command_init(void)
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
 
 		command_add("raidloot", "LEADER|GROUPLEADER|SELECTED|ALL - Sets your raid loot settings if you have permission to do so.", 1, command_raidloot) ||
+		command_add("raidmove", "[name] [groupid] - Moves name to the specified group, or -1 to remove player entirely. If the member cannot be moved, this fails.", AccountStatus::Player, command_raidmove) ||
 		command_add("randtest", "Perform a sampling of random number generation", AccountStatus::GMImpossible, command_randtest) ||
 		command_add("randomfeatures", "Temporarily randomizes the Facial Features of your target.", AccountStatus::GMCoder, command_randomfeatures) ||
 		command_add("refreshgroup", "Refreshes Group.", AccountStatus::EQSupport, command_refreshgroup) ||
@@ -995,6 +996,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/qtest.cpp"
 #include "gm_commands/quaketrigger.cpp"
 #include "gm_commands/raidloot.cpp"
+#include "gm_commands/raidmove.cpp"
 #include "gm_commands/randomfeatures.cpp"
 #include "gm_commands/randtest.cpp"
 #include "gm_commands/refreshgroup.cpp"

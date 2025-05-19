@@ -69,6 +69,7 @@ public:
 		IsGuildOfficer = false;
 		IsRaidLeader = false;
 		IsLooter = false;
+		memberid = 0;
 	}
 
 
@@ -83,24 +84,26 @@ public:
 		IsGuildOfficer = member.IsGuildOfficer;
 		IsRaidLeader = member.IsRaidLeader;
 		IsLooter = member.IsLooter;
+		memberid = member.memberid;
 	}
 
 	inline Client* GetMember()
 	{
 		if (membername.empty())
 			return nullptr;
-		return entity_list.GetClientByName(membername.c_str());
+		return entity_list.GetClientByCharID(memberid);
 	}
 
 	inline Client* GetMember() const
 	{
 		if (membername.empty())
 			return nullptr;
-		return entity_list.GetClientByName(membername.c_str());
+		return entity_list.GetClientByCharID(memberid);
 	}
 
 
 	std::string membername;
+	uint32 memberid;
 	uint32 GroupNumber;
 	uint32 guildid;
 	uint8 _class;

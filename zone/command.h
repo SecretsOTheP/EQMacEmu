@@ -174,6 +174,7 @@ void command_push(Client* c, const Seperator* sep);
 void command_qtest(Client* c, const Seperator* sep);
 void command_quaketrigger(Client* c, const Seperator* sep);
 void command_raidloot(Client* c, const Seperator* sep);
+void command_raidmove(Client* c, const Seperator* sep);
 void command_randomfeatures(Client* c, const Seperator* sep);
 void command_randtest(Client*, const Seperator* sep);
 void command_refreshgroup(Client* c, const Seperator* sep);
