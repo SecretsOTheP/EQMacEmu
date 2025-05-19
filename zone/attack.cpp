@@ -173,6 +173,8 @@ bool Mob::AvoidanceCheck(Mob* attacker, EQ::skills::SkillType skillinuse)
 
 	if (IsClient() && CastToClient()->IsSitting())
 	{
+		if (IsClient() && attacker->IsNPC())
+			CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty);
 		return true;
 	}
 
@@ -214,14 +216,14 @@ bool Mob::AvoidanceCheck(Mob* attacker, EQ::skills::SkillType skillinuse)
 		hitChance = toHit * 1.21 / (avoidance * 2.0);
 	}
 
+	if (IsClient() && attacker->IsNPC())
+		CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty);
+
 	if (zone->random.Real(0.0, 1.0) < hitChance)
 	{
 		Log(Logs::Detail, Logs::Attack, "Hit;  Hit chance was %0.1f%%", hitChance*100);
 		return true;
 	}
-
-	if (IsClient() && attacker->IsNPC())
-		CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty);
 
 	Log(Logs::Detail, Logs::Attack, "Miss;  Hit chance was %0.1f%%", hitChance * 100);
 	return false;
@@ -979,6 +981,9 @@ bool Client::Attack(Mob* other, int hand, int damagePct)
 			}
 		}
 
+		CheckIncreaseSkill(skillinuse, other, zone->skill_difficulty[skillinuse].difficulty);
+		CheckIncreaseSkill(EQ::skills::SkillOffense, other, zone->skill_difficulty[EQ::skills::SkillOffense].difficulty);
+
 		if (damage > 0)
 		{
 			//try a finishing blow.. if successful end the attack
@@ -993,9 +998,6 @@ bool Client::Attack(Mob* other, int hand, int damagePct)
 
 			other->TryShielderDamage(this, damage, skillinuse);		// warrior /shield
 			TryCriticalHit(other, skillinuse, damage, baseDamage, damageBonus);
-
-			CheckIncreaseSkill(skillinuse, other, zone->skill_difficulty[skillinuse].difficulty);
-			CheckIncreaseSkill(EQ::skills::SkillOffense, other, zone->skill_difficulty[EQ::skills::SkillOffense].difficulty);
 
 			Log(Logs::Detail, Logs::Combat, "Damage calculated to %d (str %d, skill %d, DMG %d, lv %d)",
 				damage, GetSTR(), GetSkill(skillinuse), baseDamage, mylevel);
