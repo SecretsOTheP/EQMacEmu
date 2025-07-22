@@ -24,6 +24,12 @@
 #include "../common/packet_dump.h"
 #include <string>
 #include <memory>
+#include "../common/emu_opcodes.h"
+
+// Forward declarations
+class EQApplicationPacket;
+class Client;
+struct UsertoWorldResponse;
 
 /**
  * World server class, controls the connected server processing.
@@ -114,14 +120,25 @@ public:
 	*/
 	void Handle_LSStatus(ServerLSStatus_Struct *server_login_status);
 
-\
 	/**
 	* Informs world that there is a client incoming with the following data.
 	*/
 	void SendClientAuth(std::string ip, std::string account, std::string key, unsigned int account_id, uint8 version = 0);
-
+	// Queue position queries for immediate push updates (no cache)
+	void QueryQueuePosition(uint32 ls_account_id);
+	void ProcessQueuePositionResponse(uint16_t opcode, const EQ::Net::Packet& p);
+	void ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet& p);
+	void ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packet& p);
+	void ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet& p);
+	void ProcessWorldListUpdate(uint16_t opcode, const EQ::Net::Packet& p);
+	
+	// Helper methods for queue management
+	bool IsPlayerStillConnected(uint32 account_id);
+	bool HandleCapacityQueueLogic(UsertoWorldResponse* response, Client* client); // Returns true to override -6 and allow connection
 
 private:
+	bool RuleB_Get(const std::string& rule_name, bool default_value);
+	
 	/**
 	* Packet processing functions:
 	*/
@@ -153,4 +170,13 @@ private:
 };
 
 #endif
+// Toggle this to enable/disable verbose queue debugging (0 = off, 1 = on)
+// Set to 1 and recompile to enable detailed queue operation logging
+// Useful for debugging queue position updates, client connections, and server list updates
+#define QUEUE_DEBUG_VERBOSE 1
 
+#if QUEUE_DEBUG_VERBOSE
+#define QueueDebugLog(fmt, ...) LogInfo(fmt, ##__VA_ARGS__)
+#else
+#define QueueDebugLog(fmt, ...) ((void)0)
+#endif

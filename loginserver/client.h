@@ -141,7 +141,23 @@ public:
 	*/
 	unsigned int GetMacClientVersion() const { return m_client_mac_version; }
 
-
+	/**
+	* Queue position management
+	*/
+	void SetQueuePosition(uint32 server_id, uint32 position) { 
+		m_queue_server_id = server_id; 
+		m_queue_position = position; 
+	}
+	
+	uint32 GetQueueServerID() const { return m_queue_server_id; }
+	uint32 GetQueuePosition() const { return m_queue_position; }
+	
+	void ClearQueuePosition() { 
+		m_queue_server_id = 0; 
+		m_queue_position = 0; 
+	}
+	
+	bool HasQueuePosition() const { return m_queue_server_id > 0 && m_queue_position > 0; }
 
 private:
 	Saltme                             m_salt;
@@ -157,6 +173,10 @@ private:
 	unsigned int m_play_server_id;
 	unsigned int m_play_sequence_id;
 	std::string  m_key;
+	
+	// Queue position tracking for this client
+	uint32 m_queue_server_id;
+	uint32 m_queue_position;
 };
 
 #endif

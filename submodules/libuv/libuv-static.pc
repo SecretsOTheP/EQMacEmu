@@ -1,12 +1,12 @@
-prefix=C:/Program Files (x86)/EQEmu
+prefix=/usr/local
 exec_prefix=${prefix}
-libdir=C:/Program Files (x86)/EQEmu/lib
-includedir=C:/Program Files (x86)/EQEmu/include
+libdir=/usr/local/lib
+includedir=/usr/local/include
 
 Name: libuv-static
 Version: 1.44.2
 Description: multi-platform support library with a focus on asynchronous I/O.
 URL: http://libuv.org/
 
-Libs: -L${libdir} -luv_a -lpsapi -luser32 -ladvapi32 -liphlpapi -luserenv -lws2_32
+Libs: -L${libdir} -luv_a -lpthread -ldl -lrt
 Cflags: -I${includedir}

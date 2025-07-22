@@ -82,6 +82,7 @@ private:
 	Timer	autobootup_timeout;
 	uint32	zone_waiting_for_bootup;
 	bool	enter_world_triggered;
+	bool	is_graceful_disconnect;  // Track if this was a graceful logout vs network issue
 
 	EQ::versions::ClientVersion m_ClientVersion;
 	uint32 m_ClientVersionBit;

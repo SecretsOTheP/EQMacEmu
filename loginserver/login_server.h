@@ -38,7 +38,8 @@ public:
 	Options options;
 	ServerManager *server_manager;
 	ClientManager *client_manager;
-
+	// TODO: Revist auto-connect logic 
+	// void ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet& p);
 };
 
 #endif

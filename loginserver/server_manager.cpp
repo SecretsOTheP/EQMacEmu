@@ -22,10 +22,19 @@
 
 #include "../common/eqemu_logsys.h"
 #include "../common/ip_util.h"
+#include <fmt/format.h>
+#include <arpa/inet.h>
+#include <vector>
+#include <tuple>
+#include <map>
+#include "../common/queue_packets.h"
 
 extern EQEmuLogSys LogSys;
 extern LoginServer server;
 extern bool run_server;
+
+// Global cache for server effective population by server ID
+extern std::map<uint32, uint32> g_server_populations;
 
 ServerManager::ServerManager()
 {
@@ -191,6 +200,13 @@ EQApplicationPacket* ServerManager::CreateServerListPacket(Client* c)
 		slsf->flags = 0x1;
 		slsf->worldid = (*iter)->GetServerId();
 		slsf->usercount = (*iter)->GetStatus();
+		// Check if client has a queue position for this server - show queue position
+		if (c->HasQueuePosition() && c->GetQueueServerID() == (*iter)->GetServerId()) {
+			slsf->usercount = c->GetQueuePosition();
+		}  else if (g_server_populations.find((*iter) ->GetServerId()) != g_server_populations.end()) /* INF Only uses it if it's initated so won't impact TAKP */{
+			slsf->usercount = g_server_populations[(*iter)->GetServerId()];
+		}
+		
 		data_ptr += sizeof(ServerListServerFlags_Struct);
 		++iter;
 	}
@@ -199,7 +215,7 @@ EQApplicationPacket* ServerManager::CreateServerListPacket(Client* c)
 	return outapp;
 }
 
-void ServerManager::SendUserToWorldRequest(const char* server_id, unsigned int client_account_id, uint32 ip)
+void ServerManager::SendUserToWorldRequest(const char* server_id, unsigned int client_account_id, uint32 ip, bool is_auto_connect, const std::string& client_key)
 {
 	auto iter = m_world_servers.begin();
 	bool found = false;
@@ -214,6 +230,16 @@ void ServerManager::SendUserToWorldRequest(const char* server_id, unsigned int c
 
 			utwr->lsaccountid = client_account_id;
 			utwr->ip = ip;
+			
+			// Encode auto-connect status in FromID field
+			// 0 = manual PLAY request, 1 = auto-connect request  
+			utwr->FromID = is_auto_connect ? 1 : 0;
+			utwr->ToID = 0; // Not used
+			
+			// Store client key in forum_name field (repurposing for queue system)
+			strncpy(utwr->forum_name, client_key.c_str(), sizeof(utwr->forum_name) - 1);
+			utwr->forum_name[sizeof(utwr->forum_name) - 1] = '\0';
+			
 			(*iter)->GetConnection()->Send(ServerOP_UsertoWorldReq, outapp);
 			found = true;
 
@@ -265,5 +291,37 @@ void ServerManager::DestroyServerByName(std::string l_name, std::string s_name, 
 		}
 
 		++iter;
+	}
+}
+
+void ServerManager::RemovePlayerFromAllQueues(uint32 ls_account_id)
+{
+	if (ls_account_id == 0) {
+		return;
+	}
+	
+	// Create removal packet once - reuse for all world servers
+	auto removal_pack = new ServerPacket(ServerOP_RemoveFromQueue, sizeof(ServerQueueRemoval_Struct));
+	ServerQueueRemoval_Struct* removal = (ServerQueueRemoval_Struct*)removal_pack->pBuffer;
+	removal->ls_account_id = ls_account_id;
+	
+	uint32 packets_sent = 0;
+	
+	// Send removal packet to all connected world servers
+	auto iter = m_world_servers.begin();
+	while (iter != m_world_servers.end()) {
+		if ((*iter)->GetConnection()) {
+			// Send to this world server
+			(*iter)->GetConnection()->SendPacket(removal_pack);
+			packets_sent++;
+		}
+		++iter;
+	}
+	
+	// Clean up packet after sending to all servers
+	delete removal_pack;
+	
+	if (packets_sent > 0) {
+		LogInfo("Sent queue removal for disconnected client [{}] to [{}] world servers", ls_account_id, packets_sent);
 	}
 }

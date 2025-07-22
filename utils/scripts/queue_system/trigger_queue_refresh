@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Simple queue maintenance trigger via database flag
+# Sets RefreshQueue=1 in database, PeriodicMaintenance() will detect and refresh
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+# Path to eqemu_config.json (modify if your config lives elsewhere)
+CONFIG_PATH="$HOME/quick-quarm/bin/eqemu_config.json"
+
+# Attempt to read DB credentials from config using jq; fallback to defaults
+if command -v jq >/dev/null 2>&1 && [[ -f "$CONFIG_PATH" ]]; then
+    DB_HOST=$(jq -r '.database.host' "$CONFIG_PATH")
+    DB_USER=$(jq -r '.database.username' "$CONFIG_PATH")
+    DB_PASS=$(jq -r '.database.password' "$CONFIG_PATH")
+    DB_NAME=$(jq -r '.database.db' "$CONFIG_PATH")
+else
+    # Fallback / manual override
+    DB_HOST="localhost"
+    DB_USER="quarm"
+    DB_PASS="quarm"
+    DB_NAME="quarm"
+fi
+
+echo -e "${BLUE}Triggering queue maintenance via database flag...${NC}"
+
+# Trigger queue refresh by setting database flag
+mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT INTO tblloginserversettings (type, value, category, description) 
+VALUES ('RefreshQueue', '1', 'options', 'Trigger queue refresh - auto-reset by system') 
+ON DUPLICATE KEY UPDATE value = '1';
+" 2>/dev/null
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}[INFO]${NC} Queue refresh triggered - live system will sync within seconds"
+else
+    echo -e "${YELLOW}[WARN]${NC} Failed to trigger queue refresh"
+    exit 1
+fi 

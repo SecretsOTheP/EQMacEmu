@@ -90,6 +90,7 @@
 #include "../common/events/player_event_logs.h"
 #include "../common/skill_caps.h"
 #include "../common/ip_util.h"
+#include "queue_manager.h"
 
 SkillCaps           skill_caps;
 ZoneStore           zone_store;
@@ -117,6 +118,7 @@ bool bSkipFactoryAuth = false;
 WorldContentService content_service;
 PathManager         path;
 PlayerEventLogs     player_event_logs;
+QueueManager        queue_manager;  // Global queue manager for world server
 
 void CatchSignal(int sig_num);
 
@@ -129,6 +131,7 @@ inline void UpdateWindowTitle(std::string new_title)
 
 Timer NextQuakeTimer(900000);
 Timer DisableQuakeTimer(900000);
+Timer QueueAdvancementTimer(3000);  // 3 seconds - queue progression timer
 
 void TriggerManualQuake(QuakeType in_quake_type)
 {
@@ -227,6 +230,9 @@ int main(int argc, char** argv) {
 	if (!WorldBoot::DatabaseLoadRoutines(argc, argv)) {
 		return 1;
 	}
+	
+	// Initialize queue manager after database is ready
+	queue_manager.Initialize_AccountRezMgr();
 
 	memset(&next_quake, 0, sizeof(ServerEarthquakeImminent_Struct));
 	NextQuakeTimer.Disable();
@@ -258,6 +264,8 @@ int main(int argc, char** argv) {
 
 	Timer EQTimeTimer(600000);
 	EQTimeTimer.Start(600000);
+	
+	QueueAdvancementTimer.Start();  // Use default 30000ms from constructor
 	
 	// global loads
 	LogInfo("Loading launcher list..");
@@ -526,6 +534,10 @@ int main(int argc, char** argv) {
 					tod.minute
 				);
 			}
+		}
+		// INFO: QueueAdvancementTimer
+		if (QueueAdvancementTimer.Check()) {
+			queue_manager.ProcessAdvancementTimer();
 		}
 
 		if (RuleB(Quarm, EnableQuakes))

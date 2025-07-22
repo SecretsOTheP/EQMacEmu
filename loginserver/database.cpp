@@ -47,7 +47,7 @@ Database::Database(std::string user, std::string pass, std::string host, std::st
 		exit(1);
 	}
 	else {
-		Log(Logs::General, Logs::Status, "Using database '%s' at %s:%d", m_database, host, port);
+		Log(Logs::General, Logs::Status, "Using database '%s' at %s:%d", m_database, host.c_str(), atoi(port.c_str()));
 	}
 }
 

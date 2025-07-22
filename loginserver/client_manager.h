@@ -62,6 +62,12 @@ public:
 	* Gets a client (if exists) by their account id.
 	*/
 	Client *GetClient(unsigned int account_id);
+	
+	/**
+	* Gets a client by their unique key (for multi-client authorization matching).
+	*/
+	Client *GetClientByKey(const std::string& key);
+	
 private:
 
 	/**
