@@ -9,8 +9,10 @@
 #include "../common/servertalk.h"
 #include "../common/event/timer.h"
 #include "../common/net/console_server_connection.h"
+#include "world_queue.h"  // For server population management
 #include <vector>
 #include <string>
+#include <mutex>
 
 class Client;
 class ZoneServer;
@@ -74,9 +76,10 @@ public:
 	bool	ActiveConnection(uint32 iAccID);
 	bool	ActiveConnection(uint32 iAccID, uint32 iCharID);
 	bool    IsAccountInGame(uint32 iLSID);
+	std::string GetClientKeyByLSID(uint32 iLSID);  // Get client key for queue authorization matching
 
-
-	int GetClientCount();
+	int GetClientCount(); // Fallback population counter for startup
+	
 	void GetClients(const char *zone_name, std::vector<ClientListEntry *> &into);
 	bool WhoAllFilter(ClientListEntry* client, Who_All_Struct* whom, int16 admin, int whomlen);
 

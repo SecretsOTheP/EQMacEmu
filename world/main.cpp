@@ -65,6 +65,7 @@
 
 #include <sys/sem.h>
 #include <thread>
+#include <sys/stat.h>  // For mkdir
 
 #endif
 
@@ -90,6 +91,7 @@
 #include "../common/events/player_event_logs.h"
 #include "../common/skill_caps.h"
 #include "../common/ip_util.h"
+#include "world_queue.h"
 
 SkillCaps           skill_caps;
 ZoneStore           zone_store;
@@ -117,6 +119,8 @@ bool bSkipFactoryAuth = false;
 WorldContentService content_service;
 PathManager         path;
 PlayerEventLogs     player_event_logs;
+QueueManager        queue_manager;
+bool                database_ready = false; 
 
 void CatchSignal(int sig_num);
 
@@ -129,6 +133,7 @@ inline void UpdateWindowTitle(std::string new_title)
 
 Timer NextQuakeTimer(900000);
 Timer DisableQuakeTimer(900000);
+Timer QueueManagerTimer(3000);
 
 void TriggerManualQuake(QuakeType in_quake_type)
 {
@@ -227,6 +232,8 @@ int main(int argc, char** argv) {
 	if (!WorldBoot::DatabaseLoadRoutines(argc, argv)) {
 		return 1;
 	}
+	
+	database_ready = true;
 
 	memset(&next_quake, 0, sizeof(ServerEarthquakeImminent_Struct));
 	NextQuakeTimer.Disable();
@@ -258,6 +265,8 @@ int main(int argc, char** argv) {
 
 	Timer EQTimeTimer(600000);
 	EQTimeTimer.Start(600000);
+	
+	QueueManagerTimer.Start();  // Use default 30000ms from constructor
 	
 	// global loads
 	LogInfo("Loading launcher list..");
@@ -527,6 +536,9 @@ int main(int argc, char** argv) {
 				);
 			}
 		}
+		if (QueueManagerTimer.Check()) {
+			queue_manager.ProcessAdvancementTimer();
+		}
 
 		if (RuleB(Quarm, EnableQuakes))
 		{
@@ -619,7 +631,7 @@ int main(int argc, char** argv) {
 			std::string window_title = fmt::format(
 				"World [{}] Clients [{}]",
 				Config->LongName,
-				client_list.GetClientCount()
+				GetWorldPop()
 			);
 			UpdateWindowTitle(window_title);
 

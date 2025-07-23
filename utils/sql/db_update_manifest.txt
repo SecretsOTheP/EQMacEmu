@@ -316,6 +316,7 @@
 9070|2015_01_28_quest_debug_log_category.sql|SELECT * FROM `logsys_categories` WHERE `log_category_description` LIKE 'Quest Debug'|empty|
 9074|2015_02_01_logsys_packet_logs.sql|SELECT * FROM `logsys_categories` WHERE `log_category_description` LIKE 'Packet: Server -> Client'|empty|
 9075|2015_02_02_logsys_packet_logs_with_dump.sql|SELECT * FROM `logsys_categories` WHERE `log_category_description` LIKE 'Packet: Server -> Client With Dump'|empty|
+9076|2025_07_16_login_queue_system.sql|SHOW TABLES LIKE 'tblLoginQueue'|empty|
 
 # Upgrade conditions:
 # 	This won't be needed after this system is implemented, but it is used database that are not 

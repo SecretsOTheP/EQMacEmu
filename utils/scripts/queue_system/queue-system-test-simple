@@ -1,0 +1,236 @@
+#!/bin/bash
+
+# Path to eqemu_config.json (modify if your config lives elsewhere)
+CONFIG_PATH="$HOME/quick-quarm/bin/eqemu_config.json"
+
+# Attempt to read DB credentials from config using jq; fallback to defaults
+if command -v jq >/dev/null 2>&1 && [[ -f "$CONFIG_PATH" ]]; then
+    DB_HOST=$(jq -r '.database.host' "$CONFIG_PATH")
+    DB_USER=$(jq -r '.database.username' "$CONFIG_PATH")
+    DB_PASS=$(jq -r '.database.password' "$CONFIG_PATH")
+    DB_NAME=$(jq -r '.database.db' "$CONFIG_PATH")
+else
+    # Fallback / manual override
+    DB_HOST="localhost"
+    DB_USER="quarm"
+    DB_PASS="quarm"
+    DB_NAME="quarm"
+fi
+
+# Check command line arguments
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <command> [value]"
+    echo ""
+    echo "Commands:"
+    echo "  status              - Show current server status and population (both tables)"
+    echo "  simulate <number>   - Set test population offset (0 to disable)"
+    echo "  capacity <number>   - Set server capacity limit (Quarm:PlayerPopulationCap)"
+    echo "  enable              - Enable queue system"
+    echo "  disable             - Disable queue system"
+    echo "  gmbypass <on|off>   - Enable/disable GM bypass of queue (default: on)"
+    echo "  iptracker           - Show detailed IP reservation list with grace periods"
+    echo "  ipcount             - Show active IP connection count only"
+    echo "  cleartestdata       - Clear IP reservation test data"
+    echo ""
+    echo "Database Schema:"
+    echo "  server_population    - Total count (updated every 15s for real-time)"
+    echo "  active_ip_connections - Detailed reservations (synced every 5min for crash recovery)"
+    echo ""
+    exit 1
+fi
+
+COMMAND=$1
+VALUE=$2
+
+case $COMMAND in
+    "status")
+        echo "=== Server Status ==="
+        
+        # Get IP reservations (real population)
+        IP_RESERVATIONS=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COUNT(*) FROM active_ip_connections;
+        " 2>/dev/null)
+        
+        # Get population from database (this is the effective population sent to login server)
+        EFFECTIVE_POPULATION=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(effective_population, 0) FROM server_population WHERE server_id = 1;
+        " 2>/dev/null)
+        
+        if [ -z "$EFFECTIVE_POPULATION" ]; then
+            echo "❌ server_population table not found or empty!"
+            echo "   Run: mysql -u quarm -pquarm quarm < source/EQMacEmu/utils/sql/git/required/2025_07_16_login_queue_system.sql"
+            EFFECTIVE_POPULATION="0"
+        fi
+        
+        echo "🔗 Real IP Reservations: $IP_RESERVATIONS"
+        
+        # Get test offset
+        TEST_OFFSET=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(rule_value, '0') FROM rule_values 
+            WHERE rule_name = 'Quarm:TestPopulationOffset';
+        " 2>/dev/null)
+        
+        if [ "$TEST_OFFSET" != "0" ] && [ -n "$TEST_OFFSET" ]; then
+            echo "🧪 Test Population Offset: +$TEST_OFFSET"
+            echo "📈 Effective Population: $EFFECTIVE_POPULATION (includes $IP_RESERVATIONS real + $TEST_OFFSET test)"
+        else
+            echo "📈 Effective Population: $EFFECTIVE_POPULATION (same as real IP reservations)"
+        fi
+        
+        # Get capacity
+        CAPACITY=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(rule_value, 'Not Set') FROM rule_values 
+            WHERE rule_name = 'Quarm:PlayerPopulationCap';
+        " 2>/dev/null)
+        echo "🎯 Server Capacity: $CAPACITY"
+        
+        # Get legacy max players (main.cpp queue was removed)
+        LEGACY_MAX=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(rule_value, 'Not Set') FROM rule_values 
+            WHERE rule_name = 'Quarm:MaxPlayersOnline';
+        " 2>/dev/null)
+        echo "🏛️  Legacy Max Online: $LEGACY_MAX (main.cpp queue removed)"
+        
+        # Get queue status
+        QUEUE_ENABLED=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(rule_value, 'false') FROM rule_values 
+            WHERE rule_name = 'Quarm:EnableQueue';
+        " 2>/dev/null)
+        echo "🚥 Queue System: $QUEUE_ENABLED"
+        
+        # Get GM bypass status
+        GM_BYPASS=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COALESCE(rule_value, 'true') FROM rule_values 
+            WHERE rule_name = 'Quarm:QueueBypassGMLevel';
+        " 2>/dev/null)
+        echo "👑 GM Queue Bypass: $GM_BYPASS"
+        
+        ;;
+        
+    "iptracker")
+        echo "=== IP Tracker Status ==="
+        
+        # Show active IP connections with details
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            SELECT 
+                INET_NTOA(ip_address) as 'IP Address',
+                account_id as 'Account ID',
+                last_seen as 'Last Seen',
+                grace_period as 'Grace Period (s)',
+                CASE WHEN is_in_raid = 1 THEN 'Yes' ELSE 'No' END as 'In Raid'
+            FROM active_ip_connections 
+            ORDER BY last_seen DESC;
+        " 2>/dev/null
+        
+        IP_COUNT=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COUNT(*) FROM active_ip_connections;
+        " 2>/dev/null)
+        
+        echo ""
+        echo "Total Active IP Connections: $IP_COUNT"
+        ;;
+        
+    "ipcount")
+        IP_COUNT=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT COUNT(*) FROM active_ip_connections;
+        " 2>/dev/null)
+        echo "Active IP Connections: $IP_COUNT"
+        ;;
+        
+    "cleartestdata")
+        echo "🧹 Clearing test IP data..."
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            DELETE FROM active_ip_connections;
+        " 2>/dev/null
+        echo "✅ Test IP data cleared"
+        ;;
+
+    "simulate")
+        if [ -z "$VALUE" ]; then
+            echo "Error: simulate command requires a number"
+            exit 1
+        fi
+        
+        echo "Setting test population offset to: $VALUE"
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+            VALUES (1, 'Quarm:TestPopulationOffset', '$VALUE')
+            ON DUPLICATE KEY UPDATE rule_value = '$VALUE';
+        " 2>/dev/null
+        
+        if [ "$VALUE" -eq 0 ]; then
+            echo "✅ Population simulation disabled"
+        else
+            echo "✅ Population simulation enabled: +$VALUE players"
+        fi
+        ;;
+        
+    "capacity")
+        if [ -z "$VALUE" ]; then
+            echo "Error: capacity command requires a number"
+            exit 1
+        fi
+        
+        echo "Setting server capacity to: $VALUE"
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+            VALUES (1, 'Quarm:PlayerPopulationCap', '$VALUE')
+            ON DUPLICATE KEY UPDATE rule_value = '$VALUE';
+        " 2>/dev/null
+        echo "✅ Server capacity set to $VALUE"
+        ;;
+        
+    "enable")
+        echo "Enabling queue system..."
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+            VALUES (1, 'Quarm:EnableQueue', 'true')
+            ON DUPLICATE KEY UPDATE rule_value = 'true';
+        " 2>/dev/null
+        echo "✅ Queue system enabled"
+        ;;
+        
+    "disable")
+        echo "Disabling queue system..."
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+            VALUES (1, 'Quarm:EnableQueue', 'false')
+            ON DUPLICATE KEY UPDATE rule_value = 'false';
+        " 2>/dev/null
+        echo "✅ Queue system disabled"
+        ;;
+        
+    "gmbypass")
+        if [ -z "$VALUE" ]; then
+            echo "Error: gmbypass command requires 'on' or 'off'"
+            exit 1
+        fi
+        
+        if [ "$VALUE" = "on" ]; then
+            echo "Enabling GM bypass..."
+            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+                INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+                VALUES (1, 'Quarm:QueueBypassGMLevel', 'true')
+                ON DUPLICATE KEY UPDATE rule_value = 'true';
+            " 2>/dev/null
+            echo "✅ GM bypass enabled"
+        elif [ "$VALUE" = "off" ]; then
+            echo "Disabling GM bypass..."
+            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+                INSERT INTO rule_values (ruleset_id, rule_name, rule_value) 
+                VALUES (1, 'Quarm:QueueBypassGMLevel', 'false')
+                ON DUPLICATE KEY UPDATE rule_value = 'false';
+            " 2>/dev/null
+            echo "✅ GM bypass disabled"
+        else
+            echo "Error: gmbypass requires 'on' or 'off'"
+            exit 1
+        fi
+        ;;
+        
+    *)
+        echo "Error: Unknown command '$COMMAND'"
+        echo "Run '$0' without arguments for usage help"
+        exit 1
+        ;;
+esac 

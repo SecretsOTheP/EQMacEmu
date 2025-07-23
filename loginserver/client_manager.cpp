@@ -110,7 +110,16 @@ void ClientManager::ProcessDisconnect()
 		std::shared_ptr<EQStreamInterface> c = (*iter)->GetConnection();
 		if (c->CheckState(CLOSED)) {
 			c->ReleaseFromUse();
+			// Get client account ID before deletion for queue removal
+			uint32 account_id = (*iter)->GetAccountID();
+			
 			LogInfo("Client disconnected from the server, removing client.");
+			
+			// Remove from queue on all world servers if account ID is valid
+			if ((*iter)->HasQueuePosition() && (*iter)->GetAccountID() > 0 && server.server_manager) {
+				server.server_manager->RemovePlayerFromAllQueues((*iter)->GetAccountID());
+			}
+			
 			delete (*iter);
 			iter = clients.erase(iter);
 		}
@@ -163,3 +172,12 @@ Client *ClientManager::GetClient(unsigned int account_id)
 	return cur;
 }
 
+Client *ClientManager::GetClientByKey(const std::string& key)
+{
+	for (Client* client : clients) {
+		if (client && client->GetKey() == key) {
+			return client;
+		}
+	}
+	return nullptr;
+}

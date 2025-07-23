@@ -22,6 +22,7 @@
 #include "zonelist.h"
 #include "client.h"
 #include "worlddb.h"
+#include "login_server.h"
 #include "../common/strings.h"
 #include "../common/guilds.h"
 #include "../common/races.h"
@@ -36,11 +37,11 @@
 #include "../common/zone_store.h"
 #include <set>
 #include <cstring>  // For strlen and strncat
+#include "world_queue.h"  // For queue_manager global
 
 extern WebInterfaceList web_interface;
 
 extern ZSList			zoneserver_list;
-uint32 numplayers = 0;	//this really wants to be a member variable of ClientList...
 
 ClientList::ClientList()
 : CLStale_timer(RuleI(World, WorldClientLinkdeadMS))
@@ -64,7 +65,6 @@ void ClientList::Process() {
 	while(iterator.MoreElements()) {
 		if (!iterator.GetData()->Process()) {
 
-			bool should_remove_playercount = iterator.GetData()->GetAdmin() == 0;
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
 			LogInfo("Removing client from [{}]:[{}]", inet_ntoa(in), iterator.GetData()->GetPort());
@@ -73,8 +73,6 @@ void ClientList::Process() {
 
 			if (!ActiveConnection(accountid))
 			{
-				if(should_remove_playercount)
-					numplayers--;
 				database.ClearAccountActive(accountid);
 			}
 		}
@@ -277,6 +275,11 @@ void ClientList::DisconnectByIP(uint32 iIP) {
 				zoneserver_list.SendPacket(pack);
 				safe_delete(pack);
 			}
+			// TODO: Add kick-to-queue functionality
+			uint32 account_id = countCLEIPs->AccountID();
+			queue_manager.m_account_rez_mgr.RemoveRez(account_id);
+			LogInfo("Removed account reservation for IP-limited account [{}] - no grace period bypass", account_id);
+			
 			countCLEIPs->SetOnline(CLE_Status::Offline);
 			iterator.RemoveCurrent();
 			continue;
@@ -496,7 +499,7 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 		iterator.Advance();
 		x++;
 	}
-	fmt::format_to(std::back_inserter(out), "{}{} CLEs in memory. {} CLEs listed. numplayers = {}.", newline, x, y, numplayers);
+	fmt::format_to(std::back_inserter(out), "{}{} CLEs in memory. {} CLEs listed. server_population = {}.", newline, x, y, GetWorldPop());
 	out.push_back(0);
 	connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::NPCQuestSay, out.data());
 }
@@ -518,19 +521,7 @@ ClientListEntry* ClientList::RemoveCLEByAccountID(uint32 accountID) {
 
 
 void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version) {
-	
-
-	bool wasAccountActive = CheckAccountActive(iLSID);
-	
-	if (!wasAccountActive && numplayers >= RuleI(Quarm, PlayerPopulationCap))
-	{
-		return;
-	}
-
 	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginName, iLoginKey, iWorldAdmin, ip, local, version, 0);
-	if(!wasAccountActive && tmp->Admin() == 0)
-		numplayers++;
-
 	clientlist.Append(tmp);
 }
 
@@ -541,8 +532,6 @@ void ClientList::CLCheckStale() {
 	while(iterator.MoreElements()) {
 		if (iterator.GetData()->CheckStale()) {
 
-			bool should_remove_playercount = iterator.GetData()->Admin() == 0;
-
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
 			LogInfo("Removing stale client on account [{}] from [{}]", iterator.GetData()->AccountID(), inet_ntoa(in));
@@ -550,9 +539,6 @@ void ClientList::CLCheckStale() {
 			iterator.RemoveCurrent();
 			if (!ActiveConnection(accountid))
 			{
-				if(should_remove_playercount)
-					numplayers--;
-
 				database.ClearAccountActive(accountid);
 			}
 		}
@@ -1499,9 +1485,20 @@ bool ClientList::IsAccountInGame(uint32 iLSID) {
 
 	return false;
 }
-
+// Current only used as a fallback for for QueueManager::EffectivePopulation. Proper usage is to use GetWorldPop() 
 int ClientList::GetClientCount() {
-	return(numplayers);
+	int count = 0;
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+	
+	iterator.Reset();
+	while(iterator.MoreElements()) {
+		if (iterator.GetData()->Online() >= CLE_Status::Zoning) {
+			count++;
+		}
+		iterator.Advance();
+	}
+	
+	return count;
 }
 
 void ClientList::GetClients(const char *zone_name, std::vector<ClientListEntry *> &res) {
@@ -1842,5 +1839,20 @@ void ClientList::OnTick(EQ::Timer* t)
 		Iterator.Advance();
 	}
 	web_interface.SendEvent(out);
+}
+
+std::string ClientList::GetClientKeyByLSID(uint32 iLSID) {
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+	iterator.Reset();
+
+	while (iterator.MoreElements()) {
+		ClientListEntry* entry = iterator.GetData();
+		if (entry && entry->LSID() == iLSID) {
+			return entry->GetLSKey();
+		}
+		iterator.Advance();
+	}
+
+	return "";  // Return empty string if not found
 }
 

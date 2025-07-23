@@ -28,7 +28,6 @@
 #include "../common/guilds.h"
 #include "../common/strings.h"
 
-extern uint32 numplayers;
 extern LoginServerList loginserverlist;
 extern ZSList zoneserver_list;
 extern ClientList		client_list;

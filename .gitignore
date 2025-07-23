@@ -32,7 +32,7 @@ log/
 logs/
 vcpkg/
 perl/
-
+compile_commands.json
 .idea/*
 *cbp
 
@@ -59,3 +59,7 @@ bin/
 /utils/TaskMaster/.vs/
 /utils/TaskMaster/Debug/
 submodules/libuv/RelWithDebInfo/uv.exp
+.cache/
+.vscode/
+loginserver/queue_manager.cpp
+loginserver/queue_manager.h

@@ -36,6 +36,8 @@ Client::Client(std::shared_ptr<EQStreamInterface> c, LSClientVersion v)
 	m_sent_session_info = false;
 	m_play_server_id = 0;
 	m_play_sequence_id = 0;
+	m_queue_server_id = 0;
+	m_queue_position = 0;
 }
 
 bool Client::Process()
@@ -358,7 +360,7 @@ void Client::Handle_Play(const char* data)
 	}
 
 	if (data) {
-		server.server_manager->SendUserToWorldRequest(data, m_account_id, m_connection->GetRemoteIP());
+		server.server_manager->SendUserToWorldRequest(data, m_account_id, m_connection->GetRemoteIP(), false, m_key);
 	}
 }
 

@@ -27,7 +27,9 @@
 #include "../common/net/servertalk_client_connection.h"
 #include "../common/net/servertalk_legacy_client_connection.h"
 #include "../common/event/timer.h"
+// #include "account_reservation_manager.h"  // Moved to QueueManager
 #include <memory>
+#include <map>
 
 class LoginServer {
 public:
@@ -57,7 +59,7 @@ public:
 		return false;
 	}
 	bool CanUpdate() { return m_can_account_update; }
-
+	
 private:
 	void ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSClientAuth(uint16_t opcode, EQ::Net::Packet& p);
@@ -65,6 +67,14 @@ private:
 	void ProcessSystemwideMessage(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSRemoteAddr(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSAccountUpdate(uint16_t opcode, EQ::Net::Packet& p);
+	void ProcessQueuePositionQuery(uint16_t opcode, EQ::Net::Packet& p);
+	void ProcessQueueBatchRemoval(uint16_t opcode, EQ::Net::Packet& p);
+	void ProcessQueueRemoval(uint16_t opcode, EQ::Net::Packet& p);
+	
+	/**
+	 * Smart wait time calculation based on queue dynamics and server capacity
+	 */
+	uint32 CalculateSmartWaitTime(uint32 queue_position, uint32 current_population, uint32 max_capacity) const;
 
 	std::unique_ptr<EQ::Net::ServertalkClient>       m_client;
 	std::unique_ptr<EQ::Net::ServertalkLegacyClient> m_legacy_client;
@@ -75,6 +85,22 @@ private:
 	std::string	                                     m_login_account;
 	std::string                                      m_login_password;
 	bool	                                         m_can_account_update;
-	bool	                                         m_is_legacy;
+	uint8	                                         m_is_legacy;
+	
+	// Centralized account-based reservation tracking // Removed
+	// AccountRezMgr m_account_rez_mgr; // Removed
+	
+	// Queue authorization tracking
+	struct QueueAuthorization {
+		uint32 account_id;
+		uint32 timestamp;
+		uint32 timeout_seconds;
+		QueueAuthorization(uint32 id, uint32 ts, uint32 timeout) 
+			: account_id(id), timestamp(ts), timeout_seconds(timeout) {}
+		bool IsExpired() const {
+			return (time(nullptr) - timestamp) > timeout_seconds;
+		}
+	};
+	std::vector<QueueAuthorization> m_authorized_accounts;
 };
 #endif
