@@ -118,7 +118,7 @@ bool bSkipFactoryAuth = false;
 WorldContentService content_service;
 PathManager         path;
 PlayerEventLogs     player_event_logs;
-QueueManager        queue_manager;  // Global queue manager for world server
+QueueManager*       queue_manager = nullptr;  // Global queue manager pointer - initialized after WorldConfig
 
 void CatchSignal(int sig_num);
 
@@ -131,7 +131,7 @@ inline void UpdateWindowTitle(std::string new_title)
 
 Timer NextQuakeTimer(900000);
 Timer DisableQuakeTimer(900000);
-Timer QueueAdvancementTimer(3000);  // 3 seconds - queue progression timer
+Timer QueueManagerTimer(3000);
 
 void TriggerManualQuake(QuakeType in_quake_type)
 {
@@ -232,7 +232,8 @@ int main(int argc, char** argv) {
 	}
 	
 	// Initialize queue manager after database is ready
-	queue_manager.Initialize_AccountRezMgr();
+	queue_manager = new QueueManager();
+	queue_manager->Initialize_AccountRezMgr();
 
 	memset(&next_quake, 0, sizeof(ServerEarthquakeImminent_Struct));
 	NextQuakeTimer.Disable();
@@ -265,7 +266,7 @@ int main(int argc, char** argv) {
 	Timer EQTimeTimer(600000);
 	EQTimeTimer.Start(600000);
 	
-	QueueAdvancementTimer.Start();  // Use default 30000ms from constructor
+	QueueManagerTimer.Start();  // Use default 30000ms from constructor
 	
 	// global loads
 	LogInfo("Loading launcher list..");
@@ -535,9 +536,8 @@ int main(int argc, char** argv) {
 				);
 			}
 		}
-		// INFO: QueueAdvancementTimer
-		if (QueueAdvancementTimer.Check()) {
-			queue_manager.ProcessAdvancementTimer();
+		if (QueueManagerTimer.Check()) {
+			queue_manager->ProcessAdvancementTimer();
 		}
 
 		if (RuleB(Quarm, EnableQuakes))
@@ -631,7 +631,7 @@ int main(int argc, char** argv) {
 			std::string window_title = fmt::format(
 				"World [{}] Clients [{}]",
 				Config->LongName,
-				client_list.GetClientCount()
+				queue_manager->GetEffectivePopulation()
 			);
 			UpdateWindowTitle(window_title);
 

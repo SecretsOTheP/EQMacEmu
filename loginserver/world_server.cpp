@@ -183,19 +183,10 @@ void WorldServer::ProcessUsertoWorldResp(uint16_t opcode, const EQ::Net::Packet&
 		EQApplicationPacket* outapp = new EQApplicationPacket(OP_PlayEverquestRequest, 17);
 		strncpy((char*)&outapp->pBuffer[1], c->GetKey().c_str(), c->GetKey().size());
 
-		// FIXED: Don't send PlayResponse for auto-connect requests
-		// Auto-connect clients aren't ready for immediate connection - they're still on server select
-		// FromID = 0 (manual PLAY) vs FromID = 1 (auto-connect)
-		bool is_auto_connect_request = (user_to_world_response->ToID == 1);
-		
-		if (is_auto_connect_request) {
-			LogInfo("AUTO-CONNECT: Skipping PlayResponse for auto-connect - client will connect naturally");
-			// Authentication already sent via SendClientAuth above
-			// Client will connect when they're ready, not forced immediately
-		} else {
-			LogInfo("MANUAL PLAY: Sending PlayResponse for manual play request");
+		// Send PlayResponse for all successful connections (auto-connect and manual)
+		// Auto-connect should work exactly like manual PLAY when world server approves
+		LogInfo("Sending PlayResponse for approved connection (account: {})", c->GetAccountName());
 			c->SendPlayResponse(outapp);
-		}
 		delete outapp;
 	}
 	else if (c) {
@@ -272,19 +263,10 @@ void WorldServer::ProcessUsertoWorldResp(uint16_t opcode, const EQ::Net::Packet&
 		LogInfo("Sending play response with following data, allowed {} , sequence {} , server number {} , message {} ",
 			per->Allowed, per->Sequence, per->ServerNumber, per->Message);
 
-		// FIXED: Don't send PlayResponse for auto-connect requests (newer clients)
-		// Auto-connect clients aren't ready for immediate connection - they're still on server select
-		// FromID = 0 (manual PLAY) vs FromID = 1 (auto-connect)
-		bool is_auto_connect_request = (user_to_world_response->ToID == 1);
-		
-		if (is_auto_connect_request) {
-			LogInfo("AUTO-CONNECT: Skipping PlayResponse for auto-connect (newer client) - client will connect naturally");
-			// Authentication already sent via SendClientAuth above
-			// Client will connect when they're ready, not forced immediately
-		} else {
-			LogInfo("MANUAL PLAY: Sending PlayResponse for manual play request (newer client)");
+		// Send PlayResponse for all successful connections (auto-connect and manual)
+		// Auto-connect should work exactly like manual PLAY when world server approves
+		LogInfo("Sending PlayResponse for approved connection (newer client, account: {})", c->GetAccountName());
 			c->SendPlayResponse(outapp);
-		}
 		delete outapp;
 	}
 	else {

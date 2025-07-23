@@ -78,13 +78,12 @@ public:
 	bool    IsAccountInGame(uint32 iLSID);
 	std::string GetClientKeyByLSID(uint32 iLSID);  // Get client key for queue authorization matching
 
-
-	int GetClientCount();
+	int GetClientCount(); // Fallback population counter for startup
 	
 	// Server population wrapper - abstracts population counting from implementation
 	static uint32 GetServerPopulation() { 
-		extern QueueManager queue_manager; 
-		return queue_manager.GetEffectivePopulation(); 
+		extern QueueManager* queue_manager; 
+		return queue_manager->GetEffectivePopulation(); 
 	}
 	
 	void GetClients(const char *zone_name, std::vector<ClientListEntry *> &into);

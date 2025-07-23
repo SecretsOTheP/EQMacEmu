@@ -41,7 +41,7 @@
 extern WebInterfaceList web_interface;
 
 extern ZSList			zoneserver_list;
-extern QueueManager		queue_manager;
+extern QueueManager*	queue_manager;
 
 ClientList::ClientList()
 : CLStale_timer(RuleI(World, WorldClientLinkdeadMS))
@@ -69,10 +69,7 @@ void ClientList::Process() {
 			in.s_addr = iterator.GetData()->GetIP();
 			LogInfo("Removing client from [{}]:[{}]", inet_ntoa(in), iterator.GetData()->GetPort());
 			uint32 accountid = iterator.GetData()->GetAccountID();
-			uint32 client_ip = iterator.GetData()->GetIP();
 			iterator.RemoveCurrent();
-
-			// Population tracking now handled by queue manager automatically
 
 			if (!ActiveConnection(accountid))
 			{
@@ -519,25 +516,7 @@ ClientListEntry* ClientList::RemoveCLEByAccountID(uint32 accountID) {
 
 
 void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version) {
-	
-	// Check if account is authorized to bypass population cap (auto-connect, grace period, etc.)
-	uint32 world_account_id = database.GetAccountIDFromLSID(iLSID);
-	bool is_authorized_to_bypass = queue_manager.IsAccountInGraceWhitelist(world_account_id);
-	
-	// Only check population cap if not authorized to bypass
-	if (!is_authorized_to_bypass && ClientList::GetServerPopulation() >= RuleI(Quarm, PlayerPopulationCap))
-	{
-		LogInfo("Player population cap reached, not adding client [{}] (no bypass authorization)", iLoginName);
-		return;
-	}
-	
-	if (is_authorized_to_bypass) {
-		LogInfo("Client [{}] authorized to bypass population cap (auto-connect/grace period)", iLoginName);
-	}
-
 	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginName, iLoginKey, iWorldAdmin, ip, local, version, 0);
-	// Population tracking now handled by queue manager automatically
-	
 	clientlist.Append(tmp);
 }
 
@@ -556,7 +535,6 @@ void ClientList::CLCheckStale() {
 			if (!ActiveConnection(accountid))
 			{
 				database.ClearAccountActive(accountid);
-				// Population tracking now handled by queue manager automatically
 			}
 		}
 		else
@@ -1502,9 +1480,20 @@ bool ClientList::IsAccountInGame(uint32 iLSID) {
 
 	return false;
 }
-
+// Current only used as a fallback for for QueueManager::GetEffectivePopulation. Proper usage is to use QueueManager::GetServerPopulation 
 int ClientList::GetClientCount() {
-	return GetServerPopulation();
+	int count = 0;
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+	
+	iterator.Reset();
+	while(iterator.MoreElements()) {
+		if (iterator.GetData()->Online() >= CLE_Status::Zoning) {
+			count++;
+		}
+		iterator.Advance();
+	}
+	
+	return count;
 }
 
 void ClientList::GetClients(const char *zone_name, std::vector<ClientListEntry *> &res) {

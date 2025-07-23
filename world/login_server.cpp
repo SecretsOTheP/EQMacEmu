@@ -62,7 +62,7 @@ extern uint32        numzones;
 extern volatile bool RunLoops;
 extern std::mutex ipMutex;
 extern std::unordered_set<uint32> ipWhitelist;
-extern QueueManager queue_manager;  // Global queue manager
+extern QueueManager* queue_manager;  // Global queue manager
 
 // Global pointer for other files to access the primary LoginServer instance
 LoginServer* loginserver = nullptr;
@@ -161,7 +161,6 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 	}
 
 	// Check if queue bypass is enabled for certain accounts
-	bool has_authorization = false;
 	bool auto_connect = false;
 	
 	// Correct auto-connect detection: FromID = 1 means auto-connect, FromID = 0 means manual PLAY
@@ -172,34 +171,23 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 		QueueDebugLog("Manual PLAY request from LS account [{}]", utwr->lsaccountid);
 	}
 	
-	// Check for queue authorization tokens - ACTUAL authorization check
-	if (!has_authorization && RuleB(Quarm, EnableQueue)) {
-		if (auto_connect) {
-			// For auto-connect, we don't need authorization tokens since we're creating 
-			// ClientListEntry directly in the queue system
-			has_authorization = true;
-			LogInfo("Auto-connect request for LS account [{}] - using direct ClientListEntry creation", utwr->lsaccountid);
-		}
-	}
-	
 	// Get queue capacity from rules
+	uint32 effective_population = queue_manager->GetEffectivePopulation();
 	uint32 queue_cap = RuleI(Quarm, PlayerPopulationCap);
 	
 	// Check if queue system is disabled via rules
 	if (!RuleB(Quarm, EnableQueue)) {
-		LogInfo("Queue system disabled via rules - allowing all connections");
-		// Queue system disabled, allow all connections regardless of capacity
-		// utwrs->response already set to 1 above
+		LogInfo("Queue system disabled via rules.");
+		if (effective_population >= queue_cap){
+			LogInfo("SERVER AT CAPACITY - but queue disabled - rejecting connection (pop: {}/{})", effective_population, queue_cap);
+			utwrs->response = -3; // Population too high
+		}
 	}
 	else {
-		// CENTRALIZED QUEUE DECISION: Use EvaluateConnectionRequest for ALL queue logic
-		uint32 effective_population = queue_manager.GetEffectivePopulation();
-		
-		QueueDebugLog("Capacity check: {} >= {} (authorization: {})", 
-			effective_population, queue_cap, has_authorization ? "yes" : "no");
+		QueueDebugLog("Capacity check: {} >= {}", effective_population, queue_cap);
 		
 		// At capacity check - use centralized decision logic
-		if (effective_population >= queue_cap && !has_authorization) {
+		if (effective_population >= queue_cap) {
 			LogInfo("SERVER AT CAPACITY - using centralized queue decision logic");
 			
 			// Build connection request for centralized evaluation
@@ -215,7 +203,7 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 			request.world_account_id = id;
 			
 			// CENTRALIZED DECISION: Let queue manager handle ALL queue logic
-			bool should_override_capacity = queue_manager.EvaluateConnectionRequest(request, queue_cap, utwrs, nullptr);
+			bool should_override_capacity = queue_manager->EvaluateConnectionRequest(request, queue_cap, utwrs, nullptr);
 			
 			if (should_override_capacity) {
 				LogInfo("Queue manager APPROVED bypass for account [{}] - allowing connection", id);
@@ -224,8 +212,6 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 				LogInfo("Queue manager decision for account [{}] - response code [{}]", id, utwrs->response);
 				// Queue manager already set the appropriate response code (-6 for queue, -7 for toggle)
 			}
-		} else if (has_authorization) {
-			LogInfo("Account [{}] used queue authorization to bypass capacity check", id);
 		} else {
 			LogInfo("Server NOT at capacity - allowing connection (pop: {}/{})", effective_population, queue_cap);
 		}
@@ -338,7 +324,7 @@ void LoginServer::ProcessQueuePositionQuery(uint16_t opcode, EQ::Net::Packet& p)
 	ServerQueuePositionQuery_Struct* query = (ServerQueuePositionQuery_Struct*)p.Data();
 	
 	// Get queue position from queue manager
-	uint32 position = queue_manager.GetQueuePosition(query->loginserver_account_id);
+	uint32 position = queue_manager->GetQueuePosition(query->loginserver_account_id);
 	
 	// Send response back to login server
 	auto response_pack = new ServerPacket(ServerOP_QueuePositionResponse, sizeof(ServerQueuePositionResponse_Struct));
@@ -393,7 +379,7 @@ void LoginServer::ProcessQueueBatchRemoval(uint16_t opcode, EQ::Net::Packet& p) 
 	LogInfo("Received batch removal request from login server for [{}] disconnected clients", account_count);
 	
 	// Use queue manager's batch removal function
-	queue_manager.RemoveFromQueue(account_ids);
+	queue_manager->RemoveFromQueue(account_ids);
 	
 	LogInfo("Completed batch removal for [{}] disconnected clients", account_count);
 }
@@ -416,7 +402,7 @@ void LoginServer::ProcessQueueRemoval(uint16_t opcode, EQ::Net::Packet& p) {
 	LogInfo("Received single removal request from login server for disconnected client [{}]", removal->ls_account_id);
 	
 	// Use queue manager's single removal function
-	queue_manager.RemoveFromQueue(removal->ls_account_id);
+	queue_manager->RemoveFromQueue(removal->ls_account_id);
 	
 	LogInfo("Completed single removal for disconnected client [{}]", removal->ls_account_id);
 }
@@ -615,8 +601,8 @@ void LoginServer::SendStatus() {
 	uint32 population = ClientList::GetServerPopulation();  // Use clean abstraction
 	
 	// Use cached population if valid, otherwise stick with wrapper
-	if (queue_manager.g_effective_population != UINT32_MAX) {
-		population = queue_manager.g_effective_population;
+	if (queue_manager->g_effective_population != UINT32_MAX) {
+		population = queue_manager->g_effective_population;
 	}
 	
 	if (WorldConfig::get()->Locked)

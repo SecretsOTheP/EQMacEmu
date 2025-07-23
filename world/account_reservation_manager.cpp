@@ -111,7 +111,7 @@ void AccountRezMgr::CleanupStaleConnections() {
 			
 			if (pair.second.last_seen == 0 || time_since_creation < CONNECTION_GRACE_SECONDS) {
 				// New reservation or very recent - don't start grace period yet, just wait
-				LogInfo("AccountRezMgr: Account [{}] is new reservation, waiting for connection (age: {}s)", 
+				LogInfo("AccountRezMgr: Account [{}] not connceted to World, waiting for connection (age: {}s)", 
 					account_id, time_since_creation);
 				continue; // Skip grace period logic for new reservations
 			}

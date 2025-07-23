@@ -11,10 +11,10 @@
 #include <memory> // Added for std::unique_ptr
 
 // Forward declarations
-class WorldServer;
-class Database;
+struct QueuedClient;  // Defined in queue_manager.cpp
+class WorldDatabase;  // From worlddb.h
+class AccountRezMgr;
 class Client;
-struct QueueManagerEntry;
 struct UsertoWorldResponse;
 
 namespace EQ {
@@ -85,7 +85,6 @@ public:
 	 */
 	void SetPaused(bool paused) { m_queue_paused = paused; }
 	bool IsPaused() const { return m_queue_paused; }
-	void UpdateLastSeen(uint32 account_id); // Update last seen timestamp for active players
 	
 	/**
 	 * Persistence operations
@@ -116,7 +115,7 @@ public:
 	/**
 	 * Auto-connect functionality
 	 */
-	void AutoConnectQueuedPlayer(const QueueManagerEntry& entry);
+	void AutoConnectQueuedPlayer(const QueuedClient& qclient);
 	
 	/**
 	 * Targeted broadcast system - send updates only to queued clients
@@ -137,7 +136,7 @@ public:
 	
 private:
 	// Queue data
-	std::vector<QueueManagerEntry> m_queued_players;  // Ordered queue - position = index + 1
+	std::vector<QueuedClient> m_queued_clients;  // Ordered queue - position = index + 1
 	std::map<uint32, uint32> m_last_seen;             // account_id -> timestamp of last login server connection
 	bool m_queue_paused;                              // Queue updates paused
 	// std::string m_freeze_reason;
