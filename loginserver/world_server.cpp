@@ -50,7 +50,6 @@ WorldServer::WorldServer(std::shared_ptr<EQ::Net::ServertalkServerConnection> c)
 	c->OnMessage(ServerOP_LSStatus, std::bind(&WorldServer::ProcessLSStatus, this, std::placeholders::_1, std::placeholders::_2));
 	c->OnMessage(ServerOP_UsertoWorldResp, std::bind(&WorldServer::ProcessUsertoWorldResp, this, std::placeholders::_1, std::placeholders::_2));
 	c->OnMessage(ServerOP_LSAccountUpdate, std::bind(&WorldServer::ProcessLSAccountUpdate, this, std::placeholders::_1, std::placeholders::_2));
-	c->OnMessage(ServerOP_QueuePositionResponse, std::bind(&WorldServer::ProcessQueuePositionResponse, this, std::placeholders::_1, std::placeholders::_2));
 	c->OnMessage(ServerOP_QueueAutoConnect, std::bind(&WorldServer::ProcessQueueAutoConnect, this, std::placeholders::_1, std::placeholders::_2));
 	c->OnMessage(ServerOP_QueueDirectUpdate, std::bind(&WorldServer::ProcessQueueDirectUpdate, this, std::placeholders::_1, std::placeholders::_2));
 	c->OnMessage(ServerOP_QueueBatchUpdate, std::bind(&WorldServer::ProcessQueueBatchUpdate, this, std::placeholders::_1, std::placeholders::_2));
@@ -164,7 +163,7 @@ void WorldServer::ProcessUsertoWorldResp(uint16_t opcode, const EQ::Net::Packet&
 			break;
 		}
 		case -6: { // Queue response - player should be queued
-		
+			// TODO Dialog box for queue response?
 			LogInfo("QUEUE RESPONSE: Player [{}] should be queued by world server", user_to_world_response->lsaccountid);
 			// World server handles queue addition - login server just acknowledges
 			// Client will see updated queue position via ServerOP_QueueDirectUpdate packets
@@ -580,7 +579,7 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 
 	ServerQueueAutoConnect_Struct* sqac = (ServerQueueAutoConnect_Struct*)p.Data();
 	
-	LogInfo("Processing auto-connect for LS account [{}] from world server [{}]", 
+	QueueDebugLog(1, "Processing auto-connect for LS account [{}] from world server [{}]", 
 		sqac->loginserver_account_id, GetServerLongName());
 	
 	// Find the specific client connection that was authorized using the client key to avoid connecting the wrong client in the event that the client has multiple connections to the login server.
@@ -589,7 +588,7 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 		if (strlen(sqac->client_key) > 0) {
 			// Use the specific client key to find the exact authorized connection
 			target_client = server.client_manager->GetClientByKey(sqac->client_key);
-			LogInfo("AUTO-CONNECT: Using client key [{}] to find authorized connection", sqac->client_key);
+			QueueDebugLog(1, "AUTO-CONNECT: Using client key [{}] to find authorized connection", sqac->client_key);
 		} 
 		else { 
 			// No client key provided - this should not happen with proper queue system
@@ -601,6 +600,12 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 	if (!target_client) {
 		LogInfo("Auto-connect failed: Client with key [{}] for LS account [{}] no longer connected to login server", 
 			sqac->client_key, sqac->loginserver_account_id);
+		return;
+	}
+	
+	// Check if client is still connected to login server
+	if (target_client->GetConnection()->CheckState(CLOSED)) {
+		LogInfo("Auto-connect failed: Client connection is closed for LS account [{}]", sqac->loginserver_account_id);
 		return;
 	}
 	
@@ -617,12 +622,12 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 	uint16_t port = target_client->GetConnection()->GetRemotePort();
 	char client_ip_buf[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &in, client_ip_buf, INET_ADDRSTRLEN);
-	LogInfo("AUTO-CONNECT: Successfully targeting specific authorized client connection {}:{} for account [{}]", 
+	QueueDebugLog(1, "AUTO-CONNECT: Successfully targeting specific authorized client connection {}:{} for account [{}]", 
 		client_ip_buf, ntohs(port), sqac->loginserver_account_id);
 	
 	// Use ServerManager to automatically send player to world server
 	if (server.server_manager) {
-		LogInfo("AUTO-CONNECT: Sending player [{}] (Client IP: {}) to world server [{}] automatically", 
+		QueueDebugLog(1, "AUTO-CONNECT: Sending player [{}] (Client IP: {}) to world server [{}] automatically", 
 			sqac->loginserver_account_id, sqac->ip_addr_str, GetServerLongName());
 	
 		std::string world_server_ip = GetRemoteIP();
@@ -634,53 +639,16 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 			sqac->client_key             // client_key
 		);
 		
-		LogInfo("Auto-connect request sent successfully for account [{}] to world server [{}]", 
+		QueueDebugLog(1, "Auto-connect request sent successfully for account [{}] to world server [{}]", 
 			sqac->loginserver_account_id, world_server_ip);
 	} else {
 		LogError("Auto-connect failed: ServerManager not available");
 	}
 }
-// Queue position query methods for immediate push updates (no cache)
-void WorldServer::QueryQueuePosition(uint32 ls_account_id)
-{
-	// Send async query to world server for immediate push response
-	auto query_pack = new ServerPacket(ServerOP_QueuePositionQuery, sizeof(ServerQueuePositionQuery_Struct));
-	ServerQueuePositionQuery_Struct* query = (ServerQueuePositionQuery_Struct*)query_pack->pBuffer;
-	query->loginserver_account_id = ls_account_id;
-	
-	m_connection->SendPacket(query_pack);
-	delete query_pack;
-	
-	LogDebug("Sent queue position query for immediate push to account [{}]", ls_account_id);
-}
-
-void WorldServer::ProcessQueuePositionResponse(uint16_t opcode, const EQ::Net::Packet& p)
-{
-	if (p.Length() < sizeof(ServerQueuePositionResponse_Struct)) {
-		LogError("Received ServerOP_QueuePositionResponse packet that was too small");
-		return;
-	}
-
-	ServerQueuePositionResponse_Struct* response = (ServerQueuePositionResponse_Struct*)p.Data();
-	
-	// IMMEDIATE TARGETED PUSH: Send updated server list directly to the requesting client
-	if (server.client_manager) {
-		auto* client = server.client_manager->GetClient(response->loginserver_account_id);
-		if (client) {
-			// Send targeted server list update showing queue position
-			client->SendServerListPacket();
-			LogDebug("Sent immediate server list push to account [{}] showing queue position [{}]", 
-				response->loginserver_account_id, response->queue_position);
-		} else {
-			LogDebug("Client [{}] no longer connected when queue position response received", 
-				response->loginserver_account_id);
-		}
-	}
-}
 
 void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packet& p)
 {
-	QueueDebugLog("ProcessQueueDirectUpdate called with opcode 0x{:X}, packet size {}", opcode, p.Length());
+	QueueDebugLog(1, "ProcessQueueDirectUpdate called with opcode 0x{:X}, packet size {}", opcode, p.Length());
 	
 	if (p.Length() < sizeof(ServerQueueDirectUpdate_Struct)) {
 		LogError("Received ServerOP_QueueDirectUpdate packet that was too small");
@@ -688,11 +656,11 @@ void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packe
 	}
 	if (server.client_manager) {
 		server.client_manager->UpdateServerList();
-		QueueDebugLog("Sent server list updates to all connected clients");
+		QueueDebugLog(1, "Sent server list updates to all connected clients");
 	}
 	ServerQueueDirectUpdate_Struct* direct_update = (ServerQueueDirectUpdate_Struct*)p.Data();
 	
-	QueueDebugLog("Received queue direct update for LS account [{}] position [{}] wait [{}]s", 
+	QueueDebugLog(1, "Received queue direct update for LS account [{}] position [{}] wait [{}]s", 
 		direct_update->ls_account_id, direct_update->queue_position, direct_update->estimated_wait);
 	
 	// Find target client by account ID
@@ -715,14 +683,14 @@ void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packe
 				direct_update->ls_account_id, direct_update->queue_position);
 		}
 		
-		QueueDebugLog("Updated client account [{}] with queue position [{}]", 
+		QueueDebugLog(1, "Updated client account [{}] with queue position [{}]", 
 			direct_update->ls_account_id, direct_update->queue_position);
 		
 		// EFFICIENT: Send targeted update only to this specific client
 		target_client->SendServerListPacket();
-		QueueDebugLog("Sent targeted server list update to client [{}]", direct_update->ls_account_id);
+		QueueDebugLog(1, "Sent targeted server list update to client [{}]", direct_update->ls_account_id);
 	} else {
-		QueueDebugLog("Client account [{}] not found - likely disconnected", 
+		QueueDebugLog(1, "Client account [{}] not found - likely disconnected", 
 			direct_update->ls_account_id);
 	}
 	
@@ -731,7 +699,7 @@ void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packe
 
 void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet& p)
 {
-	QueueDebugLog("ProcessQueueBatchUpdate called with opcode 0x{:X}, packet size {}", opcode, p.Length());
+	QueueDebugLog(1, "ProcessQueueBatchUpdate called with opcode 0x{:X}, packet size {}", opcode, p.Length());
 	
 	if (p.Length() < sizeof(ServerQueueBatchUpdate_Struct)) {
 		LogError("Received ServerOP_QueueBatchUpdate packet that was too small");
@@ -750,11 +718,11 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 	}
 	
 	if (update_count == 0) {
-		QueueDebugLog("Received empty batch update");
+		QueueDebugLog(1, "Received empty batch update");
 		return;
 	}
 	
-	QueueDebugLog("Processing batch queue update with [{}] player updates", update_count);
+	QueueDebugLog(1, "Processing batch queue update with [{}] player updates", update_count);
 	
 	// Get update array after header
 	ServerQueueDirectUpdate_Struct* updates = (ServerQueueDirectUpdate_Struct*)((char*)p.Data() + sizeof(ServerQueueBatchUpdate_Struct));
@@ -766,7 +734,7 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 	for (uint32 i = 0; i < update_count; ++i) {
 		ServerQueueDirectUpdate_Struct* update = &updates[i];
 		
-		QueueDebugLog("Processing batch update [{}]: LS account [{}] position [{}] wait [{}]s", 
+		QueueDebugLog(1, "Processing batch update [{}]: LS account [{}] position [{}] wait [{}]s", 
 			i + 1, update->ls_account_id, update->queue_position, update->estimated_wait);
 		
 		// Find target client
@@ -780,11 +748,11 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 			if (update->queue_position == 0) {
 				// Clear queue position from client
 				target_client->ClearQueuePosition();
-				QueueDebugLog("Batch update [{}]: Player [{}] removed from queue", i + 1, update->ls_account_id);
+				QueueDebugLog(1, "Batch update [{}]: Player [{}] removed from queue", i + 1, update->ls_account_id);
 			} else {
 				// Store queue position in client object
 				target_client->SetQueuePosition(GetServerId(), update->queue_position);
-				QueueDebugLog("Batch update [{}]: Player [{}] queue position updated to [{}]", 
+				QueueDebugLog(1, "Batch update [{}]: Player [{}] queue position updated to [{}]", 
 					i + 1, update->ls_account_id, update->queue_position);
 			}
 			
@@ -792,7 +760,7 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 			target_client->SendServerListPacket();
 			processed_updates++;
 		} else {
-			QueueDebugLog("Batch update [{}]: Client account [{}] not found - likely disconnected", 
+			QueueDebugLog(1, "Batch update [{}]: Client account [{}] not found - likely disconnected", 
 				i + 1, update->ls_account_id);
 			failed_updates++;
 		}
@@ -805,7 +773,7 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 
 void WorldServer::ProcessWorldListUpdate(uint16_t opcode, const EQ::Net::Packet& p) 
 {
-	QueueDebugLog("ProcessWorldListUpdate called - opcode: 0x{:X}, packet size: {}", opcode, p.Length());
+	QueueDebugLog(1, "ProcessWorldListUpdate called - opcode: 0x{:X}, packet size: {}", opcode, p.Length());
 	
 	// Check if packet contains population data
 	if (p.Length() >= sizeof(uint32)) {
@@ -816,7 +784,7 @@ void WorldServer::ProcessWorldListUpdate(uint16_t opcode, const EQ::Net::Packet&
 		// Update the global cache immediately with the new population
 		g_server_populations[GetServerId()] = new_population;
 	} else {
-		QueueDebugLog("Received ServerOP_WorldListUpdate from world server [{}] (legacy format) - pushing server list updates to all clients", 
+		QueueDebugLog(1, "Received ServerOP_WorldListUpdate from world server [{}] (legacy format) - pushing server list updates to all clients", 
 			GetServerLongName());
 	}
 	
@@ -825,6 +793,6 @@ void WorldServer::ProcessWorldListUpdate(uint16_t opcode, const EQ::Net::Packet&
 		server.client_manager->UpdateServerList();
 		LogInfo("Pushed server list updates to all connected login clients");
 	} else {
-		QueueDebugLog("server.client_manager is null - cannot push updates");
+		QueueDebugLog(1, "server.client_manager is null - cannot push updates");
 	}
 }

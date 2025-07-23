@@ -65,6 +65,7 @@
 
 #include <sys/sem.h>
 #include <thread>
+#include <sys/stat.h>  // For mkdir
 
 #endif
 
@@ -90,7 +91,7 @@
 #include "../common/events/player_event_logs.h"
 #include "../common/skill_caps.h"
 #include "../common/ip_util.h"
-#include "queue_manager.h"
+#include "world_queue.h"
 
 SkillCaps           skill_caps;
 ZoneStore           zone_store;
@@ -118,7 +119,8 @@ bool bSkipFactoryAuth = false;
 WorldContentService content_service;
 PathManager         path;
 PlayerEventLogs     player_event_logs;
-QueueManager*       queue_manager = nullptr;  // Global queue manager pointer - initialized after WorldConfig
+QueueManager        queue_manager;
+bool                database_ready = false; 
 
 void CatchSignal(int sig_num);
 
@@ -231,9 +233,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	
-	// Initialize queue manager after database is ready
-	queue_manager = new QueueManager();
-	queue_manager->Initialize_AccountRezMgr();
+	database_ready = true;
 
 	memset(&next_quake, 0, sizeof(ServerEarthquakeImminent_Struct));
 	NextQuakeTimer.Disable();
@@ -537,7 +537,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		if (QueueManagerTimer.Check()) {
-			queue_manager->ProcessAdvancementTimer();
+			queue_manager.ProcessAdvancementTimer();
 		}
 
 		if (RuleB(Quarm, EnableQuakes))
@@ -631,7 +631,7 @@ int main(int argc, char** argv) {
 			std::string window_title = fmt::format(
 				"World [{}] Clients [{}]",
 				Config->LongName,
-				queue_manager->GetEffectivePopulation()
+				GetWorldPop()
 			);
 			UpdateWindowTitle(window_title);
 

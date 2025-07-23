@@ -14,7 +14,6 @@ SET(world_sources
 	login_server_list.cpp
 	main.cpp
 	queryserv.cpp
-	queue_manager.cpp
 	ucs.cpp
 	web_interface.cpp
 	web_interface_eqw.cpp
@@ -22,6 +21,7 @@ SET(world_sources
 	world_event_scheduler.cpp
 	world_config.cpp
 	world_console_connection.cpp
+	world_queue.cpp
 	world_server_cli.cpp
 	worlddb.cpp
 	world_boot.cpp
@@ -43,7 +43,7 @@ SET(world_headers
 	login_server_list.h
 	main.h
 	queryserv.h
-	queue_manager.h
+	world_queue.h
 	ucs.h
 	web_interface.h
 	web_interface_eqw.h

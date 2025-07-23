@@ -31,7 +31,7 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "wguild_mgr.h"
-#include "queue_manager.h"  // Add for QueueManager
+#include "world_queue.h"  // Add for QueueManager
 
 #include "../common/char_create_data.h"
 #include "../common/repositories/player_event_logs_repository.h"
@@ -76,7 +76,6 @@ extern uint32 numclients;
 extern volatile bool RunLoops;
 extern volatile bool UCSServerAvailable_;
 extern uint32 numzones;
-extern QueueManager* queue_manager;  // Global queue manager
 extern LoginServer* loginserver;
 Client::Client(EQStreamInterface* ieqs)
 :	autobootup_timeout(RuleI(World, ZoneAutobootTimeoutMS)),
@@ -309,11 +308,10 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 			
 			// Register this account as active for queue population tracking
 			// Skip if account already has a reservation (auto-connecting people get theirs earlier)
-			if (loginserver 
-			&& queue_manager->m_account_rez_mgr && !queue_manager->IsAccountInGraceWhitelist(cle->AccountID())) {
-				queue_manager->m_account_rez_mgr->AddRez(cle->AccountID(), GetIP(), 6);
+			if (loginserver && !queue_manager.m_account_rez_mgr.IsAccountInGraceWhitelist(cle->AccountID())) {
+				queue_manager.m_account_rez_mgr.AddRez(cle->AccountID(), GetIP(), 6);
 				LogInfo("Added account reservation for account [{}] (normal connection)", cle->AccountID());
-			} else if (queue_manager->IsAccountInGraceWhitelist(cle->AccountID())) {
+			} else if (queue_manager.m_account_rez_mgr.IsAccountInGraceWhitelist(cle->AccountID())) {
 				LogInfo("Account [{}] already has reservation (auto-connect/grace period)", cle->AccountID());
 			}
 		}

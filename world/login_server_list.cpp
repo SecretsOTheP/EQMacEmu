@@ -38,7 +38,6 @@
 
 extern ZSList			zoneserver_list;
 extern ClientList		client_list;
-extern QueueManager* queue_manager;
 
 LoginServerList::LoginServerList() {
 }

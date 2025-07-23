@@ -442,8 +442,8 @@ show_queue_status() {
     fi
     
     echo
-    echo "Position | Account     | ETA       | Timestamp"
-    echo "---------|-------------|-----------|-------------------"
+    echo "Position | Account     | Acc ID | ETA       | Timestamp"
+    echo "---------|-------------|--------|-----------|-------------------"
     
     mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -se "
         SELECT 
@@ -555,8 +555,6 @@ live_queue_monitor() {
         
         # Show population stats with both metrics
         echo -e "${GREEN}Server Status:${NC}"
-        echo "  Traditional Client Count: $client_count (active connections)"
-        echo "  Account Reservations: $detailed_account_count (crash recovery data)"
         echo "  Server Capacity: $max_players"
         echo "  Queue System: $queue_status"
         echo "  Queue Status: $queue_active"
@@ -572,8 +570,7 @@ live_queue_monitor() {
                 'Quarm.PlayerPopulationCap', 
                 'Quarm.TestPopulationOffset',
                 'Quarm.QueueBypassGMLevel',
-                'Quarm.QueueEstimatedWaitPerPlayer',
-                'Quarm.EnableQueueLogging'
+                'Quarm.QueueEstimatedWaitPerPlayer'
             );" 2>/dev/null)
         
         # Also check for colon-based naming convention
@@ -584,8 +581,7 @@ live_queue_monitor() {
                 'Quarm:PlayerPopulationCap', 
                 'Quarm:TestPopulationOffset',
                 'Quarm:QueueBypassGMLevel',
-                'Quarm:QueueEstimatedWaitPerPlayer',
-                'Quarm:EnableQueueLogging'
+                'Quarm:QueueEstimatedWaitPerPlayer'
             );" 2>/dev/null)
         
         if [ "$rule_count" -gt 0 ]; then
@@ -598,7 +594,6 @@ live_queue_monitor() {
                             WHEN rule_name = 'Quarm.TestPopulationOffset' THEN 'Test Offset: '
                             WHEN rule_name = 'Quarm.QueueBypassGMLevel' THEN 'GM Bypass: '
                             WHEN rule_name = 'Quarm.QueueEstimatedWaitPerPlayer' THEN 'Wait Per Player: '
-                            WHEN rule_name = 'Quarm.EnableQueueLogging' THEN 'Debug Logging: '
                             ELSE CONCAT(SUBSTRING(rule_name, 7), ': ')
                         END,
                         rule_value,
@@ -613,16 +608,14 @@ live_queue_monitor() {
                     'Quarm.PlayerPopulationCap', 
                     'Quarm.TestPopulationOffset',
                     'Quarm.QueueBypassGMLevel',
-                    'Quarm.QueueEstimatedWaitPerPlayer',
-                    'Quarm.EnableQueueLogging'
+                    'Quarm.QueueEstimatedWaitPerPlayer'
                 )
                 ORDER BY FIELD(rule_name, 
                     'Quarm.EnableQueue',
                     'Quarm.PlayerPopulationCap', 
                     'Quarm.TestPopulationOffset',
                     'Quarm.QueueBypassGMLevel',
-                    'Quarm.QueueEstimatedWaitPerPlayer',
-                    'Quarm.EnableQueueLogging'
+                    'Quarm.QueueEstimatedWaitPerPlayer'
                 );
             " 2>/dev/null
         elif [ "$rule_count_colon" -gt 0 ]; then
@@ -635,7 +628,6 @@ live_queue_monitor() {
                             WHEN rule_name = 'Quarm:TestPopulationOffset' THEN 'Test Offset: '
                             WHEN rule_name = 'Quarm:QueueBypassGMLevel' THEN 'GM Bypass: '
                             WHEN rule_name = 'Quarm:QueueEstimatedWaitPerPlayer' THEN 'Wait Per Player: '
-                            WHEN rule_name = 'Quarm:EnableQueueLogging' THEN 'Debug Logging: '
                             ELSE CONCAT(SUBSTRING(rule_name, 7), ': ')
                         END,
                         rule_value,
@@ -650,43 +642,34 @@ live_queue_monitor() {
                     'Quarm:PlayerPopulationCap', 
                     'Quarm:TestPopulationOffset',
                     'Quarm:QueueBypassGMLevel',
-                    'Quarm:QueueEstimatedWaitPerPlayer',
-                    'Quarm:EnableQueueLogging'
+                    'Quarm:QueueEstimatedWaitPerPlayer'
                 )
                 ORDER BY FIELD(rule_name, 
                     'Quarm:EnableQueue',
                     'Quarm:PlayerPopulationCap', 
                     'Quarm:TestPopulationOffset',
                     'Quarm:QueueBypassGMLevel',
-                    'Quarm:QueueEstimatedWaitPerPlayer',
-                    'Quarm:EnableQueueLogging'
+                    'Quarm:QueueEstimatedWaitPerPlayer'
                 );
             " 2>/dev/null
         else
             echo "  Queue rules not found in database"
         fi
         
-        # Calculate and show average wait time if queue has entries
-        local avg_wait=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT ROUND(AVG(estimated_wait)) FROM tblLoginQueue;" 2>/dev/null)
-        if [ -n "$avg_wait" ] && [ "$avg_wait" != "NULL" ] && [ "$avg_wait" -gt 0 ]; then
-            echo "  Average Wait Time: ${avg_wait} seconds"
-        else
-            echo "  Average Wait Time: 0 seconds (queue empty)"
-        fi
+        # Show average wait time as N/A
+        echo "  Average Wait Time: N/A"
         
-        # Display real population again for easier reading
+        # Display test offset for easier reading
         echo
-        echo -e "${GREEN}Population Summary:${NC}"
-        echo "  Client Count: $client_count | Test Offset: +$test_offset"
+        echo -e "${GREEN}Test Offset:${NC}"
+        echo "  +$test_offset"
         
         # Show commands at the top so they don't get scrolled away
         echo
         echo -e "${PURPLE}Commands:${NC}"
-        echo -e "${PURPLE}  [${WHITE}1${PURPLE}] Force login          [${WHITE}2${PURPLE}] Boot from queue      [${WHITE}3${PURPLE}] Move up queue${NC}"
-        echo -e "${PURPLE}  [${WHITE}4${PURPLE}] Move down queue      [${WHITE}5${PURPLE}] Send dialog msg      [${WHITE}6${PURPLE}] Delete queue${NC}"
-        echo -e "${PURPLE}  [${WHITE}8${PURPLE}] Toggle queue mode    [${WHITE}p${PURPLE}] Set population       [${WHITE}q${PURPLE}] Quit${NC}"
-        echo -e "${PURPLE}  [${WHITE}s${PURPLE}] Lower pop (-1)       [${WHITE}w${PURPLE}] Increase pop (+1)    [${WHITE}r${PURPLE}] Raw queue: ${WHITE}${show_raw_queue:-off}${NC}"
-        echo -e "${PURPLE}  [${WHITE}x${PURPLE}] Rescan server        [${WHITE} ${PURPLE}]                       [${WHITE} ${PURPLE}]${NC}"
+        echo -e "${PURPLE}  [${WHITE}6${PURPLE}] Delete queue         [${WHITE}8${PURPLE}] Toggle queue mode    [${WHITE}p${PURPLE}] Set population${NC}"
+        echo -e "${PURPLE}  [${WHITE}s${PURPLE}] Lower pop (-1)       [${WHITE}w${PURPLE}] Increase pop (+1)    [${WHITE}q${PURPLE}] Quit${NC}"
+        echo -e "${PURPLE}  [${WHITE}x${PURPLE}] Rescan server${NC}"
 if [ "$queue_mode" = "1" ]; then
     echo -e "${PURPLE}  Queue mode: ${ORANGE}**(1) Dynamic - Rotate RAID, NORM, GRP, NEWB**${PURPLE} | (2) Chrono - Time based${NC}"
 else
@@ -736,8 +719,8 @@ fi
             
             echo "Debug: Total queue entries: ${total_entries:-0} | For display server: ${current_entries:-0}"
             
-            echo "Position | Account     | Acc ID | ETA       | Connected | Flag | Last Online         | In Queue | Server | IP Address"
-            echo "---------|-------------|--------|-----------|-----------|------|---------------------|----------|--------|---------------"
+            echo "Position | Account     | Acc ID | ETA       | Flag | Last Online         | In Queue | Server | IP Address"
+            echo "---------|-------------|--------|-----------|------|---------------------|----------|--------|---------------"
             
             if [ $queue_count -gt 0 ]; then
                 # Show queue entries for the server we determined has entries
@@ -752,8 +735,7 @@ fi
                         lq.queue_position,
                         COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name,
                         lq.account_id,
-                        CONCAT(lq.estimated_wait, 's'),
-                        'N/A' as connected,
+                        'N/A',
                         'NORM' as flag,
                         'unknown' as last_online,
                         TIME_FORMAT(SEC_TO_TIME(TIMESTAMPDIFF(SECOND, lq.last_updated, NOW())), '%i:%s') as in_queue,
@@ -768,9 +750,9 @@ fi
                     LEFT JOIN account a ON lq.account_id = a.id
                     $query_filter
                     ORDER BY lq.world_server_id, lq.queue_position LIMIT 20;
-                " 2>/dev/null | while IFS=$'\t' read position account acc_id wait_time connected flag last_online in_queue server_id ip_addr; do
-                    printf "%-8s | %-11s | %-6s | %-9s | %-9s | %-4s | %-19s | %-8s | %-6s | %s\n" \
-                        "$position" "$account" "$acc_id" "$wait_time" "$connected" "$flag" "$last_online" "$in_queue" "$server_id" "$ip_addr"
+                " 2>/dev/null | while IFS=$'\t' read position account acc_id wait_time flag last_online in_queue server_id ip_addr; do
+                    printf "%-8s | %-11s | %-6s | %-9s | %-4s | %-19s | %-8s | %-6s | %s\n" \
+                        "$position" "$account" "$acc_id" "$wait_time" "$flag" "$last_online" "$in_queue" "$server_id" "$ip_addr"
                 done
                 
                 # Show raw debug info if enabled - always show when requested
@@ -814,174 +796,7 @@ fi
         read -t 3 -n 1 key 2>/dev/null
         
         case "$key" in
-            "1")
-                echo
-                echo -n -e "${YELLOW}Enter account name to force login: ${NC}"
-                read account_name
-                if [ -n "$account_name" ]; then
-                    local world_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_NAME" -sN -e "SELECT ServerID FROM tblWorldServerRegistration ORDER BY ServerID LIMIT 1;" 2>/dev/null)
-                    local account_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT LoginServerID FROM tblLoginServerAccounts WHERE AccountName='$account_name';" 2>/dev/null)
-                    
-                    if [ -n "$account_id" ] && [ -n "$world_server_id" ]; then
-                        # Check if account is in queue
-                        local queue_position=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT queue_position FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;" 2>/dev/null)
-                        
-                        if [ -n "$queue_position" ]; then
-                            echo
-                            echo -e "${YELLOW}Force login for $account_name (currently at position $queue_position) - Are you sure? [y/N]: ${NC}"
-                            read -n 1 confirm
-                            echo
-                            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                                # Remove from queue
-                                execute_sql "DELETE FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;"
-                                
-                                # Trigger queue refresh to notify login server
-                                trigger_queue_refresh
-                                
-                                notification="${GREEN}Force login: $account_name removed from queue${NC}${YELLOW} - they should auto-connect automatically if server has capacity${NC}"
-                            else
-                                notification="${BLUE}Force login cancelled${NC}"
-                            fi
-                        else
-                            notification="${YELLOW}$account_name is not currently in the queue${NC}"
-                        fi
-                    else
-                        notification="${RED}Account '$account_name' not found${NC}"
-                    fi
-                else
-                    notification="${YELLOW}Force login cancelled - no account name entered${NC}"
-                fi
-                ;;
-            "2")
-                echo
-                echo -n -e "${YELLOW}Enter account name to boot from queue: ${NC}"
-                read account_name
-                if [ -n "$account_name" ]; then
-                    local world_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_NAME" -sN -e "SELECT ServerID FROM tblWorldServerRegistration ORDER BY ServerID LIMIT 1;" 2>/dev/null)
-                    local account_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT LoginServerID FROM tblLoginServerAccounts WHERE AccountName='$account_name';" 2>/dev/null)
-                    
-                    if [ -n "$account_id" ] && [ -n "$world_server_id" ]; then
-                        # Check if account is in queue
-                        local queue_position=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT queue_position FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;" 2>/dev/null)
-                        
-                        if [ -n "$queue_position" ]; then
-                            echo
-                            echo -e "${YELLOW}Boot $account_name from queue (currently at position $queue_position) - Are you sure? [y/N]: ${NC}"
-                            read -n 1 confirm
-                            echo
-                            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                                # Remove from queue
-                                execute_sql "DELETE FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;"
-                                
-                                # Trigger queue refresh to notify login server
-                                trigger_queue_refresh
-                                
-                                notification="${GREEN}Boot from queue: $account_name removed from position $queue_position${NC}"
-                            else
-                                notification="${BLUE}Boot from queue cancelled${NC}"
-                            fi
-                        else
-                            notification="${YELLOW}$account_name is not currently in the queue${NC}"
-                        fi
-                    else
-                        notification="${RED}Account '$account_name' not found${NC}"
-                    fi
-                else
-                    notification="${YELLOW}Boot from queue cancelled - no account name entered${NC}"
-                fi
-                ;;
-            "3")
-                # Move up in queue (decrease position) - need to get current position first
-                echo
-                echo -n -e "${YELLOW}Enter account name to move up in queue: ${NC}"
-                read account_name
-                if [ -n "$account_name" ]; then
-                    local world_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_NAME" -sN -e "SELECT ServerID FROM tblWorldServerRegistration ORDER BY ServerID LIMIT 1;" 2>/dev/null)
-                    local account_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT LoginServerID FROM tblLoginServerAccounts WHERE AccountName='$account_name';" 2>/dev/null)
-                    
-                    if [ -n "$account_id" ] && [ -n "$world_server_id" ]; then
-                        local current_pos=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT queue_position FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;" 2>/dev/null)
-                        
-                        if [ -n "$current_pos" ] && [ "$current_pos" -gt 1 ]; then
-                            local new_pos=$((current_pos - 1))
-                            execute_sql "UPDATE tblLoginQueue SET queue_position=$new_pos, estimated_wait=$((new_pos * 60)), last_updated=NOW() WHERE account_id=$account_id AND world_server_id=$world_server_id;"
-                            notification="${GREEN}Moved $account_name up in queue: position $current_pos → $new_pos${NC}"
-                            trigger_queue_refresh
-                        elif [ "$current_pos" = "1" ]; then
-                            notification="${YELLOW}$account_name is already at front of queue (position 1)${NC}"
-                        else
-                            notification="${RED}$account_name not found in queue${NC}"
-                        fi
-                    else
-                        notification="${RED}Account '$account_name' not found${NC}"
-                    fi
-                else
-                    notification="${YELLOW}Move up cancelled - no account name entered${NC}"
-                fi
-                ;;
-            "4")
-                # Move down in queue (increase position)
-                echo
-                echo -n -e "${YELLOW}Enter account name to move down in queue: ${NC}"
-                read account_name
-                if [ -n "$account_name" ]; then
-                    local world_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_NAME" -sN -e "SELECT ServerID FROM tblWorldServerRegistration ORDER BY ServerID LIMIT 1;" 2>/dev/null)
-                    local account_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT LoginServerID FROM tblLoginServerAccounts WHERE AccountName='$account_name';" 2>/dev/null)
-                    
-                    if [ -n "$account_id" ] && [ -n "$world_server_id" ]; then
-                        local current_pos=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT queue_position FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;" 2>/dev/null)
-                        
-                        if [ -n "$current_pos" ]; then
-                            local new_pos=$((current_pos + 1))
-                            execute_sql "UPDATE tblLoginQueue SET queue_position=$new_pos, estimated_wait=$((new_pos * 60)), last_updated=NOW() WHERE account_id=$account_id AND world_server_id=$world_server_id;"
-                            notification="${GREEN}Moved $account_name down in queue: position $current_pos → $new_pos${NC}"
-                            trigger_queue_refresh
-                        else
-                            notification="${RED}$account_name not found in queue${NC}"
-                        fi
-                    else
-                        notification="${RED}Account '$account_name' not found${NC}"
-                    fi
-                else
-                    notification="${YELLOW}Move down cancelled - no account name entered${NC}"
-                fi
-                ;;
-            "5")
-                # Send dialog message
-                echo
-                echo -n "Enter account name to send dialog to: "
-                read account_name
-                if [ -n "$account_name" ]; then
-                    local world_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_NAME" -sN -e "SELECT ServerID FROM tblWorldServerRegistration ORDER BY ServerID LIMIT 1;" 2>/dev/null)
-                    local account_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT LoginServerID FROM tblLoginServerAccounts WHERE AccountName='$account_name';" 2>/dev/null)
-                    
-                    if [ -n "$account_id" ] && [ -n "$world_server_id" ]; then
-                        local current_pos=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT queue_position FROM tblLoginQueue WHERE account_id=$account_id AND world_server_id=$world_server_id;" 2>/dev/null)
-                        
-                        if [ -n "$current_pos" ]; then
-                            echo
-                            echo -n "Enter dialog message (e.g., 'Hello from test script'): "
-                            read dialog_message
-                            if [ -n "$dialog_message" ]; then
-                                # Assuming a dialog command format like: /dialog <account_id> <message>
-                                # This is a placeholder and might need actual EQMacEmu dialog command logic
-                                print_info "Sending dialog message to $account_name (position $current_pos): $dialog_message"
-                                # In a real EQMacEmu client, you'd send this via a socket or command line
-                                # For this script, we'll just print the message
-                                notification="${GREEN}Dialog message sent to $account_name (position $current_pos)${NC}"
-                            else
-                                notification="${YELLOW}Dialog message cancelled - no message entered${NC}"
-                            fi
-                        else
-                            notification="${YELLOW}$account_name is not currently in the queue${NC}"
-                        fi
-                    else
-                        notification="${RED}Account '$account_name' not found${NC}"
-                    fi
-                else
-                    notification="${YELLOW}Dialog cancelled - no account name entered${NC}"
-                fi
-                ;;
+            # REMOVED: Cases "1" through "5" - force login, boot from queue, move up/down queue, send dialog msg
             "6")
                 # Delete entire queue
                 echo
@@ -1389,7 +1204,6 @@ show_population_comparison() {
     
     echo
     print_info "Population Metrics:"
-    print_info "  Traditional Client Count: $client_count (active player connections)"
     print_info "  Account Reservations (Real-time): $account_reservations (account-based tracking)"
     print_info "  Account Reservations (Detailed): $detailed_account_count (with grace period data)"
     echo

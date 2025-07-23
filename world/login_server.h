@@ -60,12 +60,6 @@ public:
 	}
 	bool CanUpdate() { return m_can_account_update; }
 	
-	// Public queue authorization method (moved from private)
-	void ProcessQueueAuthorization(uint16_t opcode, EQ::Net::Packet& p);
-	
-	// Access to account reservation manager for population management
-	// AccountRezMgr& GetAccountRezMgr() { return m_account_rez_mgr; } // Removed
-
 private:
 	void ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSClientAuth(uint16_t opcode, EQ::Net::Packet& p);

@@ -1,4 +1,4 @@
-#include "queue_manager.h"
+#include "world_queue.h"
 #include "worlddb.h"           // For WorldDatabase
 #include "login_server.h"      // For LoginServer global
 #include "world_config.h"      // For WorldConfig
@@ -11,39 +11,26 @@
 #include <fmt/format.h>
 #include <arpa/inet.h>
 
-// Toggle this to enable/disable verbose queue debugging (0 = off, 1 = on)
-// Set to 1 and recompile to enable detailed queue operation logging
-// Useful for debugging queue position updates, client connections, and server list updates
-#define QUEUE_DEBUG_VERBOSE 1
-
-#if QUEUE_DEBUG_VERBOSE
-#define QueueDebugLog(fmt, ...) LogInfo(fmt, ##__VA_ARGS__)
-#else
-#define QueueDebugLog(fmt, ...) ((void)0)
-#endif
-
 extern LoginServer* loginserver; 
 extern WorldDatabase database;  
 extern ClientList client_list;  
-
+extern bool database_ready;  // Add extern declaration for database_ready flag
 
 struct QueuedClient {
-	uint32 w_accountid;         // Primary key - world server account ID
+	uint32 w_accountid;         
 	uint32 queue_position;
 	uint32 estimated_wait;
 	uint32 ip_address;
 	uint32 queued_timestamp;
 	uint32 last_updated;
-	uint32 last_seen; // Timestamp for grace period tracking
+	uint32 last_seen; 
 	
-	// Extended connection details for auto-connect
-	uint32 ls_account_id;       // Login server account ID (for notifications)
-	uint32 from_id;             // Connection type: 0=manual PLAY, 1=auto-connect
-	std::string ip_str;         // String representation of IP
-	std::string forum_name;     // Forum name or other identifier
+	uint32 ls_account_id;       
+	uint32 from_id;             
+	std::string ip_str;         
+	std::string forum_name;     
 	
-	// Client authorization tracking for multiple client handling
-	std::string authorized_client_key;  // Key of the specific client that was authorized
+	std::string authorized_client_key;  
 	
 	QueuedClient() : w_accountid(0), queue_position(0), estimated_wait(0), ip_address(0),
 		queued_timestamp(0), last_updated(0), last_seen(0), ls_account_id(0), 
@@ -60,28 +47,31 @@ struct QueuedClient {
 		  authorized_client_key(auth_key) {}
 };
 
-QueueManager::QueueManager()
-	: m_queue_paused(false), m_cached_test_offset(0)
-{
-	m_server_name = WorldConfig::get()->LongName;
+struct QueueNotification {
+	uint32 ls_account_id;
+	uint32 ip_address;
 	
-	LogInfo("QueueManager constructed - AccountRezMgr initialization deferred until database ready");
-	
-	g_effective_population = UINT32_MAX;
-}
+	QueueNotification(uint32 ls_id, uint32 ip) : ls_account_id(ls_id), ip_address(ip) {}
+};
 
-void QueueManager::Initialize_AccountRezMgr()
+QueueManager::QueueManager()
+	: m_queue_paused(false), m_cached_test_offset(0), m_world_server_id(1)
 {
-	// Initialize AccountRezMgr after database is ready
-	m_account_rez_mgr = std::make_unique<AccountRezMgr>();
-	LogInfo("AccountRezMgr initialized - QueueManager ready for operation");
 }
 
 QueueManager::~QueueManager()
 {
-	LogInfo("QueueManager destroyed.");
+	QueueDebugLog(1, "QueueManager destroyed.");
 }
 
+bool QueueManager::ValidateDatabaseReady() const
+{
+	if (!database_ready) {
+		QueueDebugLog(1, "Database not ready - skipping operation");
+		return false;
+	}
+	return true;
+}
 void QueueManager::AddToQueue(uint32 world_account_id, uint32 position, uint32 estimated_wait, uint32 ip_address, 
 							uint32 ls_account_id, uint32 from_id, 
 							const char* ip_str, const char* forum_name, const char* client_key)
@@ -90,22 +80,24 @@ void QueueManager::AddToQueue(uint32 world_account_id, uint32 position, uint32 e
 	addr.s_addr = ip_address;
 	std::string ip_str_log = inet_ntoa(addr);
 	
-	position = m_queued_clients.size() + 1;
+	// Calculate position if not provided (0 = auto-calculate)
+	if (position == 0) {
+		position = m_queued_clients.size() + 1;
+	}
 	
 	// TODO: Proper average calcuation here
 	uint32 wait_per_player = 60;
 	estimated_wait = position * wait_per_player;
 	
 	QueuedClient new_entry(world_account_id, position, estimated_wait, ip_address, 
-								 ls_account_id, from_id,  // removed world_id parameter
+								 ls_account_id, from_id, 
 								 ip_str ? ip_str : ip_str_log, 
 								 forum_name ? forum_name : "",
 								 client_key ? client_key : "");
 	
 	m_queued_clients.push_back(new_entry);
 	
-	// Mirror to database immediately (event-driven) - use fixed world server ID
-	SaveQueueEntry(world_account_id, 1, position, estimated_wait, ip_address);
+	SaveQueueDBEntry(world_account_id, position, estimated_wait, ip_address);
 	LogQueueAction("ADD_TO_QUEUE", world_account_id, 
 		fmt::format("pos={} wait={}s ip={} ls_id={} (memory + DB)", position, estimated_wait, ip_str_log, ls_account_id));
 	
@@ -113,18 +105,6 @@ void QueueManager::AddToQueue(uint32 world_account_id, uint32 position, uint32 e
 	
 }
 
-uint32 QueueManager::CalculateQueuePosition(uint32 account_id) 
-{
-	// Calculate next queue position based on current queue size
-	uint32 current_queue_size = GetTotalQueueSize();
-	uint32 next_position = current_queue_size + 1;
-	
-	LogInfo("QueueManager [{}] - CALCULATE_POSITION: Account [{}] assigned position [{}] (current queue size: {})", 
-		m_server_name, 
-		account_id, next_position, current_queue_size);
-	
-	return next_position;
-}
 void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 {
 	if (account_ids.empty()) {
@@ -132,9 +112,8 @@ void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 	}
 	
 	std::vector<uint32> removed_accounts;
-	std::vector<std::pair<uint32, uint32>> notification_data; // {ls_account_id, ip_address}
+	std::vector<QueueNotification> notification_data; // Clear struct instead of pair
 	
-	// Process each account for removal
 	for (uint32 account_id : account_ids) {
 		auto it = std::find_if(m_queued_clients.begin(), m_queued_clients.end(),
 			[account_id](const QueuedClient& qclient) {
@@ -142,9 +121,8 @@ void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 			});
 			
 		if (it == m_queued_clients.end()) {
-			// Not found by direct lookup, try LS account ID mapping using encapsulated method
 			uint32 world_account_id = GetWorldAccountFromLS(account_id);
-			if (world_account_id != account_id) {  // Only search if we got a different mapping
+			if (world_account_id != account_id) { 	
 				it = std::find_if(m_queued_clients.begin(), m_queued_clients.end(),
 					[world_account_id](const QueuedClient& qclient) {
 						return qclient.w_accountid == world_account_id;
@@ -157,7 +135,6 @@ void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 			addr.s_addr = it->ip_address;
 			std::string ip_str = inet_ntoa(addr);
 			
-			// Store for notifications and removal
 			uint32 account_id_to_remove = it->w_accountid;
 			uint32 ls_account_id_to_notify = it->ls_account_id;
 			uint32 ip_address_to_notify = it->ip_address;
@@ -165,7 +142,6 @@ void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 			removed_accounts.push_back(account_id_to_remove);
 			notification_data.emplace_back(ls_account_id_to_notify, ip_address_to_notify);
 			
-			// Remove from memory - vector automatically shifts remaining elements up
 			m_queued_clients.erase(it);
 			
 			LogQueueAction("REMOVE", account_id_to_remove, 
@@ -178,45 +154,33 @@ void QueueManager::RemoveFromQueue(const std::vector<uint32>& account_ids)
 		return;
 	}
 	
-	// Batch database removals for efficiency
 	for (uint32 account_id : removed_accounts) {
-		RemoveQueueEntry(account_id, 1); // Fixed server ID for world server
+		RemoveQueueDBEntry(account_id); 
 	}
 	
-	// Send individual removal notifications to disconnected players
 	if (loginserver && loginserver->Connected()) {
 		uint32 notifications_sent = 0;
 		for (const auto& notification : notification_data) {
-			uint32 ls_account_id = notification.first;
-			uint32 ip_address = notification.second;
+			uint32 ls_account_id = notification.ls_account_id;
+			uint32 ip_address = notification.ip_address;
 			
 			if (ls_account_id > 0) {
-				auto removal_pack = new ServerPacket(ServerOP_QueueDirectUpdate, sizeof(ServerQueueDirectUpdate_Struct));
-				ServerQueueDirectUpdate_Struct* removal_update = (ServerQueueDirectUpdate_Struct*)removal_pack->pBuffer;
-				
-				removal_update->ls_account_id = ls_account_id;
-				removal_update->ip_address = ip_address;
-				removal_update->queue_position = 0; // Position 0 = removed from queue
-				removal_update->estimated_wait = 0;
-				
-				loginserver->SendPacket(removal_pack);
-				delete removal_pack;
+				SendQueueRemoval(ls_account_id);
 				notifications_sent++;
 			}
 		}
 		
 		if (notifications_sent > 0) {
-			LogInfo("Sent [{}] queue removal notifications to disconnected players", notifications_sent);
+			QueueDebugLog(1, "Sent [{}] queue removal notifications to disconnected players", notifications_sent);
 		}
 	}
 	
-	// Send updated positions to remaining queued clients (batch update)
 	if (!m_queued_clients.empty()) {
-		 SendQueuedClientsUpdate();
-		LogInfo("Removed [{}] players from queue, sent position updates to [{}] remaining clients", 
+		 SendQueuedClientsUpdate(); // Sends updated queue positions to each player
+		QueueDebugLog(1, "Removed [{}] players from queue, sent position updates to [{}] remaining clients", 
 			removed_accounts.size(), m_queued_clients.size());
 	} else {
-		LogInfo("Removed [{}] players from queue - queue is now empty", removed_accounts.size());
+		QueueDebugLog(1, "Removed [{}] players from queue - queue is now empty", removed_accounts.size());
 	}
 }
 void QueueManager::UpdateQueuePositions()
@@ -227,19 +191,19 @@ void QueueManager::UpdateQueuePositions()
 	
 	// Don't update queue positions if server is down/locked
 	if (m_queue_paused) {
-		LogInfo("Queue updates paused due to server status - [{}] players remain queued", m_queued_clients.size());
+		QueueDebugLog(2, "Queue updates paused due to server status - [{}] players remain queued", m_queued_clients.size());
 		return;
 	}
 	
 	// Check if queue is manually frozen via rule
 	if (RuleB(Quarm, FreezeQueue)) {
-		LogInfo("Queue updates frozen by rule - [{}] players remain queued with frozen positions", m_queued_clients.size());
+		QueueDebugLog(2, "Queue updates frozen by rule - [{}] players remain queued with frozen positions", m_queued_clients.size());
 		return;
 	}
 	
 	// Get server capacity for capacity decisions
 	uint32 max_capacity = RuleI(Quarm, PlayerPopulationCap);
-	uint32 current_population = GetEffectivePopulation();
+	uint32 current_population = EffectivePopulation();
 	
 	// Calculate available slots for auto-connects
 	uint32 available_slots = (current_population < max_capacity) ? (max_capacity - current_population) : 0;
@@ -284,17 +248,15 @@ void QueueManager::UpdateQueuePositions()
 		}
 	}
 	
-	// Remove auto-connected players from queue
 	for (uint32 account_id : accounts_to_remove) {
 		RemoveFromQueue(account_id);
-		LogInfo("Removed account [{}] from queue after auto-connect", account_id);
+		QueueDebugLog(1, "Removed account [{}] from queue after auto-connect", account_id);
 	}
 	
 	if (auto_connects_initiated > 0) {
-		LogInfo("Auto-connected [{}] players from queue to grace whitelist - [{}] players remain queued", 
+		QueueDebugLog(1, "Auto-connected [{}] players from queue to grace whitelist - [{}] players remain queued", 
 			auto_connects_initiated, m_queued_clients.size());
 		
-		// Send position updates to remaining queued clients
 		SendQueuedClientsUpdate();
 	}
 }
@@ -302,62 +264,54 @@ void QueueManager::UpdateQueuePositions()
 bool QueueManager::EvaluateConnectionRequest(const ConnectionRequest& request, uint32 max_capacity,
                                             UsertoWorldResponse* response, Client* client)
 {
-	QueueDecisionOutcome decision = QueueDecisionOutcome::QueuePlayer; // Default to queueing
+	QueueDecisionOutcome decision = QueueDecisionOutcome::QueuePlayer; // Defaults to queueing
 	
 	// 1. Auto-connects always bypass (shouldn't get -6, but just in case)
 	if (request.is_auto_connect) {
-		LogInfo("QueueManager [{}] - AUTO_CONNECT: Account [{}] bypassing queue evaluation", 
-			m_server_name, request.account_id);
+		QueueDebugLog(1, "QueueManager - AUTO_CONNECT: Account [{}] bypassing queue evaluation", 
+			request.account_id);
 		decision = QueueDecisionOutcome::AutoConnect;
 	}
 	// 2. Check if player is already queued (queue toggle behavior)
 	else if (IsAccountQueued(request.account_id)) {
 		uint32 queue_position = GetQueuePosition(request.account_id);
-		LogInfo("QueueManager [{}] - QUEUE_TOGGLE: Account [{}] already queued at position [{}] - toggling off", 
-			m_server_name, request.account_id, queue_position);
+		QueueDebugLog(1, "QueueManager - QUEUE_TOGGLE: Account [{}] already queued at position [{}] - toggling off", 
+		request.account_id, queue_position);
 		decision = QueueDecisionOutcome::QueueToggle;
 	}
 	// 3. Check GM bypass rules - this is where we override world server's decision
 	else if (RuleB(Quarm, QueueBypassGMLevel) && request.status >= 80) {
-		LogInfo("QueueManager [{}] - GM_BYPASS: Account [{}] (status: {}) overriding world server capacity decision", 
-			m_server_name, request.account_id, request.status);
+		QueueDebugLog(1, "QueueManager - GM_BYPASS: Account [{}] (status: {}) overriding world server capacity decision", 
+			request.account_id, request.status);
 		decision = QueueDecisionOutcome::GMBypass;
 	}
 	// 4. Check grace period whitelist (disconnected players still within grace period)
-	else if (IsAccountInGraceWhitelist(request.account_id)) {
-		LogInfo("QueueManager [{}] - GRACE_BYPASS: Account [{}] in grace period whitelist - overriding capacity check", 
-			m_server_name, request.account_id);
+	else if (m_account_rez_mgr.IsAccountInGraceWhitelist(request.account_id)) {
+		QueueDebugLog(1, "QueueManager - GRACE_BYPASS: Account [{}] in grace period whitelist - overriding capacity check", 
+			request.account_id);
+			
 		decision = QueueDecisionOutcome::GraceBypass;
 	}
 	// 5. Default case - no bypass conditions met, queue the player
 	else {
-		LogInfo("QueueManager [{}] - QUEUE_PLAYER: Account [{}] at capacity with no bypass conditions - adding to queue", 
-			m_server_name, request.account_id);
+		QueueDebugLog(1, "QueueManager - QUEUE_PLAYER: Account [{}] at capacity with no bypass conditions - adding to queue", 
+			request.account_id);
+		
 		decision = QueueDecisionOutcome::QueuePlayer;
 	}
-	
-	// Handle the decision outcome
 	switch (decision) {
 		case QueueDecisionOutcome::AutoConnect:
 		case QueueDecisionOutcome::GMBypass:
+			return true;
+			
 		case QueueDecisionOutcome::GraceBypass:
-			// These cases override the -6 and allow connection
-			// For grace bypass, also create authorization token to prevent auth errors
-			// if (decision == QueueDecisionOutcome::GraceBypass) {
-			// 	// Create minimal entry for authorization - reuse existing AutoConnectQueuedPlayer logic
-			// 	QueueManagerEntry grace_entry;
-			// 	grace_entry.ls_account_id = request.ls_account_id;
-			// 	grace_entry.ip_address = request.ip_address;
-			// 	grace_entry.from_id = 0; // Manual PLAY, not auto-connect
-			// 	grace_entry.forum_name = request.forum_name ? request.forum_name : "";
-			// 	grace_entry.authorized_client_key = ""; // No specific client key needed for grace bypass
-			// 	AutoConnectQueuedPlayer(grace_entry); // Create auth entry for grace bypass
-			// }
+			// Extend grace period for players who already have reservations but are looping char select/server select
+			m_account_rez_mgr.IncreaseGraceDuration(request.account_id, 30);
 			return true;
 			
 		case QueueDecisionOutcome::QueueToggle:
 			RemoveFromQueue(request.account_id);
-			LogInfo("QUEUE TOGGLE: Player clicked PLAY while queued - removed account [{}] from server [{}]", request.account_id, m_server_name);
+			QueueDebugLog(1, "QUEUE TOGGLE: Player clicked PLAY while queued - removed account [{}] from server", request.account_id);
 			if (response) {
 				response->response = -7; // Queue toggle response code for login server
 			}
@@ -366,16 +320,13 @@ bool QueueManager::EvaluateConnectionRequest(const ConnectionRequest& request, u
 		case QueueDecisionOutcome::QueuePlayer:
 			// Add to queue for this server
 			{
-				uint32 queue_position = CalculateQueuePosition(request.world_account_id);
-				uint32 estimated_wait = queue_position * 60; // 60 seconds per position default
-				
 				// Use the client key from the login server request (passed via forum_name field)
 				std::string client_key = request.forum_name ? request.forum_name : "";
 				
 				AddToQueue(
 					request.world_account_id,        // world_account_id (primary key)
-					queue_position,                  // position
-					estimated_wait,                  // estimated_wait  
+					0,                               // position (0 = auto-calculate)
+					0,                               // estimated_wait (auto-calculated)
 					request.ip_address,              // ip_address
 					request.ls_account_id,          // ls_account_id
 					response ? response->FromID : 0, // from_id
@@ -384,7 +335,10 @@ bool QueueManager::EvaluateConnectionRequest(const ConnectionRequest& request, u
 					client_key.c_str()               // authorized_client_key (use forum_name as client_key)
 				);
 				
-				LogInfo("Added account [{}] to queue at position [{}] with estimated wait [{}] seconds (client key: {})", 
+				uint32 queue_position = m_queued_clients.size(); // Position just added
+				uint32 estimated_wait = queue_position * 60;    // TODO: Calcualte avg wait
+				
+				QueueDebugLog(1, "Added account [{}] to queue at position [{}] with estimated wait [{}] seconds (client key: {})", 
 					request.world_account_id, queue_position, estimated_wait, 
 					client_key.empty() ? "NONE" : "present");
 				
@@ -460,37 +414,28 @@ void QueueManager::CheckForExternalChanges() // Handles test offset changes and 
 	static const std::string test_offset_query = "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:TestPopulationOffset' LIMIT 1";
 	uint32 current_test_offset = QuerySingleUint32(test_offset_query, 0);
 	
-	QueueDebugLog("Current test_offset: {}, cached_test_offset: {}", current_test_offset, m_cached_test_offset);
+	QueueDebugLog(1, "Current test_offset: {}, cached_test_offset: {}", current_test_offset, m_cached_test_offset);
 	
 	if (first_run || m_cached_test_offset != current_test_offset) {
 		if (!first_run) {
-			LogInfo("Test offset changed from [{}] to [{}] - pushing server list updates to all login clients", 
+			QueueDebugLog(2, "Test offset changed from [{}] to [{}] - pushing server list updates to all login clients", 
 				m_cached_test_offset, current_test_offset);
 		}
 		
-		// Update cached value
 		m_cached_test_offset = current_test_offset;
 		
 		if (!first_run) {
 			// Get current effective population using the standard method
-			uint32 effective_population = GetEffectivePopulation();
+			uint32 effective_population = EffectivePopulation();
 			
 			// Send server list update to all connected login server clients
 			if (loginserver && loginserver->Connected()) {
-				QueueDebugLog("Login server is connected - sending ServerOP_WorldListUpdate packet");
+				QueueDebugLog(1, "Login server is connected - sending ServerOP_WorldListUpdate packet");
 				
-				// Send the current effective population with the update so login server can update cache immediately
-				auto update_pack = new ServerPacket(ServerOP_WorldListUpdate, sizeof(uint32));
-				*((uint32*)update_pack->pBuffer) = effective_population;
-				
-				QueueDebugLog("Created packet - opcode: 0x{:X}, size: {}, population: {}", 
-					update_pack->opcode, update_pack->size, effective_population);
-				loginserver->SendPacket(update_pack);
-				QueueDebugLog("SendPacket() called successfully");
-				delete update_pack;
-				LogInfo("Sent ServerOP_WorldListUpdate to login server for test offset change with population: {}", effective_population);
+				SendWorldListUpdate(effective_population);
+				QueueDebugLog(2, "Sent ServerOP_WorldListUpdate to login server for test offset change with population: {}", effective_population);
 			} else {
-				QueueDebugLog("Login server NOT connected - cannot send update packet");
+				QueueDebugLog(1, "Login server NOT connected - cannot send update packet");
 			}
 		}
 		
@@ -507,23 +452,21 @@ void QueueManager::CheckForExternalChanges() // Handles test offset changes and 
 		auto row = results.begin();
 		std::string flag_value = row[0] ? row[0] : "0";
 		
-		// If flag is anything other than "0", process it and reset to "0"
 		if (flag_value != "0") {
 			bool should_refresh = (flag_value == "1" || flag_value == "true");
 			
 			if (should_refresh) {
-				LogInfo("Queue refresh flag detected - refreshing queue from database");
+				QueueDebugLog(1, "Queue refresh flag detected - refreshing queue from database");
 				RestoreQueueFromDatabase();
-				LogInfo("Queue refreshed from database - clients updated");
+				QueueDebugLog(1, "Queue refreshed from database - clients updated");
 			} else {
-				LogInfo("RefreshQueue flag value = '{}' - resetting to 0", flag_value);
+				QueueDebugLog(2, "RefreshQueue flag value = '{}' - resetting to 0", flag_value);
 			}
 			
-			// Always reset the flag to 0, regardless of the value
 			auto reset_result = database.QueryDatabase(reset_queue_flag_query);
 			
 			if (reset_result.Success()) {
-				LogInfo("RefreshQueue flag reset to 0");
+				QueueDebugLog(2, "RefreshQueue flag reset to 0");
 			} else {
 				LogError("Failed to reset RefreshQueue flag: {}", reset_result.ErrorMessage());
 			}
@@ -537,42 +480,27 @@ void QueueManager::CheckForExternalChanges() // Handles test offset changes and 
 	}
 }
 
-void QueueManager::PeriodicMaintenance()
-{
-	// Maintain account reservations
-	if (m_account_rez_mgr) {
-		m_account_rez_mgr->PeriodicMaintenance();
-	}
-	CheckForExternalChanges(); // DB changes via admin script	
-}
-
-void QueueManager::ClearAllQueues()
+void QueueManager::ClearAllQueues() // Unused for now
 {
 	if (!m_queued_clients.empty()) {
 		uint32 count = GetTotalQueueSize();
-		LogInfo("Clearing all queue entries for world server [{}] - removing [{}] players", 
-			m_server_name, count);
+		QueueDebugLog(1, "Clearing all queue entries for world server - removing [{}] players", count);
 		
 		// 1. Clear memory
 		m_queued_clients.clear();
 		
 		// 2. Clear database immediately (event-driven)
-		uint32 server_id = 1; // Fixed server ID for world server
-		auto clear_query = fmt::format("DELETE FROM tblLoginQueue WHERE world_server_id = {}", server_id);
+		auto clear_query = fmt::format("DELETE FROM tblLoginQueue WHERE world_server_id = {}", m_world_server_id);
 		auto result = database.QueryDatabase(clear_query);
 		
 		if (result.Success()) {
-			LogInfo("Queue cleared - [{}] players removed (memory + DB)", count);
+			QueueDebugLog(1, "Queue cleared - [{}] players removed (memory + DB)", count);
 		} else {
 			LogError("Queue cleared from memory but failed to clear database: {}", result.ErrorMessage());
 		}
 	}
 }
 
-
-// Private helper functions
-
-// Encapsulated database operations
 uint32 QueueManager::GetWorldAccountFromLS(uint32 ls_account_id) const
 {
 	uint32 world_account_id = database.GetAccountIDFromLSID(ls_account_id);
@@ -598,9 +526,14 @@ uint32 QueueManager::GetLSAccountFromWorld(uint32 world_account_id) const
 	return world_account_id;
 }
 
-// Database query helpers
-bool QueueManager::ExecuteQuery(const std::string& query, const std::string& operation_desc) const
+bool QueueManager::QueryDB(const std::string& query, const std::string& operation_desc) const
 {
+	// Safety check: ensure database is ready before accessing it
+	if (!database_ready) {
+		QueueDebugLog(2, "Database not ready - skipping operation: {}", operation_desc);
+		return false;
+	}
+	
 	auto results = database.QueryDatabase(query);
 	if (!results.Success()) {
 		LogError("Failed to {}: {}", operation_desc, results.ErrorMessage());
@@ -611,6 +544,10 @@ bool QueueManager::ExecuteQuery(const std::string& query, const std::string& ope
 
 uint32 QueueManager::QuerySingleUint32(const std::string& query, uint32 default_value) const
 {
+	if (!ValidateDatabaseReady()) {
+		return default_value;
+	}
+	
 	auto results = database.QueryDatabase(query);
 	if (results.Success() && results.RowCount() > 0) {
 		auto row = results.begin();
@@ -627,15 +564,18 @@ uint32 QueueManager::QuerySingleUint32(const std::string& query, uint32 default_
 
 void QueueManager::LogQueueAction(const std::string& action, uint32 account_id, const std::string& details) const
 {
-	std::string server_name = m_server_name; // Use cached member variable
-	LogInfo("QueueManager [{}] - {}: Account [{}] {}", server_name, action, account_id, details);
+	if (details.empty()) {
+		QueueDebugLog(1, "QueueManager - {}: Account [{}]", action, account_id);
+	} else {
+		QueueDebugLog(1, "QueueManager - {}: Account [{}] - {}", action, account_id, details);
+	}
 }
 
 void QueueManager::SendQueuedClientsUpdate() const {
-	QueueDebugLog("SendQueuedClientsUpdate called - checking queue state...");
+	QueueDebugLog(1, "SendQueuedClientsUpdate called - checking queue state...");
 	
 	if (m_queued_clients.empty()) {
-		QueueDebugLog("No queued players to update");
+		QueueDebugLog(1, "No queued players to update");
 		return;
 	}
 	
@@ -644,7 +584,7 @@ void QueueManager::SendQueuedClientsUpdate() const {
 		return;
 	}
 	
-	QueueDebugLog("Found [{}] queued players, login server available - sending batch update", m_queued_clients.size());
+	QueueDebugLog(1, "Found [{}] queued players, login server available - sending batch update", m_queued_clients.size());
 	
 	std::vector<ServerQueueDirectUpdate_Struct> updates;
 	updates.reserve(m_queued_clients.size());
@@ -666,12 +606,12 @@ void QueueManager::SendQueuedClientsUpdate() const {
 		updates.push_back(update);
 		valid_updates++;
 		
-		QueueDebugLog("Added to batch: account [{}] (LS: {}) position [{}] wait [{}]s", 
+		QueueDebugLog(1, "Added to batch: account [{}] (LS: {}) position [{}] wait [{}]s", 
 			qclient.w_accountid, qclient.ls_account_id, dynamic_position, update.estimated_wait);
 	}
 	
 	if (valid_updates == 0) {
-		QueueDebugLog("No valid queue updates to send");
+		QueueDebugLog(1, "No valid queue updates to send");
 		return;
 	}
 	
@@ -687,35 +627,18 @@ void QueueManager::SendQueuedClientsUpdate() const {
 	ServerQueueDirectUpdate_Struct* update_array = (ServerQueueDirectUpdate_Struct*)(batch_pack->pBuffer + sizeof(ServerQueueBatchUpdate_Struct));
 	memcpy(update_array, updates.data(), valid_updates * sizeof(ServerQueueDirectUpdate_Struct));
 	
-	QueueDebugLog("Created batch packet - opcode: 0x{:X}, size: {}, update count: {}", 
+	QueueDebugLog(1, "Created batch packet - opcode: 0x{:X}, size: {}, update count: {}", 
 		ServerOP_QueueBatchUpdate, packet_size, valid_updates);
 	
 	// Send single batch packet to login server
 	loginserver->SendPacket(batch_pack);
 	delete batch_pack;
 	
-	LogInfo("Sent batch queue update with [{}] player updates to login server (skipped: {})", 
+	QueueDebugLog(1, "Sent batch queue update with [{}] player updates to login server (skipped: {})", 
 		valid_updates, skipped_invalid);
 	
-	QueueDebugLog("SendQueuedClientsUpdate completed - batch sent: {}, skipped: {}, total queued: {}", 
+	QueueDebugLog(1, "SendQueuedClientsUpdate completed - batch sent: {}, skipped: {}, total queued: {}", 
 		valid_updates, skipped_invalid, m_queued_clients.size());
-}
-
-bool QueueManager::IsAccountInGraceWhitelist(uint32 account_id) const
-{
-	if (!m_account_rez_mgr) {
-		LogDebug("QueueManager: AccountRezMgr not initialized yet - cannot check grace whitelist");
-		return false;
-	}
-	
-	bool is_whitelisted = m_account_rez_mgr->IsAccountInGraceWhitelist(account_id);
-	
-	if (is_whitelisted) {
-		LogInfo("QueueManager [{}] - GRACE_WHITELIST: Account [{}] found in grace period whitelist", 
-			m_server_name, account_id);
-	}
-	
-	return is_whitelisted;
 }
 
 void QueueManager::AutoConnectQueuedPlayer(const QueuedClient& qclient)
@@ -725,7 +648,22 @@ void QueueManager::AutoConnectQueuedPlayer(const QueuedClient& qclient)
 		return;
 	}
 	
-	LogInfo("AUTO-CONNECT: Sending auto-connect trigger for LS account [{}]", qclient.ls_account_id);
+	QueueDebugLog(1, "AUTO-CONNECT: Sending auto-connect trigger for LS account [{}]", qclient.ls_account_id);
+	
+	// Add to grace whitelist before sending auto-connect trigger - direct object access
+	QueueDebugLog(1, "AUTO-CONNECT: Added account [{}] to grace whitelist for population cap bypass", qclient.w_accountid);
+	m_account_rez_mgr.AddRez(qclient.w_accountid, qclient.ip_address, 30);
+	
+	// Send auto-connect packet to login server
+	SendQueueAutoConnect(qclient);
+	QueueDebugLog(1, "AUTO-CONNECT: Sent ServerOP_QueueAutoConnect to loginserver for account [{}]", qclient.ls_account_id);
+}
+
+void QueueManager::SendQueueAutoConnect(const QueuedClient& qclient)
+{
+	if (!ValidateLoginServerConnection(ServerOP_QueueAutoConnect)) {
+		return;
+	}
 	
 	// Convert IP to string if needed
 	in_addr addr;
@@ -753,31 +691,18 @@ void QueueManager::AutoConnectQueuedPlayer(const QueuedClient& qclient)
 	strncpy(sqac->client_key, qclient.authorized_client_key.c_str(), sizeof(sqac->client_key) - 1);
 	sqac->client_key[sizeof(sqac->client_key) - 1] = '\0';
 	
-	LogInfo("AUTO-CONNECT: Added account [{}] to grace whitelist for population cap bypass", qclient.ls_account_id);
-	m_account_rez_mgr->AddRez(qclient.w_accountid, qclient.ip_address, 30);
-	
-	// Send to login server to trigger active connection
-	LogInfo("AUTO-CONNECT: Sending ServerOP_QueueAutoConnect to loginserver for account [{}]", qclient.ls_account_id);
 	loginserver->SendPacket(autoconnect_pack);
 	delete autoconnect_pack;
+	
+	QueueDebugLog(2, "Sent ServerOP_QueueAutoConnect for LS account {} with client key", qclient.ls_account_id);
 }
-uint32 QueueManager::GetEffectivePopulation()
+
+uint32 QueueManager::EffectivePopulation()
 {
 // TODO: Add bypass logic for trader + GM accounts
 	
-	if (!m_account_rez_mgr) {
-		LogError("AccountRezMgr not initialized yet - using actual client count as fallback");
-		// Fallback to actual connected client count + test offset
-		uint32 actual_clients = client_list.GetClientCount();
-		uint32 test_offset = m_cached_test_offset;
-		uint32 fallback_population = actual_clients + test_offset;
-		LogInfo("Fallback population: {} actual clients + {} test offset = {}", 
-			actual_clients, test_offset, fallback_population);
-		return fallback_population;
-	}
-	
-	// Base population from account reservations
-	uint32 base_population = m_account_rez_mgr->Total();
+	// Object always exists - direct access is safe
+	uint32 base_population = m_account_rez_mgr.Total();
 	
 	// Use cached test offset instead of database query for better performance
 	uint32 test_offset = m_cached_test_offset;
@@ -785,47 +710,55 @@ uint32 QueueManager::GetEffectivePopulation()
 	// Calculate final effective population
 	uint32 effective_population = base_population + test_offset;
 	
-	LogInfo("Account reservations: {}, test offset: {}, effective total: {}", 
+	QueueDebugLog(2, "Account reservations: {}, test offset: {}, effective total: {}", 
 		base_population, test_offset, effective_population);
 	
 	return effective_population;
 }
 
-// DATABASE QUEUE OPERATIONS
+// DATABASE QUEUE OPERATIONS 
 
-void QueueManager::SaveQueueEntry(uint32 account_id, uint32 world_server_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address)
+void QueueManager::SaveQueueDBEntry(uint32 account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address)
 {
+	if (!ValidateDatabaseReady()) {
+		return;
+	}
+	
 	auto query = fmt::format(
 		"REPLACE INTO tblLoginQueue (account_id, world_server_id, queue_position, estimated_wait, ip_address) "
 		"VALUES ({}, {}, {}, {}, {})",
-		account_id, world_server_id, queue_position, estimated_wait, ip_address
+		account_id, m_world_server_id, queue_position, estimated_wait, ip_address
 	);
 
-	ExecuteQuery(query, fmt::format("save queue entry for account {} on world server {}", account_id, world_server_id));
+	QueryDB(query, fmt::format("save queue entry for account {} on world server {}", account_id, m_world_server_id));
 }
 
-void QueueManager::RemoveQueueEntry(uint32 account_id, uint32 world_server_id)
+void QueueManager::RemoveQueueDBEntry(uint32 account_id)
 {
+	if (!ValidateDatabaseReady()) {
+		return;
+	}
+	
 	auto query = fmt::format(
 		"DELETE FROM tblLoginQueue WHERE account_id = {} AND world_server_id = {}",
-		account_id, world_server_id
+		account_id, m_world_server_id
 	);
 
-	ExecuteQuery(query, fmt::format("remove queue entry for account {} on world server {}", account_id, world_server_id));
+	QueryDB(query, fmt::format("remove queue entry for account {} on world server {}", account_id, m_world_server_id));
 }
 
-bool QueueManager::LoadQueueEntries(uint32 world_server_id, std::vector<std::tuple<uint32, uint32, uint32, uint32>>& queue_entries)
+bool QueueManager::LoadQueueEntries(std::vector<std::tuple<uint32, uint32, uint32, uint32>>& queue_entries)
 {
 	auto query = fmt::format(
 		"SELECT account_id, queue_position, estimated_wait, ip_address "
 		"FROM tblLoginQueue WHERE world_server_id = {} "
 		"ORDER BY queue_position ASC",
-		world_server_id
+		m_world_server_id
 	);
 
 	auto results = database.QueryDatabase(query);  // Use world server global database
 	if (!results.Success()) {
-		LogError("Failed to load queue entries for world server {}", world_server_id);
+		LogError("Failed to load queue entries for world server {}", m_world_server_id);
 		return false;
 	}
 
@@ -839,119 +772,63 @@ bool QueueManager::LoadQueueEntries(uint32 world_server_id, std::vector<std::tup
 		queue_entries.emplace_back(account_id, queue_position, estimated_wait, ip_address);
 	}
 
-	LogInfo("Loaded {} queue entries for world server {}", queue_entries.size(), world_server_id);
+	QueueDebugLog(2, "Loaded {} queue entries for world server {}", queue_entries.size(), m_world_server_id);
 	return true;
 }
 
-void QueueManager::RemovePlayerOnDisconnect(uint32 account_id)
-{
-	// Remove player from this world server's queue when they disconnect from login server
-	if (IsAccountQueued(account_id)) {
-		RemoveFromQueue(account_id);
-		LogInfo("Removed account [{}] from queue due to disconnection from login server", account_id);
-	}
-}
-
-
 void QueueManager::ProcessAdvancementTimer()
 {
-	// Enhanced queue management when enabled
-	if (RuleB(Quarm, EnableQueue)) {
-		// Log current queue size
-		uint32 queue_size = GetTotalQueueSize();
-		LogDebug("Queue Status: {} players currently in queue", queue_size);
-		uint32 effective_population = GetEffectivePopulation();
-		
-		// Store in cache for SendStatus() to read
-		g_effective_population = effective_population;
-		
-		// Update server_population table for monitoring/debugging
-		static const std::string server_population_query_template = 
-			"INSERT INTO server_population (server_id, effective_population) "
-			"VALUES (1, {}) ON DUPLICATE KEY UPDATE "
-			"effective_population = {}, last_updated = NOW()";
-		auto query = fmt::format(fmt::runtime(server_population_query_template), effective_population, effective_population);
-		auto result = database.QueryDatabase(query);
-		if (!result.Success()) {
-			LogDebug("Failed to update server_population table: {}", result.ErrorMessage());
-		}
-		
-		// Send real-time update to login server cache ONLY if population changed
-		if (loginserver && loginserver->Connected()) {
-			static uint32 last_sent_population = UINT32_MAX; // Track last sent value
-			
-			if (effective_population != last_sent_population) {
-				auto update_pack = new ServerPacket(ServerOP_WorldListUpdate, sizeof(uint32));
-				*((uint32*)update_pack->pBuffer) = effective_population;
-				loginserver->SendPacket(update_pack);
-				delete update_pack;
-				LogDebug("Sent real-time ServerOP_WorldListUpdate with population: {} (changed from {})", 
-					effective_population, last_sent_population);
-				
-				last_sent_population = effective_population; // Update tracking variable
-			}
-		}
-	} else {
-		// Queue disabled - invalidate cache
-		g_effective_population = UINT32_MAX;
+	uint32 queue_size = GetTotalQueueSize();
+	LogDebug("Queue Status: {} players currently in queue", queue_size);
+
+	// Update server_population table for monitoring/debugging 
+	uint32 effective_population = EffectivePopulation();
+	static const std::string server_population_query_template = 
+		"INSERT INTO server_population (server_id, effective_population) "
+		"VALUES (1, {}) ON DUPLICATE KEY UPDATE "
+		"effective_population = {}, last_updated = NOW()";
+	auto query = fmt::format(fmt::runtime(server_population_query_template), effective_population, effective_population);
+	auto result = database.QueryDatabase(query);
+	if (!result.Success()) {
+		LogDebug("Failed to update server_population table: {}", result.ErrorMessage());
 	}
 	
-	// Queue advancement logic
+	// Send real-time update to login server cache ONLY if population changed
+	// 
+	if (loginserver && loginserver->Connected()) {
+		static uint32 last_sent_population = UINT32_MAX; // Track last sent value
+		
+		if (effective_population != last_sent_population) {
+			SendWorldListUpdate(effective_population);
+			LogDebug("Sent real-time ServerOP_WorldListUpdate with population: {} (changed from {})", 
+				effective_population, last_sent_population);
+			
+			last_sent_population = effective_population; // Update tracking variable
+		}
+	}
+	// Auto connect Q player #1. Qplayers are shown their # in the queue 
 	UpdateQueuePositions();
-	PeriodicMaintenance();
+	// Check for stale connections
+	m_account_rez_mgr.PeriodicMaintenance();
+	// Sync queue with database
+	CheckForExternalChanges();
 }
-
-// Admin Queue Management Methods
-
-// void QueueManager::FreezeQueue(const std::string& reason)
-// {
-// 	m_queue_paused = true;
-// 	m_freeze_reason = reason.empty() ? "Admin freeze" : reason;
-	
-// 	LogInfo("Queue frozen by admin - Reason: {}", m_freeze_reason);
-	
-// 	// Announce to all queued players
-// 	std::string message = fmt::format("QUEUE FROZEN\n\nReason: {}\n\nYour position is preserved.", m_freeze_reason);
-// 	SendDialogToAllQueuedPlayers(message);
-// }
-
-// void QueueManager::UnfreezeQueue()
-// {
-// 	if (!m_queue_paused) {
-// 		LogInfo("Queue unfreeze requested but queue was not frozen");
-// 		return;
-// 	}
-	
-// 	std::string old_reason = m_freeze_reason;
-// 	m_queue_paused = false;
-// 	m_freeze_reason = "";
-	
-// 	LogInfo("Queue unfrozen by admin - Previous reason: {}", old_reason);
-	
-// 	// Announce to all queued players  
-// 	std::string message = "QUEUE RESUMED\n\nThe queue is now active again.\nThank you for your patience.";
-// 	SendDialogToAllQueuedPlayers(message);
-	
-// 	// Force immediate queue position update
-// 	SendQueuedClientsUpdate();
-// }
-
 
 void QueueManager::RestoreQueueFromDatabase()
 {
 	// Check if queue persistence is enabled
 	if (!RuleB(Quarm, EnableQueuePersistence)) {
-		LogInfo("Queue persistence disabled - clearing old queue entries for world server [{}]", 1);
-		auto clear_query = fmt::format("DELETE FROM tblLoginQueue WHERE world_server_id = {}", 1);
+		QueueDebugLog(2, "Queue persistence disabled - clearing old queue entries for world server [{}]", m_world_server_id);
+		auto clear_query = fmt::format("DELETE FROM tblLoginQueue WHERE world_server_id = {}", m_world_server_id);
 		database.QueryDatabase(clear_query);  // Use global database
 		return;
 	}
 	
-	LogInfo("Restoring queue from database for world server [{}]", 1);
+	QueueDebugLog(1, "Restoring queue from database for world server [{}]", m_world_server_id);
 	
 	// Load queue entries from database
 	std::vector<std::tuple<uint32, uint32, uint32, uint32>> queue_entries;
-	if (!LoadQueueEntries(1, queue_entries)) { // Fixed server ID for world server
+	if (!LoadQueueEntries(queue_entries)) {
 		LogError("Failed to load queue entries from database");
 		return;
 	}
@@ -961,15 +838,14 @@ void QueueManager::RestoreQueueFromDatabase()
 	uint32 restored_count = 0;
 	
 	for (const auto& entry_tuple : queue_entries) {
-		uint32 world_account_id = std::get<0>(entry_tuple);  // This should be world account ID
+		uint32 world_account_id = std::get<0>(entry_tuple);  
 		uint32 queue_position = std::get<1>(entry_tuple);
 		uint32 estimated_wait = std::get<2>(entry_tuple);
 		uint32 ip_address = std::get<3>(entry_tuple);
 		
 		// Skip entries with invalid world account IDs
 		if (world_account_id == 0) {
-			LogInfo("QueueManager [{}] - SKIP: Invalid world account ID [0] during restoration", 
-				m_server_name);
+			QueueDebugLog(2, "QueueManager - SKIP: Invalid world account ID [0] during restoration");
 			continue;
 		}
 		
@@ -987,151 +863,131 @@ void QueueManager::RestoreQueueFromDatabase()
 		entry.ip_str = "";
 		entry.forum_name = "";
 		
-		// Use world account ID as map key (consistent with runtime behavior)
-		m_queued_clients[world_account_id] = entry;
+		// Use vector push_back instead of map indexing (consistent with vector declaration)
+		m_queued_clients.push_back(entry);
 		restored_count++;
 		
-		LogInfo("QueueManager [{}] - RESTORE: World account [{}] at position [{}] with wait [{}] - persistent queue entry restored", 
-			m_server_name, 
+		QueueDebugLog(2, "QueueManager - RESTORE: World account [{}] at position [{}] with wait [{}] - persistent queue entry restored", 
 			world_account_id, queue_position, estimated_wait);
 	}
 	
 	if (restored_count > 0) {
-		LogInfo("Restored [{}] persistent queue entries from database for world server [{}]", 
-			restored_count, 1);
-		LogInfo("NOTE: Restored entries use world account IDs only - LS account mapping will be established when players reconnect");
+		QueueDebugLog(1, "Restored [{}] persistent queue entries from database for world server [{}]", 
+			restored_count, m_world_server_id);
+		QueueDebugLog(2, "NOTE: Restored entries use world account IDs only - LS account mapping will be established when players reconnect");
 	} else {
-		LogInfo("No queue entries to restore for world server [{}]", 1);
+		QueueDebugLog(2, "No queue entries to restore for world server [{}]", m_world_server_id);
+	}
+	
+	// Send immediate update to login server after queue restore
+	if (loginserver && loginserver->Connected()) {
+		uint32 effective_population = EffectivePopulation();
+		SendWorldListUpdate(effective_population);
+		QueueDebugLog(1, "Sent ServerOP_WorldListUpdate to login server after queue restore - population: {}", effective_population);
+	} else {
+		QueueDebugLog(1, "Login server not connected - cannot send queue restore update");
 	}
 }
-// TODO: Implement database sync/restore methods
-// void QueueManager::SyncQueueToDatabase()
-// {
-// 	uint32 server_id = 1; // Fixed server ID for world server
-// 	Database* db = &database;
-// 	if (!db) {
-// 		LogError("Cannot sync queue to database - database not available");
-// 		return;
-// 	}
-	
-// 	LogInfo("Syncing queue to database for world server [{}] with [{}] entries", 
-// 		server_id, m_queued_clients.size());
-	
-// 	// Clear existing entries for this world server
-// 	auto clear_query = fmt::format("DELETE FROM tblLoginQueue WHERE world_server_id = {}", server_id);
-// 	database.QueryDatabase(clear_query);
-	
-// 	// Save all current queue entries
-// 	for (const auto& pair : m_queued_clients) {
-// 		const QueueManagerEntry& entry = pair.second;
-// 		SaveQueueEntry(
-// 			entry.account_id,
-// 			server_id,
-// 			entry.queue_position,
-// 			entry.estimated_wait,
-// 			entry.ip_address
-// 		);
-// 	}
-	
-// 	LogInfo("Queue sync completed for world server [{}]", server_id);
-// }
-// void QueueManager::SaveQueueSnapshot(const std::string& snapshot_name)
-// {
-// 	// First clear any existing snapshot with this name
-// 	auto clear_query = fmt::format(
-// 		"DELETE FROM queue_snapshots WHERE snapshot_name = '{}'", 
-// 		snapshot_name
-// 	);
-// 	ExecuteQuery(clear_query, fmt::format("clear existing snapshot {}", snapshot_name));
-	
-// 	// Save current queue state
-// 	uint32 current_time = time(nullptr);
-// 	for (const auto& pair : m_queued_clients) {
-// 		const QueueManagerEntry& entry = pair.second;
-		
-// 		auto save_query = fmt::format(
-// 			"INSERT INTO queue_snapshots (snapshot_name, account_id, queue_position, estimated_wait, ip_address, ls_account_id, created_at) "
-// 			"VALUES ('{}', {}, {}, {}, {}, {}, {})",
-// 			snapshot_name, entry.account_id, entry.queue_position, entry.estimated_wait, 
-// 			entry.ip_address, entry.ls_account_id, current_time
-// 		);
-		
-// 		ExecuteQuery(save_query, fmt::format("save queue snapshot {} entry", snapshot_name));
-// 	}
-	
-// 	LogInfo("Saved queue snapshot '{}' with [{}] entries", snapshot_name, m_queued_clients.size());
-// }
 
-// bool QueueManager::RestoreQueueSnapshot(const std::string& snapshot_name)
-// {
-// 	auto query = fmt::format(
-// 		"SELECT account_id, queue_position, estimated_wait, ip_address, ls_account_id "
-// 		"FROM queue_snapshots WHERE snapshot_name = '{}' ORDER BY queue_position ASC",
-// 		snapshot_name
-// 	);
-	
-// 	auto results = database.QueryDatabase(query);
-// 	if (!results.Success()) {
-// 		LogError("Failed to restore queue snapshot '{}': {}", snapshot_name, results.ErrorMessage());
-// 		return false;
-// 	}
-	
-// 	if (results.RowCount() == 0) {
-// 		LogInfo("Queue snapshot '{}' not found or empty", snapshot_name);
-// 		return false;
-// 	}
-	
-// 	// Clear current queue
-// 	ClearAllQueues();
-	
-// 	// Restore entries
-// 	uint32 restored_count = 0;
-// 	for (auto row = results.begin(); row != results.end(); ++row) {
-// 		uint32 account_id = atoi(row[0]);
-// 		uint32 queue_position = atoi(row[1]);
-// 		uint32 estimated_wait = atoi(row[2]);
-// 		uint32 ip_address = atoi(row[3]);
-// 		uint32 ls_account_id = atoi(row[4]);
-		
-// 		QueueManagerEntry entry;
-// 		entry.account_id = account_id;
-// 		entry.queue_position = queue_position;
-// 		entry.estimated_wait = estimated_wait;
-// 		entry.ip_address = ip_address;
-// 		entry.ls_account_id = ls_account_id;
-// 		entry.queued_timestamp = time(nullptr);
-// 		entry.last_updated = time(nullptr);
-// 		entry.last_seen = time(nullptr);
-		
-// 		m_queued_clients[account_id] = entry;
-// 		SaveQueueEntry(account_id, 1, queue_position, estimated_wait, ip_address);
-// 		restored_count++;
-// 	}
-	
-// 	LogInfo("Restored queue snapshot '{}' with [{}] entries", snapshot_name, restored_count);
-	
-// 	// Send updates to all restored players
-// 	SendQueuedClientsUpdate();
-	
-// 	return true;
-// }
+// Connection validation helper to reduce code duplication
+bool QueueManager::ValidateLoginServerConnection(uint16 opcode) const
+{
+	if (!loginserver || !loginserver->Connected()) {
+		if (opcode != 0) {
+			QueueDebugLog(2, "Cannot send opcode 0x{:X} - login server not connected", opcode);
+		} else {
+			QueueDebugLog(2, "Login server not connected - skipping packet send");
+		}
+		return false;
+	}
+	return true;
+}
 
-// std::vector<std::string> QueueManager::GetQueueSnapshots() const
-// {
-// 	std::vector<std::string> snapshots;
+// ServerPacket helper methods to reduce code duplication
+void QueueManager::SendWorldListUpdate(uint32 effective_population)
+{
+	if (!ValidateLoginServerConnection(ServerOP_WorldListUpdate)) {return;}
 	
-// 	auto query = "SELECT DISTINCT snapshot_name FROM queue_snapshots ORDER BY snapshot_name";
-// 	auto results = database.QueryDatabase(query);
+	auto update_pack = new ServerPacket(ServerOP_WorldListUpdate, sizeof(uint32));
+	*((uint32*)update_pack->pBuffer) = effective_population;
+	loginserver->SendPacket(update_pack);
+	delete update_pack;
 	
-// 	if (results.Success()) {
-// 		for (auto row = results.begin(); row != results.end(); ++row) {
-// 			if (row[0]) {
-// 				snapshots.push_back(row[0]);
-// 			}
-// 		}
-// 	}
-	
-// 	return snapshots;
-// }
+	QueueDebugLog(2, "Sent ServerOP_WorldListUpdate with population: {}", effective_population);
+}
 
-// DATABASE QUEUE OPERATIONS 
+void QueueManager::SendQueuedClientUpdate(uint32 ls_account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address)
+{
+	if (!ValidateLoginServerConnection(ServerOP_QueueDirectUpdate)) {return;}
+	
+	auto update_pack = new ServerPacket(ServerOP_QueueDirectUpdate, sizeof(ServerQueueDirectUpdate_Struct));
+	ServerQueueDirectUpdate_Struct* update = (ServerQueueDirectUpdate_Struct*)update_pack->pBuffer;
+	
+	update->ls_account_id = ls_account_id;
+	update->queue_position = queue_position;
+	update->estimated_wait = estimated_wait;
+	update->ip_address = ip_address;
+	
+	loginserver->SendPacket(update_pack);
+	delete update_pack;
+	
+	QueueDebugLog(2, "Sent ServerOP_QueueDirectUpdate for LS account {} - position: {}, wait: {}s", 
+		ls_account_id, queue_position, estimated_wait);
+}
+
+void QueueManager::SendQueueRemoval(uint32 ls_account_id)
+{
+	if (!ValidateLoginServerConnection(ServerOP_QueueDirectUpdate)) {return;}
+	
+	auto removal_pack = new ServerPacket(ServerOP_QueueDirectUpdate, sizeof(ServerQueueDirectUpdate_Struct));
+	ServerQueueDirectUpdate_Struct* removal = (ServerQueueDirectUpdate_Struct*)removal_pack->pBuffer;
+	
+	removal->ls_account_id = ls_account_id;
+	removal->queue_position = 0; // Position 0 = removed from queue
+	removal->estimated_wait = 0;
+	removal->ip_address = 0;
+	
+	loginserver->SendPacket(removal_pack);
+	delete removal_pack;
+	
+	QueueDebugLog(2, "Sent queue removal for LS account {}", ls_account_id);
+}
+
+// Template method for common packet sending pattern
+template<typename T>
+void QueueManager::SendLoginServerPacket(uint16 opcode, const T& data)
+{
+	if (!ValidateLoginServerConnection(opcode)) {return;}
+	
+	auto packet = new ServerPacket(opcode, sizeof(T));
+	*((T*)packet->pBuffer) = data;
+	loginserver->SendPacket(packet);
+	delete packet;
+	
+	QueueDebugLog(2, "Sent packet opcode 0x{:X}, size: {}", opcode, sizeof(T));
+}
+
+// Overload for single uint32 values
+void QueueManager::SendLoginServerPacket(uint16 opcode, uint32 single_value)
+{
+	if (!ValidateLoginServerConnection(opcode)) {return;}
+	
+	auto packet = new ServerPacket(opcode, sizeof(uint32));
+	*((uint32*)packet->pBuffer) = single_value;
+	loginserver->SendPacket(packet);
+	delete packet;
+	
+	QueueDebugLog(2, "Sent packet opcode 0x{:X} with value: {}", opcode, single_value);
+}
+
+// Overload for opcodes with no data
+void QueueManager::SendLoginServerPacket(uint16 opcode)
+{
+	if (!ValidateLoginServerConnection(opcode)) {return;}
+	
+	auto packet = new ServerPacket(opcode, 0);
+	loginserver->SendPacket(packet);
+	delete packet;
+	
+	QueueDebugLog(2, "Sent packet opcode 0x{:X} (no data)", opcode);
+} 

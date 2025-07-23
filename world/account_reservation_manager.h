@@ -43,7 +43,7 @@ public:
 	
 	// In-memory grace whitelist management (no database needed - same process)
 	bool IsAccountInGraceWhitelist(uint32 account_id); // Checks and auto-cleans expired entries
-	void IncreaseGraceDuration(uint32 account_id, uint32 grace_duration_seconds = 300); // Add to in-memory whitelist
+	void IncreaseGraceDuration(uint32 account_id, uint32 grace_duration_seconds); // Add to in-memory whitelist
 	void RemoveFromGraceWhitelist(uint32 account_id); // Remove from in-memory whitelist
 	void CleanupExpiredGraceWhitelist(); // Clean up expired entries from in-memory map
 	void UpdateGraceWhitelistStatus(uint32 account_id); // Updates whitelist when reservation changes
@@ -57,14 +57,7 @@ private:
 	
 	// In-memory grace whitelist - no database needed since both managers are in same process
 	std::map<uint32, uint32> m_grace_whitelist;  // account_id -> expires_at timestamp
-	
-	// Database synchronization - REMOVED DATABASE SYNC
-	/*
-	void SyncConnectionToDatabase(uint32 account_id, const PlayerInfo& info);
-	void RemoveConnectionFromDatabase(uint32 account_id);
-	void SyncAllConnectionsToDatabase();
-	*/
-	
+
 	// Helper methods
 	void CleanupStaleConnections();
 	std::string AccountToString(uint32 account_id) const;

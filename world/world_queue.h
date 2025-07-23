@@ -1,5 +1,5 @@
-#ifndef QUEUE_MANAGER_H
-#define QUEUE_MANAGER_H
+#ifndef WORLD_QUEUE_H
+#define WORLD_QUEUE_H
 
 #include "../common/types.h"
 #include "account_reservation_manager.h"  // Add AccountRezMgr
@@ -9,13 +9,24 @@
 #include <tuple>
 #include <set> // Added for std::set
 #include <memory> // Added for std::unique_ptr
+#include <optional> // Added for std::optional
 
-// Forward declarations
-struct QueuedClient;  // Defined in queue_manager.cpp
-class WorldDatabase;  // From worlddb.h
+// Queue debug system - shared across all queue-related files
+// 0 = off, 1 = important events only, 2 = verbose/noisy operations
+#ifndef QUEUE_DEBUG_LEVEL
+#define QUEUE_DEBUG_LEVEL 1 // TODO: Need to refine which msgs are @ which level
+#endif
+
+#define QueueDebugLog(level, fmt, ...) \
+    do { if (QUEUE_DEBUG_LEVEL >= level) LogInfo(fmt, ##__VA_ARGS__); } while(0)
+
+struct QueuedClient;  
+class WorldDatabase;  
 class AccountRezMgr;
 class Client;
 struct UsertoWorldResponse;
+class QueueManager; 
+extern QueueManager queue_manager;  // Global object - always valid, no null checks needed
 
 namespace EQ {
 	namespace Net {
@@ -57,7 +68,6 @@ public:
 	void RemoveFromQueue(const std::vector<uint32>& account_ids);
 	void RemoveFromQueue(uint32 account_id) { RemoveFromQueue(std::vector<uint32>{account_id}); } // Single account overload
 	void UpdateQueuePositions();
-	uint32 CalculateQueuePosition(uint32 account_id);
 	
 	/**
 	 * Connection decision logic - handles -6 queue responses from world server
@@ -72,12 +82,11 @@ public:
 	bool IsAccountQueued(uint32 account_id) const;
 	uint32 GetQueuePosition(uint32 account_id) const;
 	uint32 GetTotalQueueSize() const;
-	bool IsAccountInGraceWhitelist(uint32 account_id) const; // Check if account can bypass population cap
 	
 	/**
 	 * Population management
 	 */
-	uint32 GetEffectivePopulation(); // World population + test offset
+	uint32 EffectivePopulation(); // World population + test offset
 	uint32 GetWorldPopulation() const; // Just the world server population for logging
 	
 	/**
@@ -92,20 +101,15 @@ public:
 	// void SyncQueueToDatabase();
 	void RestoreQueueFromDatabase();
 	void CheckForExternalChanges(); // NEW: Check if database changed externally
-	void PeriodicMaintenance();
-	
-	/**
-	 * Enhanced maintenance operations - replaces login server iteration
-	 */
-	void RemovePlayerOnDisconnect(uint32 account_id); // Remove player when they disconnect from login server
+
 	void ProcessAdvancementTimer(); // Enhanced queue management - handles population updates, DB sync, and advancement
 	
 	/**
 	 * Database queue operations - moved from loginserver
 	 */
-	void SaveQueueEntry(uint32 account_id, uint32 world_server_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address);
-	void RemoveQueueEntry(uint32 account_id, uint32 world_server_id);
-	bool LoadQueueEntries(uint32 world_server_id, std::vector<std::tuple<uint32, uint32, uint32, uint32>>& queue_entries);
+	void SaveQueueDBEntry(uint32 account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address);
+	void RemoveQueueDBEntry(uint32 account_id);
+	bool LoadQueueEntries(std::vector<std::tuple<uint32, uint32, uint32, uint32>>& queue_entries);
 	
 	/**
 	 * Debugging and management
@@ -122,30 +126,24 @@ public:
 	 */
 	void SendQueuedClientsUpdate() const;
 	
-	// Account reservation manager - initialized after database is ready
-	std::unique_ptr<AccountRezMgr> m_account_rez_mgr;
-	
-	// Global effective population cache (updated by ProcessAdvancementTimer)
-	uint32 g_effective_population;
-	
-	// Initialization method to be called after database is ready
-	void Initialize_AccountRezMgr();
-	
-	// Constants
-	static const uint32 queue_grace_period = 30; // 30 sec grace period for disconnected players
-	
+	// Account reservation manager - true POD safety (always callable)
+	mutable AccountRezMgr m_account_rez_mgr;
+
 private:
+	// Database safety helper - checks if database is ready for operations
+	bool ValidateDatabaseReady() const;
+	
 	// Queue data
 	std::vector<QueuedClient> m_queued_clients;  // Ordered queue - position = index + 1
 	std::map<uint32, uint32> m_last_seen;             // account_id -> timestamp of last login server connection
 	bool m_queue_paused;                              // Queue updates paused
 	// std::string m_freeze_reason;
 	
-	// Cached server name for efficient logging
-	std::string m_server_name;
-	
 	// Cached test offset for efficient population calculation
 	uint32 m_cached_test_offset;
+	
+	// World server ID for database operations 
+	uint32 m_world_server_id;
 	
 	// Helper functions
 	void LogQueueAction(const std::string& action, uint32 account_id, const std::string& details = "") const;
@@ -155,8 +153,28 @@ private:
 	uint32 GetLSAccountFromWorld(uint32 world_account_id) const;  // Reverse mapping for dialogs and notifications
 	
 	// Database query helpers
-	bool ExecuteQuery(const std::string& query, const std::string& operation_desc) const;
+	bool QueryDB(const std::string& query, const std::string& operation_desc) const;
 	uint32 QuerySingleUint32(const std::string& query, uint32 default_value = 0) const;
+	
+	// ServerPacket helper methods to reduce code duplication
+	void SendWorldListUpdate(uint32 effective_population);
+	void SendQueuedClientUpdate(uint32 ls_account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address);
+	void SendQueueRemoval(uint32 ls_account_id);
+	void SendQueueAutoConnect(const QueuedClient& qclient);
+
+	// Helper method for common packet sending pattern
+	template<typename T>
+	void SendLoginServerPacket(uint16 opcode, const T& data);
+	void SendLoginServerPacket(uint16 opcode, uint32 single_value);
+	void SendLoginServerPacket(uint16 opcode); // For opcodes with no data
+	
+	// Connection validation helper
+	bool ValidateLoginServerConnection(uint16 opcode = 0) const;
 };
 
-#endif // QUEUE_MANAGER_H 
+// Global population accessor function
+inline uint32 GetWorldPop() {
+	return queue_manager.EffectivePopulation();
+}
+
+#endif // WORLD_QUEUE_H 

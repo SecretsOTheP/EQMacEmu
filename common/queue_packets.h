@@ -6,22 +6,12 @@
 #pragma pack(1)
 
 // Queue-related opcodes (separate from main servertalk.h to avoid full rebuilds)
-#define ServerOP_QueueAuthorization		0x4012
 #define ServerOP_QueueAutoConnect		0x4013
-#define ServerOP_QueuePositionQuery		0x4014	// Login->World: Request queue position for account
-#define ServerOP_QueuePositionResponse	0x4015	// World->Login: Reply with queue position
 #define ServerOP_QueueDirectUpdate		0x4016	// World->Login: Send pre-built server list packet to specific client
-#define ServerOP_QueueBatchRemoval		0x4017	// Login->World: Batch removal of disconnected clients from queue
 #define ServerOP_QueueBatchUpdate		0x4018	// World->Login: Batch queue position updates for multiple clients
 #define ServerOP_RemoveFromQueue		0x4019	// Login->World: Remove single disconnected client from queue
 
 // Queue-related packet structures
-struct ServerQueueAuthorization_Struct {
-	uint32 account_id;
-	uint32 authorization_timestamp;  // When this authorization was granted
-	uint32 timeout_seconds;          // How long this authorization is valid (default: 300 = 5 minutes)
-};
-
 struct ServerQueueAutoConnect_Struct {
 	uint32 loginserver_account_id;
 	uint32 world_id;

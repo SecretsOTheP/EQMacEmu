@@ -37,11 +37,11 @@
 #include "../common/zone_store.h"
 #include <set>
 #include <cstring>  // For strlen and strncat
+#include "world_queue.h"  // For queue_manager global
 
 extern WebInterfaceList web_interface;
 
 extern ZSList			zoneserver_list;
-extern QueueManager*	queue_manager;
 
 ClientList::ClientList()
 : CLStale_timer(RuleI(World, WorldClientLinkdeadMS))
@@ -275,6 +275,11 @@ void ClientList::DisconnectByIP(uint32 iIP) {
 				zoneserver_list.SendPacket(pack);
 				safe_delete(pack);
 			}
+			// TODO: Add kick-to-queue functionality
+			uint32 account_id = countCLEIPs->AccountID();
+			queue_manager.m_account_rez_mgr.RemoveRez(account_id);
+			LogInfo("Removed account reservation for IP-limited account [{}] - no grace period bypass", account_id);
+			
 			countCLEIPs->SetOnline(CLE_Status::Offline);
 			iterator.RemoveCurrent();
 			continue;
@@ -494,7 +499,7 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 		iterator.Advance();
 		x++;
 	}
-	fmt::format_to(std::back_inserter(out), "{}{} CLEs in memory. {} CLEs listed. server_population = {}.", newline, x, y, GetServerPopulation());
+	fmt::format_to(std::back_inserter(out), "{}{} CLEs in memory. {} CLEs listed. server_population = {}.", newline, x, y, GetWorldPop());
 	out.push_back(0);
 	connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::NPCQuestSay, out.data());
 }
@@ -1480,7 +1485,7 @@ bool ClientList::IsAccountInGame(uint32 iLSID) {
 
 	return false;
 }
-// Current only used as a fallback for for QueueManager::GetEffectivePopulation. Proper usage is to use QueueManager::GetServerPopulation 
+// Current only used as a fallback for for QueueManager::EffectivePopulation. Proper usage is to use GetWorldPop() 
 int ClientList::GetClientCount() {
 	int count = 0;
 	LinkedListIterator<ClientListEntry*> iterator(clientlist);

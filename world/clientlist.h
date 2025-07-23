@@ -9,7 +9,7 @@
 #include "../common/servertalk.h"
 #include "../common/event/timer.h"
 #include "../common/net/console_server_connection.h"
-#include "queue_manager.h"  // For server population management
+#include "world_queue.h"  // For server population management
 #include <vector>
 #include <string>
 #include <mutex>
@@ -79,12 +79,6 @@ public:
 	std::string GetClientKeyByLSID(uint32 iLSID);  // Get client key for queue authorization matching
 
 	int GetClientCount(); // Fallback population counter for startup
-	
-	// Server population wrapper - abstracts population counting from implementation
-	static uint32 GetServerPopulation() { 
-		extern QueueManager* queue_manager; 
-		return queue_manager->GetEffectivePopulation(); 
-	}
 	
 	void GetClients(const char *zone_name, std::vector<ClientListEntry *> &into);
 	bool WhoAllFilter(ClientListEntry* client, Who_All_Struct* whom, int16 admin, int whomlen);
