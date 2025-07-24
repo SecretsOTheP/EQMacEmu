@@ -62,15 +62,7 @@ public:
 	*/
 	void DestroyServerByName(std::string l_name, std::string s_name, WorldServer *ignore = nullptr);
 
-	/**
-	* Queue management - removes player from all server queues when client disconnects
-	*/
-	void RemovePlayerFromAllQueues(uint32 ls_account_id);
 
-	// /**
-	// * Queue management - removes player from all server queues
-	// */
-	// void RemovePlayerFromAllQueues(uint32 account_id);
 private:
 	/**
 	* Retrieves a server(if exists) by ip address

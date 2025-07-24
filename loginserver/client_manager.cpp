@@ -116,8 +116,8 @@ void ClientManager::ProcessDisconnect()
 			LogInfo("Client disconnected from the server, removing client.");
 			
 			// Remove from queue on all world servers if account ID is valid
-			if ((*iter)->HasQueuePosition() && (*iter)->GetAccountID() > 0 && server.server_manager) {
-				server.server_manager->RemovePlayerFromAllQueues((*iter)->GetAccountID());
+			if ((*iter)->HasQueuePosition() && account_id > 0 && server.server_manager) {
+				queue_manager.RemoveFromQueue(account_id);
 			}
 			
 			delete (*iter);

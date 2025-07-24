@@ -10,6 +10,7 @@
 #include <set> // Added for std::set
 #include <memory> // Added for std::unique_ptr
 #include <optional> // Added for std::optional
+#include <type_traits> // Added for template metaprogramming
 
 // Queue debug system - shared across all queue-related files
 // 0 = off, 1 = important events only, 2 = verbose/noisy operations
@@ -87,7 +88,6 @@ public:
 	 * Population management
 	 */
 	uint32 EffectivePopulation(); // World population + test offset
-	uint32 GetWorldPopulation() const; // Just the world server population for logging
 	
 	/**
 	 * Queue state management
@@ -162,11 +162,11 @@ private:
 	void SendQueueRemoval(uint32 ls_account_id);
 	void SendQueueAutoConnect(const QueuedClient& qclient);
 
-	// Helper method for common packet sending pattern
+	// Helper methods for common packet sending patterns - simplified overloads
 	template<typename T>
 	void SendLoginServerPacket(uint16 opcode, const T& data);
-	void SendLoginServerPacket(uint16 opcode, uint32 single_value);
-	void SendLoginServerPacket(uint16 opcode); // For opcodes with no data
+	void SendLoginServerPacket(uint16 opcode, uint32 value);
+	void SendLoginServerPacket(uint16 opcode);
 	
 	// Connection validation helper
 	bool ValidateLoginServerConnection(uint16 opcode = 0) const;

@@ -63,15 +63,20 @@ QueueManager::~QueueManager()
 {
 	QueueDebugLog(1, "QueueManager destroyed.");
 }
-
-bool QueueManager::ValidateDatabaseReady() const
+uint32 QueueManager::EffectivePopulation()
 {
-	if (!database_ready) {
-		QueueDebugLog(1, "Database not ready - skipping operation");
-		return false;
-	}
-	return true;
+// TODO: Add bypass logic for trader + GM accounts
+	
+	uint32 account_reservations = m_account_rez_mgr.Total();
+	uint32 test_offset = m_cached_test_offset;
+	uint32 effective_population = account_reservations + test_offset;
+	
+	QueueDebugLog(2, "Account reservations: {}, test offset: {}, effective total: {}", 
+		account_reservations, test_offset, effective_population);
+	
+	return effective_population;
 }
+
 void QueueManager::AddToQueue(uint32 world_account_id, uint32 position, uint32 estimated_wait, uint32 ip_address, 
 							uint32 ls_account_id, uint32 from_id, 
 							const char* ip_str, const char* forum_name, const char* client_key)
@@ -696,28 +701,15 @@ void QueueManager::SendQueueAutoConnect(const QueuedClient& qclient)
 	
 	QueueDebugLog(2, "Sent ServerOP_QueueAutoConnect for LS account {} with client key", qclient.ls_account_id);
 }
-
-uint32 QueueManager::EffectivePopulation()
-{
-// TODO: Add bypass logic for trader + GM accounts
-	
-	// Object always exists - direct access is safe
-	uint32 base_population = m_account_rez_mgr.Total();
-	
-	// Use cached test offset instead of database query for better performance
-	uint32 test_offset = m_cached_test_offset;
-	
-	// Calculate final effective population
-	uint32 effective_population = base_population + test_offset;
-	
-	QueueDebugLog(2, "Account reservations: {}, test offset: {}, effective total: {}", 
-		base_population, test_offset, effective_population);
-	
-	return effective_population;
-}
-
 // DATABASE QUEUE OPERATIONS 
-
+bool QueueManager::ValidateDatabaseReady() const
+{
+	if (!database_ready) {
+		QueueDebugLog(1, "Database not ready - skipping operation");
+		return false;
+	}
+	return true;
+}
 void QueueManager::SaveQueueDBEntry(uint32 account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address)
 {
 	if (!ValidateDatabaseReady()) {
@@ -953,11 +945,11 @@ void QueueManager::SendQueueRemoval(uint32 ls_account_id)
 	QueueDebugLog(2, "Sent queue removal for LS account {}", ls_account_id);
 }
 
-// Template method for common packet sending pattern
+// Helper methods for common packet sending patterns - simplified overloads
 template<typename T>
 void QueueManager::SendLoginServerPacket(uint16 opcode, const T& data)
 {
-	if (!ValidateLoginServerConnection(opcode)) {return;}
+	if (!ValidateLoginServerConnection(opcode)) { return; }
 	
 	auto packet = new ServerPacket(opcode, sizeof(T));
 	*((T*)packet->pBuffer) = data;
@@ -967,23 +959,21 @@ void QueueManager::SendLoginServerPacket(uint16 opcode, const T& data)
 	QueueDebugLog(2, "Sent packet opcode 0x{:X}, size: {}", opcode, sizeof(T));
 }
 
-// Overload for single uint32 values
-void QueueManager::SendLoginServerPacket(uint16 opcode, uint32 single_value)
+void QueueManager::SendLoginServerPacket(uint16 opcode, uint32 value)
 {
-	if (!ValidateLoginServerConnection(opcode)) {return;}
+	if (!ValidateLoginServerConnection(opcode)) { return; }
 	
 	auto packet = new ServerPacket(opcode, sizeof(uint32));
-	*((uint32*)packet->pBuffer) = single_value;
+	*((uint32*)packet->pBuffer) = value;
 	loginserver->SendPacket(packet);
 	delete packet;
 	
-	QueueDebugLog(2, "Sent packet opcode 0x{:X} with value: {}", opcode, single_value);
+	QueueDebugLog(2, "Sent packet opcode 0x{:X} with value: {}", opcode, value);
 }
 
-// Overload for opcodes with no data
 void QueueManager::SendLoginServerPacket(uint16 opcode)
 {
-	if (!ValidateLoginServerConnection(opcode)) {return;}
+	if (!ValidateLoginServerConnection(opcode)) { return; }
 	
 	auto packet = new ServerPacket(opcode, 0);
 	loginserver->SendPacket(packet);

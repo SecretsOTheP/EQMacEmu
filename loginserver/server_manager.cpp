@@ -293,35 +293,3 @@ void ServerManager::DestroyServerByName(std::string l_name, std::string s_name, 
 		++iter;
 	}
 }
-
-void ServerManager::RemovePlayerFromAllQueues(uint32 ls_account_id)
-{
-	if (ls_account_id == 0) {
-		return;
-	}
-	
-	// Create removal packet once - reuse for all world servers
-	auto removal_pack = new ServerPacket(ServerOP_RemoveFromQueue, sizeof(ServerQueueRemoval_Struct));
-	ServerQueueRemoval_Struct* removal = (ServerQueueRemoval_Struct*)removal_pack->pBuffer;
-	removal->ls_account_id = ls_account_id;
-	
-	uint32 packets_sent = 0;
-	
-	// Send removal packet to all connected world servers
-	auto iter = m_world_servers.begin();
-	while (iter != m_world_servers.end()) {
-		if ((*iter)->GetConnection()) {
-			// Send to this world server
-			(*iter)->GetConnection()->SendPacket(removal_pack);
-			packets_sent++;
-		}
-		++iter;
-	}
-	
-	// Clean up packet after sending to all servers
-	delete removal_pack;
-	
-	if (packets_sent > 0) {
-		LogInfo("Sent queue removal for disconnected client [{}] to [{}] world servers", ls_account_id, packets_sent);
-	}
-}
