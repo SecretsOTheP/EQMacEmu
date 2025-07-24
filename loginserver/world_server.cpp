@@ -22,7 +22,9 @@
 #include "../common/ip_util.h"
 #include "../common/queue_packets.h"  // Queue-specific opcodes and structures
 #include <fmt/format.h>
+#ifndef _WINDOWS
 #include <arpa/inet.h>
+#endif
 #include <vector>
 #include <tuple>
 #include <map>

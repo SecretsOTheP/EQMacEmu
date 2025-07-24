@@ -23,7 +23,9 @@
 #include "../common/eqemu_logsys.h"
 #include "../common/ip_util.h"
 #include <fmt/format.h>
+#ifndef _WINDOWS
 #include <arpa/inet.h>
+#endif
 #include <vector>
 #include <tuple>
 #include <map>

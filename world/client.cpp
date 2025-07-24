@@ -308,7 +308,7 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 			
 			// Register this account as active for queue population tracking
 			// Skip if account already has a reservation (auto-connecting people get theirs earlier)
-			if (loginserver && !queue_manager.m_account_rez_mgr.IsAccountInGraceWhitelist(cle->AccountID())) {
+			if (loginserver && cle->Admin() == 0 && !queue_manager.m_account_rez_mgr.IsAccountInGraceWhitelist(cle->AccountID())) {
 				queue_manager.m_account_rez_mgr.AddRez(cle->AccountID(), GetIP(), 6);
 				LogInfo("Added account reservation for account [{}] (normal connection)", cle->AccountID());
 			} else if (queue_manager.m_account_rez_mgr.IsAccountInGraceWhitelist(cle->AccountID())) {
