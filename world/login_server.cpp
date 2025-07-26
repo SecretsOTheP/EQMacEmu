@@ -171,7 +171,7 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 			utwrs->response = -3; // Population too high
 		}
 	}
-	else {
+	else { // Queue enabled
 		QueueDebugLog(1, "Capacity check: {} >= {}", effective_population, queue_cap);
 		
 		// At capacity check - use centralized decision logic
@@ -201,24 +201,16 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 				// Queue manager already set the appropriate response code (-6 for queue, -7 for toggle)
 			}
 		} else {
+			// Final anti-spam check: If queue logic approved them BUT there are still queued players, force to queue
+			// This prevents timing attacks where players slip through during brief capacity windows
+			if (queue_manager.GetTotalQueueSize() > 0 && !auto_connect && RuleB(Quarm, EnableQueue) && utwrs->response == 1 ) {
+				LogInfo("ANTI-SPAM: Account [{}] approved by queue logic but {} players still waiting - forcing to queue to prevent timing attack", 
+					id, queue_manager.GetTotalQueueSize());
+				utwrs->response = -6; // Force to queue
+			}
 			LogInfo("Server NOT at capacity - allowing connection (pop: {}/{})", effective_population, queue_cap);
 		}
 	}
-	
-	// Final check to prevent someone spamming play and stealing a spot
-	if (!auto_connect && queue_manager.GetTotalQueueSize() > 0 && utwrs->response == -6) {
-		// Only block if account is ALREADY queued (spam), not first-time queue additions
-		if (queue_manager.IsAccountQueued(id)) {
-			QueueDebugLog(2, "SPAM PREVENTION: Blocking repeat PLAY request from already-queued LS account [{}] - queue has [{}] players", 
-				utwr->lsaccountid, queue_manager.GetTotalQueueSize());
-			
-			// Response is already -6 from queue logic, just send it immediately to prevent further processing
-			SendPacket(outpack);
-			delete outpack;
-			return;
-		}
-	}
-	
 	// Only add to IP whitelist and log success if connection is actually allowed
 	if (utwrs->response == 1) {
 		QueueDebugLog(2, "Connection approved - adding IP to whitelist");
@@ -226,7 +218,7 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 		ipWhitelist.insert(utwr->ip);
 		ipMutex.unlock();
 	} else {
-		QueueDebugLog(1, "Connection not approved (response: {}) - not adding to whitelist", utwrs->response);
+		QueueDebugLog(1, "Connection not approved (response: {})", utwrs->response);
 	}
 
 	utwrs->worldid = utwr->worldid;

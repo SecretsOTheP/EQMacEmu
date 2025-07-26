@@ -23,9 +23,8 @@
 #
 # NEW DATABASE SCHEMA:
 # - server_population: Updated every 15 seconds with total account reservation count (for real-time reporting)
-# - active_account_connections: Updated every 5 minutes with detailed account reservation data (for crash recovery)
-#   Contains: account_id, ip_address, last_seen, grace_period, is_in_raid
-# - Grace periods: 60s (normal players), 600s (raid members)
+# - Account reservations: Tracked in-memory only (no database persistence)
+# - Grace periods: 60s (normal players), 600s (raid members) - tracked in-memory
 #
 # WORLD SERVER ID ISSUE FIX:
 # In test environments with frequent server restarts, world servers may get new ServerIDs each time
@@ -192,7 +191,7 @@ check_database_prerequisites() {
 
 print_header() {
     echo -e "${BLUE}============================================${NC}"
-    echo -e "${BLUE}  EQMacEmu Queue System Test Infrastructure${NC}"
+    echo -e "${BLUE}  Project Quarm Interactive Queue${NC}"
     echo -e "${BLUE}============================================${NC}"
     echo
 }
@@ -247,8 +246,30 @@ find_world_server_id() {
         print_info "Auto-detecting world server..."
     fi
     
-    # Get the most recent server registration regardless of name
-    # This is more reliable than name matching
+    # First try to find server using configured server names from config
+    local configured_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+                SELECT ServerID 
+                FROM tblWorldServerRegistration 
+                WHERE ServerLongName = '$WORLD_SERVER_NAME' OR ServerShortName = '$WORLD_SERVER_SHORT_NAME'
+                ORDER BY ServerID DESC 
+                LIMIT 1;" 2>/dev/null)
+    
+    if [ -n "$configured_server_id" ] && [ "$configured_server_id" -ne 0 ]; then
+        # Get the server name for verification
+        local server_name=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+            SELECT ServerLongName 
+            FROM tblWorldServerRegistration 
+            WHERE ServerID = $configured_server_id;" 2>/dev/null)
+        
+        if [ "$quiet_flag" != "quiet" ]; then
+            print_info "Found configured server '$server_name' with ID: $configured_server_id"
+        fi
+        
+        echo "$configured_server_id"
+        return 0
+    fi
+    
+    # Fallback: Get the most recent server registration if configured server not found
     local latest_server_id=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
                 SELECT ServerID 
                 FROM tblWorldServerRegistration 
@@ -263,7 +284,7 @@ find_world_server_id() {
             WHERE ServerID = $latest_server_id;" 2>/dev/null)
         
         if [ "$quiet_flag" != "quiet" ]; then
-            print_info "Found current server '$server_name' with ID: $latest_server_id"
+            print_info "Configured server '$WORLD_SERVER_NAME'/'$WORLD_SERVER_SHORT_NAME' not found - using latest server '$server_name' with ID: $latest_server_id"
         fi
         
         echo "$latest_server_id"
@@ -388,7 +409,6 @@ set_population_offset() {
     print_step "Setting Population Offset..."
     
     # Get current offset value
-    local current_offset=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name IN ('Quarm.TestPopulationOffset', 'Quarm:TestPopulationOffset') LIMIT 1;" 2>/dev/null)
     current_offset=${current_offset:-0}
     
     print_info "Current Test Population Offset: $current_offset"
@@ -417,7 +437,6 @@ set_population_offset() {
     execute_sql "UPDATE rule_values SET rule_value='$new_offset' WHERE rule_name='Quarm:TestPopulationOffset';"
     
     # Create the rule if it doesn't exist
-    execute_sql "INSERT IGNORE INTO rule_values (ruleset_id, rule_name, rule_value, notes) VALUES (1, 'Quarm:TestPopulationOffset', '$new_offset', 'Test population offset for queue testing');"
     
     print_info "Population offset updated: $current_offset → $new_offset"
     print_info "The world server will update the total population count within ~15 seconds."
@@ -442,8 +461,8 @@ show_queue_status() {
     fi
     
     echo
-    echo "Position | Account     | Acc ID | ETA       | Timestamp"
-    echo "---------|-------------|--------|-----------|-------------------"
+    echo -e "${GREEN}Pos | Account     | Acc ID | LSID  | Flag | Last Online         | In Queue | IP Address${NC}"
+    echo "----|-------------|--------|-------|------|---------------------|----------|---------------"
     
     mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -se "
         SELECT 
@@ -555,20 +574,24 @@ live_queue_monitor() {
         
         # Show population stats with both metrics
         echo -e "${GREEN}Server Status:${NC}"
+        # Get effective population from server_population table
+        local effective_population=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT effective_population FROM server_population WHERE server_id = 1 LIMIT 1;" 2>/dev/null)
+        effective_population=${effective_population:-"N/A"}
+        echo "  Effective Population: $effective_population"
         echo "  Server Capacity: $max_players"
+        echo "  Test Offset: $test_offset"
         echo "  Queue System: $queue_status"
         echo "  Queue Status: $queue_active"
         
+        
         # Show queue configuration
-        echo -e "${YELLOW}Queue Configuration:${NC}"
+        echo -e "${YELLOW}Queue Status:${NC}"
         
         # Check if any of our expected rules exist
         local rule_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
             SELECT COUNT(*) FROM rule_values 
             WHERE rule_name IN (
                 'Quarm.EnableQueue',
-                'Quarm.PlayerPopulationCap', 
-                'Quarm.TestPopulationOffset',
                 'Quarm.QueueBypassGMLevel',
                 'Quarm.QueueEstimatedWaitPerPlayer'
             );" 2>/dev/null)
@@ -578,8 +601,6 @@ live_queue_monitor() {
             SELECT COUNT(*) FROM rule_values 
             WHERE rule_name IN (
                 'Quarm:EnableQueue',
-                'Quarm:PlayerPopulationCap', 
-                'Quarm:TestPopulationOffset',
                 'Quarm:QueueBypassGMLevel',
                 'Quarm:QueueEstimatedWaitPerPlayer'
             );" 2>/dev/null)
@@ -590,8 +611,6 @@ live_queue_monitor() {
                     CONCAT('  ', 
                         CASE 
                             WHEN rule_name = 'Quarm.EnableQueue' THEN 'Queue Enabled: '
-                            WHEN rule_name = 'Quarm.PlayerPopulationCap' THEN 'Max Players: '
-                            WHEN rule_name = 'Quarm.TestPopulationOffset' THEN 'Test Offset: '
                             WHEN rule_name = 'Quarm.QueueBypassGMLevel' THEN 'GM Bypass: '
                             WHEN rule_name = 'Quarm.QueueEstimatedWaitPerPlayer' THEN 'Wait Per Player: '
                             ELSE CONCAT(SUBSTRING(rule_name, 7), ': ')
@@ -605,15 +624,11 @@ live_queue_monitor() {
                 FROM rule_values 
                 WHERE rule_name IN (
                     'Quarm.EnableQueue',
-                    'Quarm.PlayerPopulationCap', 
-                    'Quarm.TestPopulationOffset',
                     'Quarm.QueueBypassGMLevel',
                     'Quarm.QueueEstimatedWaitPerPlayer'
                 )
                 ORDER BY FIELD(rule_name, 
                     'Quarm.EnableQueue',
-                    'Quarm.PlayerPopulationCap', 
-                    'Quarm.TestPopulationOffset',
                     'Quarm.QueueBypassGMLevel',
                     'Quarm.QueueEstimatedWaitPerPlayer'
                 );
@@ -624,8 +639,6 @@ live_queue_monitor() {
                     CONCAT('  ', 
                         CASE 
                             WHEN rule_name = 'Quarm:EnableQueue' THEN 'Queue Enabled: '
-                            WHEN rule_name = 'Quarm:PlayerPopulationCap' THEN 'Max Players: '
-                            WHEN rule_name = 'Quarm:TestPopulationOffset' THEN 'Test Offset: '
                             WHEN rule_name = 'Quarm:QueueBypassGMLevel' THEN 'GM Bypass: '
                             WHEN rule_name = 'Quarm:QueueEstimatedWaitPerPlayer' THEN 'Wait Per Player: '
                             ELSE CONCAT(SUBSTRING(rule_name, 7), ': ')
@@ -639,15 +652,11 @@ live_queue_monitor() {
                 FROM rule_values 
                 WHERE rule_name IN (
                     'Quarm:EnableQueue',
-                    'Quarm:PlayerPopulationCap', 
-                    'Quarm:TestPopulationOffset',
                     'Quarm:QueueBypassGMLevel',
                     'Quarm:QueueEstimatedWaitPerPlayer'
                 )
                 ORDER BY FIELD(rule_name, 
                     'Quarm:EnableQueue',
-                    'Quarm:PlayerPopulationCap', 
-                    'Quarm:TestPopulationOffset',
                     'Quarm:QueueBypassGMLevel',
                     'Quarm:QueueEstimatedWaitPerPlayer'
                 );
@@ -659,17 +668,17 @@ live_queue_monitor() {
         # Show average wait time as N/A
         echo "  Average Wait Time: N/A"
         
-        # Display test offset for easier reading
-        echo
-        echo -e "${GREEN}Test Offset:${NC}"
-        echo "  +$test_offset"
+        # Add queue count information
+        local queue_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM tblLoginQueue;" 2>/dev/null)
+        echo "  Total Queue Entries: ${queue_count:-0}"
         
         # Show commands at the top so they don't get scrolled away
         echo
         echo -e "${PURPLE}Commands:${NC}"
         echo -e "${PURPLE}  [${WHITE}6${PURPLE}] Delete queue         [${WHITE}8${PURPLE}] Toggle queue mode    [${WHITE}p${PURPLE}] Set population${NC}"
-        echo -e "${PURPLE}  [${WHITE}s${PURPLE}] Lower pop (-1)       [${WHITE}w${PURPLE}] Increase pop (+1)    [${WHITE}q${PURPLE}] Quit${NC}"
-        echo -e "${PURPLE}  [${WHITE}x${PURPLE}] Rescan server${NC}"
+        echo -e "${PURPLE}  [${WHITE}s${PURPLE}] Lower pop (-1)       [${WHITE}w${PURPLE}] Increase pop (+1)    [${WHITE}k${PURPLE}] Kick by LSID${NC}"
+        echo -e "${PURPLE}  [${WHITE}c${PURPLE}] Set cap              [${WHITE}i${PURPLE}] Set server ID        [${WHITE}m${PURPLE}] Move player to pos${NC}"
+        echo -e "${PURPLE}  [${WHITE}q${PURPLE}] Quit${NC}"
 if [ "$queue_mode" = "1" ]; then
     echo -e "${PURPLE}  Queue mode: ${ORANGE}**(1) Dynamic - Rotate RAID, NORM, GRP, NEWB**${PURPLE} | (2) Chrono - Time based${NC}"
 else
@@ -708,19 +717,8 @@ fi
                 primary_server_id=""
             fi
             
-            # Debug information
-            local total_entries=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
-                SELECT COUNT(*) FROM tblLoginQueue;" 2>/dev/null)
-            local current_entries=0
-            if [ -n "$primary_server_id" ]; then
-                current_entries=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
-                    SELECT COUNT(*) FROM tblLoginQueue WHERE world_server_id = $primary_server_id;" 2>/dev/null)
-            fi
-            
-            echo "Debug: Total queue entries: ${total_entries:-0} | For display server: ${current_entries:-0}"
-            
-            echo "Position | Account     | Acc ID | ETA       | Flag | Last Online         | In Queue | Server | IP Address"
-            echo "---------|-------------|--------|-----------|------|---------------------|----------|--------|---------------"
+            echo -e "${GREEN}Pos | Account     | Acc ID | LSID  | Flag | Last Online         | In Queue | IP Address${NC}"
+            echo "----|-------------|--------|-------|------|---------------------|----------|---------------"
             
             if [ $queue_count -gt 0 ]; then
                 # Show queue entries for the server we determined has entries
@@ -735,11 +733,10 @@ fi
                         lq.queue_position,
                         COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name,
                         lq.account_id,
-                        'N/A',
+                        COALESCE(a.lsaccount_id, 'N/A') as lsid,
                         'NORM' as flag,
                         'unknown' as last_online,
                         TIME_FORMAT(SEC_TO_TIME(TIMESTAMPDIFF(SECOND, lq.last_updated, NOW())), '%i:%s') as in_queue,
-                        lq.world_server_id,
                         CONCAT(
                             (lq.ip_address & 0xFF), '.',
                             ((lq.ip_address >> 8) & 0xFF), '.',
@@ -750,9 +747,9 @@ fi
                     LEFT JOIN account a ON lq.account_id = a.id
                     $query_filter
                     ORDER BY lq.world_server_id, lq.queue_position LIMIT 20;
-                " 2>/dev/null | while IFS=$'\t' read position account acc_id wait_time flag last_online in_queue server_id ip_addr; do
-                    printf "%-8s | %-11s | %-6s | %-9s | %-4s | %-19s | %-8s | %-6s | %s\n" \
-                        "$position" "$account" "$acc_id" "$wait_time" "$flag" "$last_online" "$in_queue" "$server_id" "$ip_addr"
+                " 2>/dev/null | while IFS=$'\t' read position account acc_id lsid flag last_online in_queue ip_addr; do
+                    printf "%-3s | %-11s | %-6s | %-5s | %-4s | %-19s | %-8s | %s\n" \
+                        "$position" "$account" "$acc_id" "$lsid" "$flag" "$last_online" "$in_queue" "$ip_addr"
                 done
                 
                 # Show raw debug info if enabled - always show when requested
@@ -789,7 +786,7 @@ fi
         
         # Show refresh info
         echo
-        echo -e "${BLUE}Last updated: $(date '+%H:%M:%S') | Refreshing every 3 seconds...${NC}"
+        echo -e "${BLUE}Last updated: $(date '+%H:%M:%S') | Refreshing every 3 seconds... | (Updates take ~3s to show up)${NC}"
         
         # Wait for input with timeout (3 seconds)
         # Use read with timeout and handle key presses
@@ -797,8 +794,8 @@ fi
         
         case "$key" in
             # REMOVED: Cases "1" through "5" - force login, boot from queue, move up/down queue, send dialog msg
+			# Delete entire queue
             "6")
-                # Delete entire queue
                 echo
                 echo -e "${YELLOW}Available servers with queue entries:${NC}"
                 mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "
@@ -889,8 +886,8 @@ fi
                     notification="${BLUE}Queue mode change cancelled${NC}"
                 fi
                 ;;
+			# Set population offset
             "p"|"P")
-                # Set population offset
                 echo
                 local current_offset=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:TestPopulationOffset' LIMIT 1;" 2>/dev/null)
                 current_offset=${current_offset:-0}
@@ -918,6 +915,66 @@ fi
                     notification="${YELLOW}Set population cancelled - no value entered${NC}"
                 fi
                 ;;
+            "k"|"K")
+                # Kick player from queue
+                echo
+                echo -e "${YELLOW}Enter LSID to kick from queue: ${NC}"
+                read lsid
+                
+                if [ -z "$lsid" ]; then
+                    notification="${RED}Kick cancelled - LSID cannot be empty${NC}"
+                elif ! [[ "$lsid" =~ ^[0-9]+$ ]]; then
+                    notification="${RED}Kick cancelled - LSID must be a number${NC}"
+                else
+                    # Find queue entry by LSID using JOIN to get both account name and queue info
+                    local queue_info=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+                        SELECT 
+                            lq.account_id,
+                            lq.queue_position, 
+                            lq.world_server_id,
+                            COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name
+                        FROM tblLoginQueue lq
+                        LEFT JOIN account a ON lq.account_id = a.id 
+                        WHERE a.lsaccount_id = $lsid;
+                    " 2>/dev/null)
+                    
+                    if [ -z "$queue_info" ]; then
+                        notification="${YELLOW}LSID '$lsid' is not in the queue${NC}"
+                    else
+                        # Parse queue info
+                        local world_account_id=$(echo "$queue_info" | cut -f1)
+                        local position=$(echo "$queue_info" | cut -f2)
+                        local server_id=$(echo "$queue_info" | cut -f3)
+                        local account_name=$(echo "$queue_info" | cut -f4)
+                        
+                        echo -e "${BLUE}Found LSID '$lsid' ($account_name) at position $position on server $server_id${NC}"
+                        echo -n -e "${YELLOW}Remove this player? [y/N]: ${NC}"
+                        read -n 1 confirm
+                        echo
+                        
+                        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                            # Remove from database using world account ID
+                            local delete_result=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+                                DELETE FROM tblLoginQueue WHERE account_id = $world_account_id;
+                            " 2>&1)
+                            
+                            if [ $? -eq 0 ]; then
+                                print_info "✅ Removed LSID '$lsid' ($account_name) from queue database"
+                                
+                                # Trigger queue refresh to sync memory
+                                trigger_queue_refresh
+                                
+                                print_info "✅ Triggered queue sync - world server will remove from memory within seconds"
+                                print_info "The player will be notified of their removal via login server"
+                            else
+                                print_error "❌ Failed to remove LSID '$lsid' from queue database: $delete_result"
+                            fi
+                        else
+                            print_info "Kick cancelled - LSID '$lsid' ($account_name) remains in queue"
+                        fi
+                    fi
+                fi
+                ;;
             "q"|"Q")
                 echo
                 echo -e "${YELLOW}[INFO]${NC} Returning to main menu..."
@@ -925,8 +982,8 @@ fi
                 tput cnorm
                 return 0
                 ;;
+			# Decrease test offset by 1 (lower population)
             "s"|"S")
-                # Decrease test offset by 1 (lower population)
                 local current_offset=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:TestPopulationOffset' LIMIT 1;" 2>/dev/null)
                 current_offset=${current_offset:-0}
                 
@@ -948,8 +1005,8 @@ fi
                     notification="${YELLOW}Population offset already at minimum (0)${NC}"
                 fi
                 ;;
+			# Increase test offset by 1 (higher population)
             "w"|"W")
-                # Increase test offset by 1 (higher population)
                 local current_offset=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:TestPopulationOffset' LIMIT 1;" 2>/dev/null)
                 current_offset=${current_offset:-0}
                 
@@ -971,8 +1028,8 @@ fi
                     notification="${YELLOW}Population offset already at maximum (9999)${NC}"
                 fi
                 ;;
+			# Toggle raw queue display
             "r"|"R")
-                # Toggle raw queue display
                 if [ "${show_raw_queue:-false}" = "true" ]; then
                     show_raw_queue="false"
                     notification="${GREEN}Raw queue display: OFF${NC}"
@@ -981,8 +1038,78 @@ fi
                     notification="${GREEN}Raw queue display: ON${NC}"
                 fi
                 ;;
+			# Set population cap
+            "c"|"C")
+                echo
+                local current_cap=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:PlayerPopulationCap' LIMIT 1;" 2>/dev/null)
+                if [ -z "$current_cap" ]; then
+                    current_cap=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm.PlayerPopulationCap' LIMIT 1;" 2>/dev/null)
+                fi
+                current_cap=${current_cap:-1200}
+                
+                echo -e "${YELLOW}Current population cap: $current_cap${NC}"
+                echo -n -e "${YELLOW}Enter new population cap (1-10000): ${NC}"
+                read new_cap
+                
+                if [[ "$new_cap" =~ ^[0-9]+$ ]] && [ "$new_cap" -ge 1 ] && [ "$new_cap" -le 10000 ]; then
+                    # Update the cap using set_rule function (handles both naming conventions)
+                    set_rule "Quarm:PlayerPopulationCap" "$new_cap"
+                    set_rule "Quarm.PlayerPopulationCap" "$new_cap"
+                    
+                    # Verify the update
+                    local verified_cap=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm:PlayerPopulationCap';" 2>/dev/null)
+                    if [ -z "$verified_cap" ]; then
+                        verified_cap=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT rule_value FROM rule_values WHERE rule_name = 'Quarm.PlayerPopulationCap';" 2>/dev/null)
+                    fi
+                    
+                    notification="${GREEN}Population cap set: $current_cap → $new_cap${NC}"
+                    if [ -n "$verified_cap" ]; then
+                        notification+="\n${BLUE}Verified in database: $verified_cap${NC}"
+                    fi
+                    notification+="\n${YELLOW}World server will use new cap within 5-15 seconds${NC}"
+                elif [ -n "$new_cap" ]; then
+                    notification="${RED}Invalid input: '$new_cap'. Please enter a number between 1 and 10000.${NC}"
+                else
+                    notification="${YELLOW}Set cap cancelled - no value entered${NC}"
+                fi
+                ;;
+			# Set server ID manually
+            "i"|"I")
+                echo
+                echo -e "${YELLOW}Available servers in database:${NC}"
+                mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "
+                    SELECT 
+                        ServerID as 'Server ID',
+                        ServerLongName as 'Server Name',
+                        ServerShortName as 'Short Name',
+                        ServerLastLoginDate as 'Last Seen'
+                    FROM tblWorldServerRegistration 
+                    ORDER BY ServerID DESC;" 2>/dev/null
+                
+                echo
+                echo -n -e "${YELLOW}Enter server ID to target (or 'auto' for auto-detection): ${NC}"
+                read server_choice
+                
+                if [ "$server_choice" = "auto" ]; then
+                    unset MANUAL_SERVER_ID
+                    notification="${GREEN}Server targeting set to auto-detection${NC}"
+                elif [ -n "$server_choice" ] && [[ "$server_choice" =~ ^[0-9]+$ ]]; then
+                    # Verify server exists
+                    local server_exists=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM tblWorldServerRegistration WHERE ServerID = $server_choice;" 2>/dev/null)
+                    
+                    if [ "$server_exists" -gt 0 ]; then
+                        export MANUAL_SERVER_ID="$server_choice"
+                        local server_name=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT ServerLongName FROM tblWorldServerRegistration WHERE ServerID = $server_choice;" 2>/dev/null)
+                        notification="${GREEN}Server targeting set to ID: $server_choice ($server_name)${NC}"
+                    else
+                        notification="${RED}Server ID $server_choice not found in database${NC}"
+                    fi
+                else
+                    notification="${YELLOW}Server ID change cancelled - invalid input${NC}"
+                fi
+                ;;
+			# Rescan server
             "x"|"X")
-                # Rescan server
                 echo
                 echo -e "${YELLOW}Rescanning server registration...${NC}"
                 
@@ -1014,13 +1141,99 @@ fi
                     notification="${RED}Server rescan failed - no server registrations found${NC}"
                 fi
                 ;;
+			# Move player to position
+            "m"|"M")
+                # Move player to position
+                echo
+                
+                # Use the same server ID detection logic as the queue display
+                local servers_with_queues=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+                    SELECT DISTINCT world_server_id 
+                    FROM tblLoginQueue 
+                    ORDER BY world_server_id DESC;" 2>/dev/null)
+                
+                if [ -z "$servers_with_queues" ]; then
+                    notification="${YELLOW}Queue is empty - no players to move${NC}"
+                else
+                    # Use the most recent server ID (same as queue display logic)
+                    local world_server_id=$(echo "$servers_with_queues" | head -1)
+                    local queue_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM tblLoginQueue WHERE world_server_id = $world_server_id;" 2>/dev/null)
+                    
+                    
+                    if [ "$queue_count" = "0" ]; then
+                        notification="${YELLOW}Queue is empty - no players to move${NC}"
+                    else
+                        echo -e "${YELLOW}Enter LSID of player to move: ${NC}"
+                        read lsid
+                        
+                        if [ -z "$lsid" ]; then
+                            notification="${RED}Move cancelled - LSID cannot be empty${NC}"
+                        elif ! [[ "$lsid" =~ ^[0-9]+$ ]]; then
+                            notification="${RED}Move cancelled - LSID must be a number${NC}"
+                        else
+                            # Find player in queue
+                            local player_info=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+                                SELECT 
+                                    lq.queue_position,
+                                    COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name
+                                FROM tblLoginQueue lq
+                                LEFT JOIN account a ON lq.account_id = a.id
+                                WHERE a.lsaccount_id = $lsid AND lq.world_server_id = $world_server_id;" 2>/dev/null)
+                            
+                            if [ -z "$player_info" ]; then
+                                notification="${YELLOW}LSID '$lsid' is not found in the queue${NC}"
+                            else
+                                local current_position=$(echo "$player_info" | cut -f1)
+                                local account_name=$(echo "$player_info" | cut -f2)
+                                
+                                echo -e "${BLUE}Found player: $account_name (LSID: $lsid) at position $current_position${NC}"
+                                echo -n -e "${YELLOW}Enter new position (1-$queue_count): ${NC}"
+                                read new_position
+                                
+                                if [ -z "$new_position" ]; then
+                                    notification="${RED}Move cancelled - New position cannot be empty${NC}"
+                                elif ! [[ "$new_position" =~ ^[0-9]+$ ]]; then
+                                    notification="${RED}Move cancelled - New position must be a number${NC}"
+                                elif [ "$new_position" -lt 1 ] || [ "$new_position" -gt "$queue_count" ]; then
+                                    notification="${RED}Move cancelled - New position must be between 1 and $queue_count${NC}"
+                                elif [ "$new_position" = "$current_position" ]; then
+                                    notification="${YELLOW}Player is already at position $new_position - no change needed${NC}"
+                                else
+                                    echo -n -e "${YELLOW}Move $account_name from position $current_position to $new_position? [y/N]: ${NC}"
+                                    read -n 1 confirm
+                                    echo
+                                    
+                                    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                                        # Set the move player flag in database
+                                        local flag_value="${lsid},${new_position}"
+                                        
+                                        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+                                            INSERT INTO tblloginserversettings (type, value, category, description) 
+                                            VALUES ('MovePlayerInQueue', '$flag_value', 'queue', 'Move player to specific position - auto-reset by system') 
+                                            ON DUPLICATE KEY UPDATE value = '$flag_value';
+                                        " 2>/dev/null
+                                        
+                                        if [ $? -eq 0 ]; then
+                                            notification="${GREEN}✅ Move request sent: $account_name (LSID: $lsid) from pos $current_position → $new_position${NC}"
+                                            trigger_queue_refresh
+                                        else
+                                            notification="${RED}❌ Failed to send move request to world server${NC}"
+                                        fi
+                                    else
+                                        notification="${YELLOW}Move cancelled by user${NC}"
+                                    fi
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+                ;;
             # Legacy support for old key mappings - updated mappings
             "f"|"F") key="1"; continue ;;
             "b"|"B") key="2"; continue ;;
             "e"|"E") key="3"; continue ;;
             "d"|"D") key="4"; continue ;;
-            "m"|"M") key="8"; continue ;;
-            # "r"|"R") key="r"; continue ;;  # Removed - causes infinite loop, 'r' case exists above
+            "r"|"R") key="r"; continue ;;  # Removed - causes infinite loop, 'r' case exists above
             *)
                 # No key pressed or other key, continue refresh cycle
                 ;;
@@ -1187,11 +1400,9 @@ get_client_count() {
 
 # Function to get detailed account tracking count
 get_detailed_account_count() {
-    local detailed_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
-        SELECT COUNT(*) FROM active_account_connections;
-    " 2>/dev/null)
-    
-    echo "${detailed_count:-0}"
+    # Account reservations are tracked in-memory only (no database persistence)
+    # Return N/A since this data is not available in database
+    echo "N/A"
 }
 
 # Function to show population comparison
@@ -1242,17 +1453,21 @@ debug_population_tracking() {
     
     echo
     print_info "1. Checking if server_population table exists..."
+    print_info "   Query: DESCRIBE server_population;"
     if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DESCRIBE server_population;" >/dev/null 2>&1; then
         print_info "✓ server_population table exists"
         
         echo
         print_info "2. Table structure:"
+        print_info "   Query: DESCRIBE server_population;"
         mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "DESCRIBE server_population;" 2>/dev/null
         
         echo
         print_info "3. Current table contents:"
+        print_info "   Query: SELECT * FROM server_population;"
         mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "SELECT * FROM server_population;" 2>/dev/null
         
+        print_info "   Query: SELECT COUNT(*) FROM server_population;"
         local row_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM server_population;" 2>/dev/null)
         if [ "$row_count" = "0" ]; then
             print_error "Table is empty! This means the world server isn't updating it."
@@ -1264,11 +1479,13 @@ debug_population_tracking() {
         else
             print_info "✓ Table has $row_count row(s)"
             
+            print_info "   Query: SELECT last_updated FROM server_population WHERE server_id = 1;"
             local last_updated=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT last_updated FROM server_population WHERE server_id = 1;" 2>/dev/null)
             if [ -n "$last_updated" ]; then
                 print_info "✓ Last updated: $last_updated"
                 
                 # Check how old the last update is
+                print_info "   Query: SELECT TIMESTAMPDIFF(SECOND, last_updated, NOW()) FROM server_population WHERE server_id = 1;"
                 local seconds_ago=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT TIMESTAMPDIFF(SECOND, last_updated, NOW()) FROM server_population WHERE server_id = 1;" 2>/dev/null)
                 if [ "$seconds_ago" -gt 60 ]; then
                     print_error "⚠ Last update was $seconds_ago seconds ago (should update every ~15 seconds)"
@@ -1284,50 +1501,7 @@ debug_population_tracking() {
     fi
     
     echo
-    print_info "4. Checking account tracking detail table (active_account_connections)..."
-    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DESCRIBE active_account_connections;" >/dev/null 2>&1; then
-        print_info "✓ active_account_connections table exists"
-        
-        local account_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM active_account_connections;" 2>/dev/null)
-        print_info "✓ Contains $account_count account reservations"
-        
-        if [ "$account_count" -gt 0 ]; then
-            echo
-            print_info "Recent account reservations:"
-            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "
-                SELECT 
-                    account_id as 'Account ID',
-                    INET_NTOA(ip_address) as 'IP Address',
-                    last_seen as 'Last Seen',
-                    grace_period as 'Grace (s)',
-                    CASE WHEN is_in_raid = 1 THEN 'Yes' ELSE 'No' END as 'Raid'
-                FROM active_account_connections 
-                ORDER BY last_seen DESC 
-                LIMIT 10;
-            " 2>/dev/null
-        fi
-    else
-        print_error "✗ active_account_connections table does not exist!"
-        print_info "This table stores detailed account reservation data and is required for crash recovery."
-    fi
-    
-    echo
-    print_info "5. Testing manual population update..."
-    local test_population=999
-    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "INSERT INTO server_population (server_id, current_population) VALUES (1, $test_population) ON DUPLICATE KEY UPDATE current_population = $test_population, last_updated = NOW();" 2>/dev/null; then
-        print_info "✓ Manual update successful"
-        local new_value=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT current_population FROM server_population WHERE server_id = 1;" 2>/dev/null)
-        if [ "$new_value" = "$test_population" ]; then
-            print_info "✓ Value updated correctly to $new_value"
-            # Reset to 0
-            mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "UPDATE server_population SET current_population = 0 WHERE server_id = 1;" 2>/dev/null
-            print_info "✓ Reset to 0 for normal operation"
-        else
-            print_error "✗ Value not updated correctly (got: $new_value, expected: $test_population)"
-        fi
-    else
-        print_error "✗ Manual update failed - database permission issue"
-    fi
+
 }
 
 # Function to show detailed account tracker status
@@ -1336,19 +1510,25 @@ show_account_tracker_status() {
     
     # Get summary counts
     local server_pop=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COALESCE(current_population, 0) FROM server_population WHERE server_id = 1;" 2>/dev/null)
-    local account_detail_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM active_account_connections;" 2>/dev/null)
     
     echo
     print_info "Population Summary:"
     print_info "  Current Population (server_population): ${server_pop:-Unknown}"
-    print_info "  Detailed Account Reservations (active_account_connections): ${account_detail_count:-0}"
+    print_info "  Account Reservations: Tracked in-memory only (no database persistence)"
     
-    if [ -n "$server_pop" ] && [ -n "$account_detail_count" ] && [ "$server_pop" != "$account_detail_count" ]; then
-        print_info "  Note: Counts may differ - server_population updates every 15s, account details sync every 5min"
+    # Show queue information instead of account connections
+    echo
+    print_info "Account Reservation Details:"
+    print_info "Account reservations are tracked in-memory only for optimal performance."
+    print_info "Detailed account information is not available in database queries."
+    print_info "Use in-game monitoring or server logs for detailed account tracking."
+    
+    if [ -n "$server_pop" ] && [ -n "$detailed_account_count" ] && [ "$server_pop" != "$detailed_account_count" ]; then
+        print_info "  Note: Counts may differ - server_population updates every 15s, detailed sync every 5min"
     fi
     
     # Show detailed account connections if any exist
-    if [ "$account_detail_count" -gt 0 ]; then
+    if [ "$detailed_account_count" -gt 0 ]; then
         echo
         print_info "Active Account Reservations:"
         mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" --table -e "
@@ -1391,30 +1571,17 @@ show_account_tracker_status() {
 
 # Function to clear account tracking test data
 clear_account_test_data() {
-    print_step "Clearing Account Tracking Test Data"
+    print_step "Account Tracking Data Management"
     
     echo
-    print_info "This will clear all account reservation data from active_account_connections table."
-    print_info "Use this for testing or to reset the account tracking system."
+    print_info "Account reservations are tracked in-memory only (no database persistence)."
+    print_info "Account data is automatically cleared when the world server restarts."
+    print_info "No manual clearing is needed or possible for in-memory data."
     print_info ""
-    echo -n "Are you sure? [y/N]: "
-    read confirm
-    
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        local count_before=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM active_account_connections;" 2>/dev/null)
-        
-        execute_sql "DELETE FROM active_account_connections;"
-        
-        if [ $? -eq 0 ]; then
-            print_info "✅ Cleared $count_before account reservations from test data"
-            print_info "Note: Real player connections will be re-added by the world server"
-            trigger_queue_refresh
-        else
-            print_error "❌ Failed to clear account test data"
-        fi
-    else
-        print_info "Cancelled - no data cleared"
-    fi
+    print_info "To reset account tracking:"
+    print_info "  1. Restart the world server"
+    print_info "  2. All in-memory reservations will be cleared"
+    print_info "  3. Queue persistence (if enabled) will restore from tblLoginQueue"
 }
 
 # Function to toggle GM bypass queue
@@ -1569,6 +1736,136 @@ cleanup_orphaned_queue_entries() {
     fi
 }
 
+# Function to move a player to a specific position in queue
+move_player_to_position() {
+    print_step "Move Player to Position"
+    
+    echo
+    echo "This command moves a queued player to a specific position."
+    echo
+    
+    # Show current queue first
+    print_info "Current queue status:"
+    local world_server_id=$(find_world_server_id "quiet")
+    
+    if [ -z "$world_server_id" ] || [ "$world_server_id" = "0" ]; then
+        print_error "No world server found in database."
+        print_info "Make sure both servers are running."
+        return 1
+    fi
+    
+    # Show current queue
+    echo
+    echo -e "${GREEN}Pos | Account     | LSID  | Last Updated${NC}"
+    # echo "---|-------------|-------|-------------------"
+    
+    mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+        SELECT 
+            lq.queue_position,
+            COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name,
+            COALESCE(a.lsaccount_id, 'N/A') as lsid,
+            lq.last_updated
+        FROM tblLoginQueue lq
+        LEFT JOIN account a ON lq.account_id = a.id
+        WHERE lq.world_server_id = $world_server_id
+        ORDER BY lq.queue_position;" 2>/dev/null | while IFS=$'\t' read position account lsid last_updated; do
+        printf "%-8s | %-11s | %-5s | %s\n" "$position" "$account" "$lsid" "$last_updated"
+    done
+    
+    local queue_count=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM tblLoginQueue WHERE world_server_id = $world_server_id;" 2>/dev/null)
+    echo
+    echo "Total players in queue: $queue_count"
+    
+    if [ "$queue_count" = "0" ]; then
+        print_info "Queue is empty - no players to move."
+        return 0
+    fi
+    
+    echo
+    echo -n -e "${YELLOW}Enter LSID of player to move: ${NC}"
+    read lsid
+    
+    if [ -z "$lsid" ]; then
+        print_error "LSID cannot be empty"
+        return 1
+    fi
+    
+    if ! [[ "$lsid" =~ ^[0-9]+$ ]]; then
+        print_error "LSID must be a number"
+        return 1
+    fi
+    
+    # Verify player is in queue
+    local player_info=$(mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "
+        SELECT 
+            lq.queue_position,
+            COALESCE(a.name, CONCAT('Account-', lq.account_id)) as account_name
+        FROM tblLoginQueue lq
+        LEFT JOIN account a ON lq.account_id = a.id
+        WHERE a.lsaccount_id = $lsid AND lq.world_server_id = $world_server_id;" 2>/dev/null)
+    
+    if [ -z "$player_info" ]; then
+        print_error "LSID '$lsid' is not found in the queue"
+        return 1
+    fi
+    
+    local current_position=$(echo "$player_info" | cut -f1)
+    local account_name=$(echo "$player_info" | cut -f2)
+    
+    echo
+    print_info "Found player: $account_name (LSID: $lsid) at position $current_position"
+    
+    echo -n -e "${YELLOW}Enter new position (1-$queue_count): ${NC}"
+    read new_position
+    
+    if [ -z "$new_position" ]; then
+        print_error "New position cannot be empty"
+        return 1
+    fi
+    
+    if ! [[ "$new_position" =~ ^[0-9]+$ ]]; then
+        print_error "New position must be a number"
+        return 1
+    fi
+    
+    if [ "$new_position" -lt 1 ] || [ "$new_position" -gt "$queue_count" ]; then
+        print_error "New position must be between 1 and $queue_count"
+        return 1
+    fi
+    
+    if [ "$new_position" = "$current_position" ]; then
+        print_info "Player is already at position $new_position - no change needed"
+        return 0
+    fi
+    
+    echo
+    print_info "Moving player $account_name (LSID: $lsid) from position $current_position to position $new_position"
+    echo -n -e "${YELLOW}Are you sure? [y/N]: ${NC}"
+    read confirm
+    
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        # Set the move player flag in database
+        local flag_value="${lsid},${new_position}"
+        
+        mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+            INSERT INTO tblloginserversettings (type, value, category, description) 
+            VALUES ('MovePlayerInQueue', '$flag_value', 'queue', 'Move player to specific position - auto-reset by system') 
+            ON DUPLICATE KEY UPDATE value = '$flag_value';
+        " 2>/dev/null
+        
+        if [ $? -eq 0 ]; then
+            print_info "✅ Move player request sent to world server"
+            print_info "LSID $lsid will be moved from position $current_position to position $new_position"
+            print_info "The change will be processed within 5-15 seconds"
+            trigger_queue_refresh
+        else
+            print_error "❌ Failed to send move player request to world server"
+        fi
+    else
+        print_info "Move player cancelled"
+    fi
+}
+
 # Main menu
 show_menu() {
     echo
@@ -1576,12 +1873,12 @@ show_menu() {
     echo "1. Live queue monitor"
     echo "2. Set population offset"
     echo "3. Debug population tracking"
-    echo "4. Show account tracker status"
-    echo "5. Clear account tracking test data"
-    echo "6. Delete queue (all players)"
-    echo "7. Toggle GM bypass queue"
-    echo "8. Toggle freeze queue"
-    echo "9. Cleanup orphaned queue entries"
+    # echo "4. Show account tracker status"
+    # echo "5. Clear account tracking test data"
+    # echo "6. Delete queue (all players)"
+    # echo "7. Toggle GM bypass queue"
+    # echo "8. Toggle freeze queue"
+    # echo "9. Cleanup orphaned queue entries"
     echo "10. Exit"
     echo
     echo "Press Ctrl+C to exit anytime"
@@ -1610,24 +1907,24 @@ main() {
             3)
                 debug_population_tracking
                 ;;
-            4)
-                show_account_tracker_status
-                ;;
-            5)
-                clear_account_test_data
-                ;;
-            6)
-                delete_entire_queue
-                ;;
-            7)
-                toggle_gm_bypass
-                ;;
-            8)
-                toggle_freeze_queue
-                ;;
-            9)
-                cleanup_orphaned_queue_entries
-                ;;
+            # 4)
+            #     show_account_tracker_status
+            #     ;;
+            # 5)
+            #     clear_account_test_data
+            #     ;;
+            # 6)
+            #     delete_entire_queue
+            #     ;;
+            # 7)
+            #     toggle_gm_bypass
+            #     ;;
+            # 8)
+            #     toggle_freeze_queue
+            #     ;;
+            # 9)
+            #     cleanup_orphaned_queue_entries
+            #     ;;
             10)
                 print_info "Goodbye!"
                 exit 0
@@ -1647,7 +1944,6 @@ if ! mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "USE $DB_NAME;" 2>/dev/null
 fi
 
 # Show startup configuration
-print_header
 print_info "Configuration loaded:"
 print_info "  Config file: $CONFIG_PATH"
 print_info "  Database: $DB_HOST/$DB_NAME (user: $DB_USER)"
@@ -1657,4 +1953,3 @@ echo
 
 # Run main menu
 main
-

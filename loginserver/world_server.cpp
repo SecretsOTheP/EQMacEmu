@@ -572,6 +572,7 @@ void WorldServer::SendClientAuth(std::string ip, std::string account, std::strin
 
 	safe_delete(outapp);
 }
+
 void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet& p)
 {
 	if (p.Length() < sizeof(ServerQueueAutoConnect_Struct)) {
@@ -648,6 +649,39 @@ void WorldServer::ProcessQueueAutoConnect(uint16_t opcode, const EQ::Net::Packet
 	}
 }
 
+// Helper function for processing individual queue updates (shared by direct and batch)
+bool WorldServer::Queue_SharedHelper(const ServerQueueDirectUpdate_Struct& update, uint32 update_index)
+{
+	QueueDebugLog(1, "Processing queue update [{}]: LS account [{}] position [{}] wait [{}]s", 
+		update_index, update.ls_account_id, update.queue_position, update.estimated_wait);
+	
+	// Find target client
+	Client* target_client = nullptr;
+	if (server.client_manager && update.ls_account_id != 0) {
+		target_client = server.client_manager->GetClient(update.ls_account_id);
+	}
+	
+	if (target_client) {
+		// Process the update
+		if (update.queue_position == 0) {
+			target_client->ClearQueuePosition();
+			QueueDebugLog(1, "Update [{}]: Player [{}] removed from queue", update_index, update.ls_account_id);
+		} else {
+			target_client->SetQueuePosition(GetServerId(), update.queue_position);
+			QueueDebugLog(1, "Update [{}]: Player [{}] queue position updated to [{}]", 
+				update_index, update.ls_account_id, update.queue_position);
+		}
+		
+		// Send targeted update to this specific client
+		target_client->SendServerListPacket();
+		return true; // Success
+	} else {
+		QueueDebugLog(1, "Update [{}]: Client account [{}] not found - likely disconnected", 
+			update_index, update.ls_account_id);
+		return false; // Failed
+	}
+}
+
 void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packet& p)
 {
 	QueueDebugLog(1, "ProcessQueueDirectUpdate called with opcode 0x{:X}, packet size {}", opcode, p.Length());
@@ -656,47 +690,16 @@ void WorldServer::ProcessQueueDirectUpdate(uint16_t opcode, const EQ::Net::Packe
 		LogError("Received ServerOP_QueueDirectUpdate packet that was too small");
 		return;
 	}
+	
 	if (server.client_manager) {
 		server.client_manager->UpdateServerList();
 		QueueDebugLog(1, "Sent server list updates to all connected clients");
 	}
+	
 	ServerQueueDirectUpdate_Struct* direct_update = (ServerQueueDirectUpdate_Struct*)p.Data();
 	
-	QueueDebugLog(1, "Received queue direct update for LS account [{}] position [{}] wait [{}]s", 
-		direct_update->ls_account_id, direct_update->queue_position, direct_update->estimated_wait);
-	
-	// Find target client by account ID
-	Client* target_client = nullptr;
-	
-	if (server.client_manager && direct_update->ls_account_id != 0) {
-		target_client = server.client_manager->GetClient(direct_update->ls_account_id);
-	}
-	
-	if (target_client) {
-		// Check if player is no longer queued (position 0 = removed from queue)
-		if (direct_update->queue_position == 0) {
-			// Clear queue position from client
-			target_client->ClearQueuePosition();
-			LogInfo("Player [{}] removed from queue", direct_update->ls_account_id);
-		} else {
-			// Store queue position in client object
-			target_client->SetQueuePosition(GetServerId(), direct_update->queue_position);
-			LogInfo("Player [{}] queue position updated to [{}]", 
-				direct_update->ls_account_id, direct_update->queue_position);
-		}
-		
-		QueueDebugLog(1, "Updated client account [{}] with queue position [{}]", 
-			direct_update->ls_account_id, direct_update->queue_position);
-		
-		// EFFICIENT: Send targeted update only to this specific client
-		target_client->SendServerListPacket();
-		QueueDebugLog(1, "Sent targeted server list update to client [{}]", direct_update->ls_account_id);
-	} else {
-		QueueDebugLog(1, "Client account [{}] not found - likely disconnected", 
-			direct_update->ls_account_id);
-	}
-	
-
+	// Use shared logic for processing
+	Queue_SharedHelper(*direct_update, 1);
 }
 
 void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet& p)
@@ -732,38 +735,11 @@ void WorldServer::ProcessQueueBatchUpdate(uint16_t opcode, const EQ::Net::Packet
 	uint32 processed_updates = 0;
 	uint32 failed_updates = 0;
 	
-	// Process each update in the batch
+	// Process each update using shared logic
 	for (uint32 i = 0; i < update_count; ++i) {
-		ServerQueueDirectUpdate_Struct* update = &updates[i];
-		
-		QueueDebugLog(1, "Processing batch update [{}]: LS account [{}] position [{}] wait [{}]s", 
-			i + 1, update->ls_account_id, update->queue_position, update->estimated_wait);
-		
-		// Find target client
-		Client* target_client = nullptr;
-		if (server.client_manager && update->ls_account_id != 0) {
-			target_client = server.client_manager->GetClient(update->ls_account_id);
-		}
-		
-		if (target_client) {
-			// Process the update (same logic as individual updates)
-			if (update->queue_position == 0) {
-				// Clear queue position from client
-				target_client->ClearQueuePosition();
-				QueueDebugLog(1, "Batch update [{}]: Player [{}] removed from queue", i + 1, update->ls_account_id);
-			} else {
-				// Store queue position in client object
-				target_client->SetQueuePosition(GetServerId(), update->queue_position);
-				QueueDebugLog(1, "Batch update [{}]: Player [{}] queue position updated to [{}]", 
-					i + 1, update->ls_account_id, update->queue_position);
-			}
-			
-			// Send targeted update to this specific client
-			target_client->SendServerListPacket();
+		if (Queue_SharedHelper(updates[i], i + 1)) {
 			processed_updates++;
 		} else {
-			QueueDebugLog(1, "Batch update [{}]: Client account [{}] not found - likely disconnected", 
-				i + 1, update->ls_account_id);
 			failed_updates++;
 		}
 	}

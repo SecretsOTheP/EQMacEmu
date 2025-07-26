@@ -35,7 +35,7 @@ void AccountRezMgr::AddRez(uint32 account_id, uint32 ip_address, uint32 grace_pe
 	m_account_reservations[account_id] = PlayerInfo(account_id, time(nullptr), grace_period_seconds, false, ip_address);
 	LogConnectionChange(account_id, "registered");
 	
-	UpdateGraceWhitelistStatus(account_id);
+	CalculateGraceExpiry(account_id);
 }
 
 void AccountRezMgr::RemoveRez(uint32 account_id) {
@@ -52,11 +52,11 @@ void AccountRezMgr::UpdateLastSeen(uint32 account_id)
 	if (it != m_account_reservations.end()) {
 		it->second.last_seen = time(nullptr);
 		
-		UpdateGraceWhitelistStatus(account_id);
+		CalculateGraceExpiry(account_id);
 	}
 }
 
-bool AccountRezMgr::CheckGracePeriod(uint32 account_id, uint32 current_time) {
+bool AccountRezMgr::CheckGracePeriodExceeded(uint32 account_id, uint32 current_time) {
 	if (current_time == 0) {
 		current_time = time(nullptr);
 	}
@@ -90,11 +90,10 @@ uint32 AccountRezMgr::GetRemainingGracePeriod(uint32 account_id, uint32 current_
 	return it->second.grace_period - time_since_last_seen;
 }
 void AccountRezMgr::CleanupStaleConnections() {
-	const uint32 CONNECTION_GRACE_SECONDS = 15; // TODO: Make a rule for this?
+	// const uint32 CONNECTION_GRACE_SECONDS = 15; // TODO: Make a rule for this?
 	uint32 current_time = time(nullptr);
 	std::vector<uint32> accounts_to_remove;
 	
-	// First pass: identify what needs to be updated or removed
 	for (auto& pair : m_account_reservations) {
 		uint32 account_id = pair.first;
 		
@@ -105,20 +104,21 @@ void AccountRezMgr::CleanupStaleConnections() {
 			QueueDebugLog(2, "AccountRezMgr: kept_active_char connection for account [{}] - total active accounts: {}", 
 				account_id, m_account_reservations.size());
 		} else {
+			/* Commented out CONNECTION_GRACE_SECONDS but left if we want to add it back in later. */
 			// Check if this is a new reservation that hasn't had time to connect
-			uint32 time_since_creation = current_time - pair.second.last_seen;
+			// uint32 time_since_creation = current_time - pair.second.last_seen;
 			
-			if (pair.second.last_seen == 0 || time_since_creation < CONNECTION_GRACE_SECONDS) {
-				QueueDebugLog(2, "AccountRezMgr: Account [{}] not connected to World, waiting for connection (age: {}s)", 
-					account_id, time_since_creation);
-				continue; // Skip grace period logic for new reservations
-			}
+			// if (pair.second.last_seen == 0 || time_since_creation < CONNECTION_GRACE_SECONDS) {
+			// 	QueueDebugLog(2, "AccountRezMgr: Account [{}] not connected to World, waiting for connection (age: {}s)", 
+			// 		account_id, time_since_creation);
+			// 	continue; // Skip grace period logic for new reservations
+			// }
 			
-			QueueDebugLog(2, "AccountRezMgr: Account [{}] doesn't have world connection - adding to grace whitelist", account_id);
+			// QueueDebugLog(2, "AccountRezMgr: Account [{}] doesn't have world connection - adding to grace whitelist", account_id);
 			
-			UpdateGraceWhitelistStatus(account_id);
+			CalculateGraceExpiry(account_id); // Only updates if last_seen updates
 			
-			if (CheckGracePeriod(account_id, current_time)) {
+			if (CheckGracePeriodExceeded(account_id, current_time)) {
 				LogConnectionChange(account_id, "cleanup_grace_expired");
 				accounts_to_remove.push_back(account_id);
 			} else {
@@ -137,10 +137,7 @@ void AccountRezMgr::PeriodicMaintenance() {
 	uint32 current_time = time(nullptr);
 	
 	CleanupStaleConnections();
-	if (ShouldPerformDatabaseSync()) {
-		m_last_database_sync = current_time;
-		QueueDebugLog(2, "AccountRezMgr: Full reservation list synced to database for crash recovery");
-	}
+
 }
 
 
@@ -176,20 +173,16 @@ bool AccountRezMgr::IsAccountInGraceWhitelist(uint32 account_id) {
 	return false;
 }
 
-void AccountRezMgr::UpdateGraceWhitelistStatus(uint32 account_id) {
+void AccountRezMgr::CalculateGraceExpiry(uint32 account_id) {
 	auto it = m_account_reservations.find(account_id);
 	if (it == m_account_reservations.end()) {
 		return;  
 	}
+	// Store expiration timestamp directly
+	m_grace_whitelist[account_id] = it->second.last_seen + it->second.grace_period;
 	
-	const PlayerInfo& info = it->second;
-	uint32 current_time = time(nullptr);
-	uint32 expires_at = info.last_seen + info.grace_period;
-	
-	m_grace_whitelist[account_id] = expires_at;
-	
-	QueueDebugLog(2, "AccountRezMgr: Account [{}] found in whitelist (expires: {})", 
-		account_id, expires_at);
+	QueueDebugLog(2, "AccountRezMgr: Account [{}] grace expires at [{}]", 
+		account_id, m_grace_whitelist[account_id]);
 }
 
 void AccountRezMgr::RemoveFromGraceWhitelist(uint32 account_id) {

@@ -41,6 +41,24 @@
                     └─ Uses same EvaluateConnectionRequest logic
                     └─ Adds to queue directly in login server
                     └─ Updates server list automatically
+			            └─ ❌ Other failures (-1,-2,-3,-4,-5,-7)
+                └─ Send appropriate error to client
+↓
+🎮 *Client receives connection approval and connects to world server*
+↓
+└─📁🌍 `world/client.cpp`
+    └─[EQ::Net::TCPConnection::OnConnect]
+        └─ Creates new Client object
+        └─ Adds to client_list.list
+    ↓
+    └─🎮 *Client sends OP_SendLoginInfo packet*
+    ↓  
+    └─[Client::HandleSendLoginInfoPacket]
+        └─ ❔ Validate client exists in CLEAdd list
+        └─ ❔ Check grace whitelist (redundant GM check here)
+            └─ 🛡️ **Note**: GMs already bypassed upstream
+        └─ ❔ Account active, IP limits, etc.
+        └─ Account authenticated and logged in ✅
 <!-- ``` -->
 ### **Timers:**
 

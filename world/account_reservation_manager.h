@@ -32,7 +32,7 @@ public:
 	void RemoveRez(uint32 account_id);
 	void PeriodicMaintenance();
 	void UpdateLastSeen(uint32 account_id);
-	bool CheckGracePeriod(uint32 account_id, uint32 current_time = 0);
+	bool CheckGracePeriodExceeded(uint32 account_id, uint32 current_time = 0);
 	uint32 GetRemainingGracePeriod(uint32 account_id, uint32 current_time = 0) const;
 	uint32 Total() const { return m_account_reservations.size(); }
 	// uint32 EffectivePopulation(); // Single source of truth for world server population (now handles DB sync)
@@ -46,7 +46,7 @@ public:
 	void IncreaseGraceDuration(uint32 account_id, uint32 grace_duration_seconds); // Add to in-memory whitelist
 	void RemoveFromGraceWhitelist(uint32 account_id); // Remove from in-memory whitelist
 	void CleanupExpiredGraceWhitelist(); // Clean up expired entries from in-memory map
-	void UpdateGraceWhitelistStatus(uint32 account_id); // Updates whitelist when reservation changes
+	void CalculateGraceExpiry(uint32 account_id); // Updates whitelist when reservation changes
 	
 private:
 	// Account tracking data

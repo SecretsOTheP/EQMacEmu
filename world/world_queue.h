@@ -14,7 +14,7 @@
 // Queue debug system - shared across all queue-related files
 // 0 = off, 1 = important events only, 2 = verbose/noisy operations
 #ifndef QUEUE_DEBUG_LEVEL
-#define QUEUE_DEBUG_LEVEL 1 // TODO: Need to refine which msgs are @ which level
+#define QUEUE_DEBUG_LEVEL 2 // TODO: Need to refine which msgs are @ which level
 #endif
 
 #define QueueDebugLog(level, fmt, ...) \
@@ -66,8 +66,14 @@ public:
 					uint32 ls_account_id, uint32 from_id, 
 					const char* ip_str, const char* forum_name, const char* client_key = nullptr);
 	void RemoveFromQueue(const std::vector<uint32>& account_ids);
+	void RemoveFromQueue(const std::vector<uint32>& account_ids, bool skip_database); // With database skip option
 	void RemoveFromQueue(uint32 account_id) { RemoveFromQueue(std::vector<uint32>{account_id}); } // Single account overload
 	void UpdateQueuePositions();
+	
+	/**
+	 * Sync queue from database changes - removes accounts that were deleted externally
+	 */
+	void SyncQueueFromDatabase();
 	
 	/**
 	 * Connection decision logic - handles -6 queue responses from world server
@@ -100,7 +106,7 @@ public:
 	 */
 	// void SyncQueueToDatabase();
 	void RestoreQueueFromDatabase();
-	void CheckForExternalChanges(); // NEW: Check if database changed externally
+	bool CheckForExternalChanges(); // NEW: Check if database changed externally
 
 	void ProcessAdvancementTimer(); // Enhanced queue management - handles population updates, DB sync, and advancement
 	
@@ -148,6 +154,11 @@ private:
 	// Helper functions
 	void LogQueueAction(const std::string& action, uint32 account_id, const std::string& details = "") const;
 	
+	// CheckForExternalChanges helper functions
+	bool CheckTestOffsetChange();
+	bool CheckQueueRefreshFlag(); 
+	bool CheckMovePlayerFlag();
+	
 	// Encapsulated database operations
 	uint32 GetWorldAccountFromLS(uint32 ls_account_id) const;  // Wrapper for GetAccountIDFromLSID with fallback logic
 	uint32 GetLSAccountFromWorld(uint32 world_account_id) const;  // Reverse mapping for dialogs and notifications
@@ -158,11 +169,11 @@ private:
 	
 	// ServerPacket helper methods to reduce code duplication
 	void SendWorldListUpdate(uint32 effective_population);
-	void SendQueuedClientUpdate(uint32 ls_account_id, uint32 queue_position, uint32 estimated_wait, uint32 ip_address);
 	void SendQueueRemoval(uint32 ls_account_id);
 	void SendQueueAutoConnect(const QueuedClient& qclient);
-
-	// Helper method for common packet sending pattern
+	void SendQueueDialog(uint32 ls_account_id, const std::string& message, uint8 dialog_type);
+	
+	// Helper methods for common packet sending patterns - simplified overloads
 	template<typename T>
 	void SendLoginServerPacket(uint16 opcode, const T& data);
 	void SendLoginServerPacket(uint16 opcode, uint32 single_value);

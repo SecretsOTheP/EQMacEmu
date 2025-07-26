@@ -23,14 +23,6 @@ struct ServerQueueAutoConnect_Struct {
 	char client_key[11];  // Unique key of the client that was authorized (10 chars + null terminator)
 };
 
-struct ServerQueuePositionQuery_Struct {
-	uint32 loginserver_account_id;  // Which account to query position for
-};
-
-struct ServerQueuePositionResponse_Struct {
-	uint32 loginserver_account_id;  // Account this response is for
-	uint32 queue_position;          // 0 = not queued, >0 = position in queue
-};
 
 struct ServerQueueDirectUpdate_Struct {
 	uint32 ls_account_id;       // Account identifier for lookup
@@ -47,6 +39,12 @@ struct ServerQueueBatchUpdate_Struct {
 
 struct ServerQueueRemoval_Struct {
 	uint32 ls_account_id;       // Account to remove from queue when client disconnects
+};
+
+struct ServerQueueDialog_Struct {
+	uint32 ls_account_id;       // Target account to send dialog to
+	char message[512];          // Dialog message text (null-terminated)
+	uint8 dialog_type;          // Dialog type: 0=Info, 1=Warning, 2=Error, 3=Fatal (kicks client)
 };
 
 #pragma pack()
