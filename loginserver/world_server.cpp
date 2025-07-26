@@ -353,7 +353,8 @@ void WorldServer::Handle_NewLSInfo(LoginserverNewWorldRequest *i)
 	if(strlen(i->remote_address) <= 125) {
 		if(strlen(i->remote_address) == 0) {
 			m_remote_ip_address = GetConnection()->Handle()->RemoteIP();
-			LogError("Handle_NewLSInfo error, remote address was null, defaulting to stream address %s.", m_remote_ip_address.c_str());
+			if(!m_remote_ip_address.empty())
+				LogError("Handle_NewLSInfo error, remote address was null, defaulting to stream address %s.", m_remote_ip_address.c_str());
 		}
 		else {
 			m_remote_ip_address = i->remote_address;
@@ -361,7 +362,8 @@ void WorldServer::Handle_NewLSInfo(LoginserverNewWorldRequest *i)
 	}
 	else {
 		m_remote_ip_address = GetConnection()->Handle()->RemoteIP();
-		LogError("Handle_NewLSInfo error, remote address was too long, defaulting to stream address %s.", m_remote_ip_address.c_str());
+		if (!m_remote_ip_address.empty())
+			LogError("Handle_NewLSInfo error, remote address was too long, defaulting to stream address %s.", m_remote_ip_address.c_str());
 	}
 
 	if(strlen(i->serverversion) <= 64) {

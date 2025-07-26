@@ -176,6 +176,7 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 	mMovementManager->AddClient(this);
 	client_data_loaded = false;
 	feigned = false;
+	memset(forum_name, 0, sizeof(forum_name));
 	berserk = false;
 	dead = false;
 	initial_z_position = 0;
@@ -1963,6 +1964,7 @@ void Client::UpdateWho(uint8 remove) {
 	scl->Admin = this->Admin();
 	scl->AccountID = this->AccountID();
 	strcpy(scl->AccountName, this->AccountName());
+	strcpy(scl->ForumName, this->ForumName());
 	scl->LSAccountID = this->LSAccountID();
 	strn0cpy(scl->lskey, lskey, sizeof(scl->lskey));
 	scl->zone = zone->GetZoneID();
@@ -8607,4 +8609,10 @@ void Client::CheckItemDiscoverability(uint32 item_id)
 	}
 
 	DiscoverItem(item_id);
+}
+
+void Client::SetAccountName(const char* target_account_name)
+{
+	memset(account_name, 0, sizeof(account_name));
+	strn0cpy(account_name, target_account_name, sizeof(account_name));
 }

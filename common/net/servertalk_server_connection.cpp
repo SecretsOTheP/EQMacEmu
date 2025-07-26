@@ -34,6 +34,8 @@ void EQ::Net::ServertalkServerConnection::Send(uint16_t opcode, EQ::Net::Packet 
 			req.PutUInt32(i, req_in->FromID); i += 4;
 			req.PutUInt32(i, req_in->ToID); i += 4;
 			req.PutData(i, req_in->IPAddr, 64); i += 64;
+			req.PutData(i, req_in->forum_name, 31); i += 31;
+			req.PutData(i, req_in->client_key, 31); i += 31;
 
 			EQ::Net::DynamicPacket out;
 			out.PutUInt16(0, ServerOP_UsertoWorldResp);
@@ -56,6 +58,8 @@ void EQ::Net::ServertalkServerConnection::Send(uint16_t opcode, EQ::Net::Packet 
 			req.PutUInt16(i, req_in->is_world_admin); i += 2;
 			req.PutUInt32(i, req_in->ip_address); i += 4;
 			req.PutUInt8(i, req_in->is_client_from_local_network); i += 1;
+			req.PutUInt8(i, req_in->version); i += 1;
+			req.PutData(i, req_in->forum_name, 31); i += 31;
 
 			EQ::Net::DynamicPacket out;
 			out.PutUInt16(0, ServerOP_LSClientAuth);

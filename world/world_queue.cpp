@@ -9,7 +9,9 @@
 #include "../common/rulesys.h"  // For RuleB and RuleI macros
 #include "../common/ip_util.h"  // For IpUtil::IsIpInPrivateRfc1918
 #include <fmt/format.h>
+#ifndef _WINDOWS
 #include <arpa/inet.h>
+#endif
 #include <set>
 #include <unordered_set> // Added for std::unordered_set
 #include <algorithm>     // Added for std::find_if
@@ -63,7 +65,7 @@ uint32 QueueManager::EffectivePopulation()
 	uint32 account_reservations = m_account_rez_mgr.Total();
 	uint32 test_offset = m_cached_test_offset;
 	uint32 effective_population = account_reservations + test_offset;
-	
+
 	QueueDebugLog(2, "Account reservations: {}, test offset: {}, queue size: {}, effective total: {}", 
 		account_reservations, test_offset, m_queued_clients.size(), effective_population);
 	
@@ -357,7 +359,7 @@ bool QueueManager::EvaluateConnectionRequest(const ConnectionRequest& request, u
 			// Add to queue for this server
 			{
 				// Use the client key from the login server request (passed via forum_name field)
-				std::string client_key = request.forum_name ? request.forum_name : "";
+				std::string client_key = request.client_key ? request.client_key : "";
 				
 				AddToQueue(
 					request.world_account_id,        // world_account_id (primary key)
@@ -866,6 +868,7 @@ void QueueManager::SendQueueAutoConnect(const QueuedClient& qclient)
 	
 	QueueDebugLog(2, "Sent ServerOP_QueueAutoConnect for LS account {} with client key", qclient.ls_account_id);
 }
+
 // DATABASE QUEUE OPERATIONS 
 bool QueueManager::ValidateDatabaseReady() const
 {
@@ -1021,6 +1024,7 @@ void QueueManager::RestoreQueueFromDatabase()
 		entry.from_id = 0;
 		entry.ip_str = "";
 		entry.forum_name = "";
+		entry.authorized_client_key = "";
 		
 		// Use vector push_back instead of map indexing (consistent with vector declaration)
 		m_queued_clients.push_back(entry);

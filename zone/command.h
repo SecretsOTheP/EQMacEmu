@@ -75,6 +75,7 @@ void command_bug(Client* c, const Seperator* sep);
 void command_castspell(Client* c, const Seperator* sep);
 void command_chat(Client* c, const Seperator* sep);
 void command_chattest(Client* c, const Seperator* sep);
+void command_charactertransfer(Client* c, const Seperator* sep);
 void command_clearsaylink(Client *c, const Seperator *sep);
 void command_cleartimers(Client* c, const Seperator* sep);
 void command_connectworldserver(Client* c, const Seperator* sep);

@@ -743,7 +743,10 @@ public:
 	inline void SetWID(uint32 iWID) { WID = iWID; }
 	inline uint32 AccountID() const { return account_id; }
 
-	inline const char* AccountName()const { return account_name; }
+	inline const char* AccountName() const { return account_name; }
+	inline const char* ForumName() const { return forum_name; }
+	void SetAccountName(const char* target_account_name);
+	inline void SetAccountID(uint32 target_account_id) { account_id = target_account_id; }
 	inline int16 Admin() const { return admin; }
 	inline uint32 CharacterID() const { return character_id; }
 	void UpdateAdmin(bool iFromDB = true);
@@ -1517,6 +1520,8 @@ private:
 	bool tgb;
 	bool instalog;
 	int32 last_reported_mana;
+
+	char forum_name[31];
 
 	unsigned int AggroCount; // How many mobs are aggro on us.
 

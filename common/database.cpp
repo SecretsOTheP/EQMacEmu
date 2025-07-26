@@ -127,6 +127,27 @@ uint32 Database::CheckLogin(const char* name, const char* password, int16* oStat
 	return id;
 }
 
+int Database::GetNumCharacters(uint32 account_id)
+{
+	/* Get Character Info */
+	std::string cquery = StringFormat(
+		"SELECT                     "
+		"`id`                       "
+		"FROM                       "
+		"character_data             "
+		"WHERE `account_id` = %i AND is_deleted = 0 ", account_id);
+	auto results = QueryDatabase(cquery);
+	
+
+	if (!results.Success())
+	{
+		return 8;
+	}
+
+	return results.RowCount();
+}
+
+
 //Get Banned IP Address List - Only return false if the incoming connection's IP address is not present in the banned_ips table.
 bool Database::CheckBannedIPs(std::string login_ip)
 {
@@ -1614,6 +1635,37 @@ bool Database::MoveCharacterToZone(const char* charname, uint32 zone_id)
 	return results.RowsAffected() != 0;
 }
 
+
+std::string Database::GetForumNameByAccountName(const char* account_name, bool bReplaceSpaces)
+{
+	std::string account_to_check = account_name;
+
+	if (bReplaceSpaces) {
+		std::replace(account_to_check.begin(), account_to_check.end(), '_', ' ');
+	}
+
+	std::string escaped_name = Strings::Escape(account_to_check);
+
+	std::string query = StringFormat("SELECT `forum_name` from account WHERE `name` = '%s'", escaped_name.c_str());
+
+	auto results = QueryDatabase(query);
+
+	std::string result;
+
+	if (!results.Success()) {
+		return result;
+	}
+
+	auto row = results.begin();
+
+	const char* forum_name = row[0];
+	if (forum_name && forum_name[0] != '\0') {
+		result = forum_name;
+	}
+
+	return result;
+}
+
 uint16 Database::MoveCharacterToBind(uint32 CharID) 
 {
 
@@ -2076,9 +2128,9 @@ void Database::ClearGroupLeader(uint32 gid) {
 		std::cout << "Unable to clear group leader: " << results.ErrorMessage() << std::endl;
 }
 
-bool Database::GetAccountRestriction(uint32 acctid, uint16& expansion, bool& mule, uint32& force_guild_id)
+bool Database::GetAccountRestriction(uint32 acctid, char (&forum_name)[31], uint16& expansion, bool& mule, uint32& force_guild_id)
 {
-	std::string query = StringFormat("SELECT expansion, mule, force_guild_id FROM account WHERE id=%i",acctid);
+	std::string query = StringFormat("SELECT expansion, forum_name, mule, force_guild_id FROM account WHERE id=%i",acctid);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success())
@@ -2090,10 +2142,23 @@ bool Database::GetAccountRestriction(uint32 acctid, uint16& expansion, bool& mul
 	auto row = results.begin();
 
 	expansion = atoi(row[0]);
-	mule = atoi(row[1]);
-	force_guild_id = atoi(row[2]);
+	strncpy(forum_name, row[1], sizeof(forum_name) - 1);
+	forum_name[sizeof(forum_name) - 1] = '\0'; // Ensure null termination
+	mule = atoi(row[2]);
+	force_guild_id = atoi(row[3]);
 
 	return true;
+}
+
+bool Database::SetForumName(uint32 account_id, const char* forum_name) {
+
+	std::string query = StringFormat("UPDATE account SET forum_name = '%s' where id=%i", Strings::Escape(forum_name).c_str(), account_id);
+	auto results = QueryDatabase(query);
+	if (!results.Success()) {
+		return false;
+	}
+	return true;
+
 }
 
 bool Database::SetExpansion(const char *name, uint8 toggle) {

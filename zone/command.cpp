@@ -171,6 +171,7 @@ int command_init(void)
 		command_add("bug", "Bug report system. Encase your bug in quotes. Type: #bug <quote>I have a bug</quote>.", AccountStatus::EQSupport, command_bug) ||
 
 		command_add("castspell", "[spellid] [gm_override] [entityid] - Cast a spell. GM override bypasses resist and stacking checks. If entityid is specified, that NPC will cast a spell on the target mob.", AccountStatus::QuestMaster, command_castspell) ||
+		command_add("charactertransfer", "[accountname] [underscoretospaces] - Transfers current character to an account you own. If your account name contains a space, use 1 for underscore to spaces.", AccountStatus::Player, command_charactertransfer) ||
 		command_add("chat", "[channel num] [message] - Send a channel message to all zones.", AccountStatus::EQSupport, command_chat) ||
 		command_add("chattest", "[color] [loops] - Sends a test message with the specified color to yourself.", AccountStatus::GMCoder, command_chattest) ||
 		command_add("cleartimers", "[timer] Clears one or all persistant timers on target.", AccountStatus::GMMgmt, command_cleartimers) ||
@@ -915,6 +916,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/boatinfo.cpp"
 #include "gm_commands/bug.cpp"
 #include "gm_commands/castspell.cpp"
+#include "gm_commands/charactertransfer.cpp"
 #include "gm_commands/chat.cpp"
 #include "gm_commands/chattest.cpp"
 #include "gm_commands/cleartimers.cpp"

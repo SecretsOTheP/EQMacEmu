@@ -239,8 +239,8 @@ void ServerManager::SendUserToWorldRequest(const char* server_id, unsigned int c
 			utwr->ToID = 0; // Not used
 			
 			// Store client key in forum_name field (repurposing for queue system)
-			strncpy(utwr->forum_name, client_key.c_str(), sizeof(utwr->forum_name) - 1);
-			utwr->forum_name[sizeof(utwr->forum_name) - 1] = '\0';
+			strncpy(utwr->client_key, client_key.c_str(), sizeof(utwr->client_key) - 1);
+			utwr->client_key[sizeof(utwr->client_key) - 1] = '\0';
 			
 			(*iter)->GetConnection()->Send(ServerOP_UsertoWorldReq, outapp);
 			found = true;

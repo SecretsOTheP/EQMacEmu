@@ -414,6 +414,7 @@ struct ServerClientList_Struct {
 	char	name[64];
 	uint32	AccountID;
 	char	AccountName[30];
+	char	ForumName[30];
 	uint32	LSAccountID;
 	char	lskey[30];
 	uint16	race;
@@ -728,13 +729,14 @@ struct ServerSyncWorldList_Struct {
 };
 
 struct UsertoWorldRequest {
-	uint32	lsaccountid;
-	uint32	worldid;
+	uint32    lsaccountid;
+	uint32    worldid;
 	uint32  ip;
-	uint32	FromID;
-	uint32	ToID;
-	char	IPAddr[64];
-	char	forum_name[31];
+	uint32    FromID;
+	uint32    ToID;
+	char    IPAddr[64];
+	char    forum_name[31];
+	char    client_key[31];
 };
 
 struct UsertoWorldResponse {

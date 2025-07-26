@@ -135,7 +135,7 @@ void Client::RefreshGuildInfo()
 	uint16 expansion = 0;
 	bool mule = false;
 	uint32 force_guild_id = 0;
-	database.GetAccountRestriction(AccountID(), expansion, mule, force_guild_id);
+	database.GetAccountRestriction(AccountID(), forum_name, expansion, mule, force_guild_id);
 	
 	if (force_guild_id == 0)
 	{

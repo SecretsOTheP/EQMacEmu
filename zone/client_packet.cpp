@@ -1729,7 +1729,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	uint16 expansion = 0;
 	bool mule = false;
 	uint32 force_guild;
-	database.GetAccountRestriction(AccountID(), expansion, mule, force_guild);
+	database.GetAccountRestriction(AccountID(), forum_name, expansion, mule, force_guild);
 	m_pp.force_guild_id = force_guild;
 	if (m_pp.force_guild_id != 0)
 	{

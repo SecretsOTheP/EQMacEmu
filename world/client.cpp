@@ -243,7 +243,8 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 		expansion = 0;
 		mule = false;
 		uint32 force_guild_id = 0;
-		database.GetAccountRestriction(cle->AccountID(), expansion, mule, force_guild_id);
+		char forum_name[31];
+		database.GetAccountRestriction(cle->AccountID(), forum_name, expansion, mule, force_guild_id);
 
 		if(cle->Online() < CLE_Status::Online)
 			cle->SetOnline();
@@ -545,7 +546,6 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 
 	uint32 tmpaccid = 0;
 	uint64 tmpdeathtime = 0;
-	char_id = database.GetCharacterInfo(char_name, &tmpaccid, &zone_id, &zoneGuildID, 0, 0, 0, &tmpdeathtime);
 	char_id = database.GetCharacterInfo(char_name, &tmpaccid, &zone_id, &zoneGuildID, 0, 0, 0, &tmpdeathtime);
 	if (char_id == 0 || tmpaccid != GetAccountID()) {
 		LogInfo( "Could not get CharInfo for '[{}]'", char_name);
