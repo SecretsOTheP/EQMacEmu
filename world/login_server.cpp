@@ -86,9 +86,10 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 		does_account_exist = false;
 	}
 
-	if (does_account_exist && forum_name[0] == '\0' && utwr->forum_name[0] != '\0')
+	if (does_account_exist && utwr->forum_name[0] != '\0')
 	{
-		database.SetForumName(id, utwr->forum_name);
+		if(forum_name[0] == '\0' || forum_name[0] != '\0' && strcmp(forum_name, utwr->forum_name) != 0)
+			database.SetForumName(id, utwr->forum_name);
 	}
 
 	auto outpack = new ServerPacket;

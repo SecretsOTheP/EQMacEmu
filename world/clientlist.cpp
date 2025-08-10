@@ -117,6 +117,8 @@ bool ClientList::ActiveConnectionKickStale(uint32 account_id) {
 					skp->AccountID = account_id;
 					zoneserver_list.SendPacket(pack);
 					safe_delete(skp);
+					iterator.RemoveCurrent();
+					continue;
 				}
 
 				found_active = true;
@@ -128,7 +130,7 @@ bool ClientList::ActiveConnectionKickStale(uint32 account_id) {
 		}
 		iterator.Advance();
 	}
-	return false;
+	return found_active;
 }
 
 bool ClientList::ActiveConnection(uint32 account_id, uint32 character_id) {
@@ -362,10 +364,6 @@ void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForum
 
 		if(padmin == 0)
 			return;
-	}
-
-	if (iForumName && iForumName[0] != '\0') {
-		database.SetForumName(iLSID, iForumName);
 	}
 
 	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginName, iForumName, iLoginKey, iWorldAdmin, ip, local, version, 0);
