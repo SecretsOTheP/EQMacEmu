@@ -950,7 +950,6 @@ void Client::BecomeOfflineTrader() {
 	}
 
 	Trader = true;
-	UpdateWho();
 
 	eqs = nullptr;
 	linkdead_timer.Disable();
@@ -967,6 +966,7 @@ void Client::BecomeOfflineTrader() {
 	entity_list.QueueClients(this, outapp, false);
 	safe_delete(outapp);
 	client_state = CLIENT_OFFLINE_TRADER;
+	UpdateWho();
 }
 
 void Client::Trader_StartTrader() {
