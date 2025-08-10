@@ -879,7 +879,7 @@ int Mob::FindAffectSlot_PatchV1(Mob *caster, uint16 spell_id, int *result_slotnu
 				if (!is_stack_with_self_allowed || caster->GetID() == buff->casterid)
 				{
 				OVERWRITE_SAME_SPELL_WITHOUT_REMOVING_FIRST:
-					if (caster->GetLevel() >= buff->casterlevel
+					if (caster->GetCasterLevel(spell_id) >= buff->casterlevel
 						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_EyeOfZomm) == -1
 						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_CompleteHeal) == -1 // Donal's BP
 						&& GetSpellEffectIndex_PatchV1(new_spelldata->id, SE_SummonHorse) == -1)
@@ -1123,7 +1123,7 @@ int Mob::FindAffectSlot_PatchV1(Mob *caster, uint16 spell_id, int *result_slotnu
 	}
 
 	old_effect_value = CalcSpellEffectValue(old_spelldata->id, effect_slot_num, old_buff->casterlevel, 0, 10);
-	new_effect_value = CalcSpellEffectValue(new_spelldata->id, effect_slot_num, caster->GetLevel(), 0, 10);
+	new_effect_value = CalcSpellEffectValue(new_spelldata->id, effect_slot_num, caster->GetCasterLevel(new_spelldata->id), 0, 10);
 
 	if (spell_id == 1620 || spell_id == 1816 || spell_id == 833 || old_buff_spellid == 1814)
 		new_effect_value = -1;
