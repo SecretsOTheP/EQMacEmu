@@ -83,9 +83,16 @@ Client::Client(EQStreamInterface* ieqs)
 
 	// Live does not send datarate as of 3/11/2005
 	//eqs->SetDataRate(7);
-	ip = eqs->GetRemoteIP();
-	port = ntohs(eqs->GetRemotePort());
-
+	if (eqs)
+	{
+		ip = eqs->GetRemoteIP();
+		port = ntohs(eqs->GetRemotePort());
+	}
+	else
+	{
+		ip = 0;
+		port = 0;
+	}
 	autobootup_timeout.Disable();
 	connect.Disable();
 	seen_character_select = false;
@@ -108,8 +115,11 @@ Client::~Client() {
 	numclients--;
 
 	//let the stream factory know were done with this stream
-	eqs->Close();
-	eqs->ReleaseFromUse();
+	if (eqs)
+	{
+		eqs->Close();
+		eqs->ReleaseFromUse();
+	}
 }
 
 void Client::SendLogServer()
@@ -143,7 +153,8 @@ void Client::SendEnterWorld(std::string name)
 	char char_name[64] = { 0 };
 	if (is_player_zoning && database.GetLiveChar(GetAccountID(), char_name)) {
 		if(database.GetAccountIDByChar(char_name) != GetAccountID()) {
-			eqs->Close();
+			if(eqs)
+				eqs->Close();
 			return;
 		} else {
 			LogInfo("Telling client to continue session.");
@@ -244,7 +255,7 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 		if(cle->Online() < CLE_Status::Online)
 			cle->SetOnline();
 		
-		if(eqs->ClientVersion() == EQ::versions::ClientVersion::Mac)
+		if(eqs && eqs->ClientVersion() == EQ::versions::ClientVersion::Mac)
 		{
 			// EQMac PC Windows client is 2, passed from the loginserver.  This is world, it detects MacOSX Intel (4) and PPC (8) clients here.
 			if( cle->GetMacClientVersion() != EQ::versions::ClientVersion::MacPC )
@@ -289,7 +300,8 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 			if (char_id == 0 || tmpdeathtime != 0 || tmpaccid != GetAccountID())
 			{
 				Log(Logs::Detail, Logs::WorldServer, "Could not get CharInfo for '%s'", char_name);
-				eqs->Close();
+				if(eqs)
+					eqs->Close();
 				return true;
 			}
 			cle->SetChar(char_id, char_name);
@@ -325,6 +337,7 @@ bool Client::HandleNameApprovalPacket(const EQApplicationPacket *app)
 
 	if (GetAccountID() == 0) {
 		LogInfo("Name approval request with no logged in account");
+		return false;
 		return false;
 	}
 
@@ -506,13 +519,15 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 {
 	if (GetAccountID() == 0) {
 		LogInfo( "Enter world with no logged in account");
-		eqs->Close();
+		if(eqs)
+			eqs->Close();
 		return true;
 	}
 
 	if (GetAdmin() < 0)	{
 		LogInfo( "Account banned or suspended.");
-		eqs->Close();
+		if(eqs)
+			eqs->Close();
 		return true;
 	}
 
@@ -536,14 +551,16 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 	char_id = database.GetCharacterInfo(char_name, &tmpaccid, &zone_id, &zoneGuildID, 0, 0, 0, &tmpdeathtime);
 	if (char_id == 0 || tmpaccid != GetAccountID()) {
 		LogInfo( "Could not get CharInfo for '[{}]'", char_name);
-		eqs->Close();
+		if(eqs)
+			eqs->Close();
 		return true;
 	}
 
 	// Make sure this account owns this character
 	if (tmpaccid != GetAccountID()) {
 		LogInfo( "This account does not own the character named '[{}]'", char_name);
-		eqs->Close();
+		if(eqs)
+			eqs->Close();
 		return true;
 	}
 
@@ -813,7 +830,7 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 
 	EmuOpcode opcode = app->GetOpcode();
 
-	auto o = eqs->GetOpcodeManager();
+	auto o = eqs ? eqs->GetOpcodeManager() : nullptr;
 	LogPacketClientServer(
 		"[{}] [{:#06x}] Size [{}] {}",
 		OpcodeManager::EmuToName(app->GetOpcode()),
@@ -822,7 +839,7 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 		(LogSys.IsLogEnabled(Logs::Detail, Logs::PacketClientServer) ? DumpPacketToString(app) : "")
 	);
 
-	if (!eqs->CheckState(ESTABLISHED)) {
+	if (!eqs || !eqs->CheckState(ESTABLISHED)) {
 		LogInfo("Client disconnected (net inactive on send)");
 		return false;
 	}
@@ -831,7 +848,8 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 	if (RuleB(World, GMAccountIPList) && this->GetAdmin() >= (RuleI(World, MinGMAntiHackStatus))) {
 		if(!database.CheckGMIPs(long2ip(this->GetIP()), this->GetAccountID())) {
 			Log(Logs::Detail, Logs::Error,"GM Account not permited from source address %s and accountid %i", long2ip(this->GetIP()).c_str(), this->GetAccountID());
-			eqs->Close();
+			if(eqs)
+				eqs->Close();
 		}
 	}
 
@@ -874,7 +892,8 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 		}
 		case OP_WorldLogout:
 		{
-			eqs->Close();
+			if(eqs)
+				eqs->Close();
 			return true;
 		}
 		
@@ -899,7 +918,10 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 			else
 			{
 				Log(Logs::Detail, Logs::Error,"Checksum failed for account: %i. Closing connection.", this->GetAccountID());
-				eqs->Close();
+				if (eqs)
+				{
+					eqs->Close();
+				}
 				return false;
 			}
 		}
@@ -939,13 +961,13 @@ bool Client::Process() {
 
 	/************ Get all packets from packet manager out queue and process them ************/
 	EQApplicationPacket *app = 0;
-	while(ret && (app = (EQApplicationPacket *)eqs->PopPacket())) {
+	while(ret && eqs && (app = (EQApplicationPacket *)eqs->PopPacket())) {
 		ret = HandlePacket(app);
 
 		delete app;
 	}
 
-	if (!eqs->CheckState(ESTABLISHED)) {
+	if (!eqs || !eqs->CheckState(ESTABLISHED)) {
 		if(WorldConfig::get()->UpdateStats){
 			auto pack = new ServerPacket;
 			pack->opcode = ServerOP_LSPlayerLeftWorld;
@@ -1141,7 +1163,8 @@ void Client::QueuePacket(const EQApplicationPacket* app, bool ack_req) {
 	LogNetcode("Sending EQApplicationPacket OpCode {:#04x}", app->GetOpcode());
 
 	//ack_req = true;	// It's broke right now, dont delete this line till fix it. =P
-	eqs->QueuePacket(app, ack_req);
+	if(eqs)
+		eqs->QueuePacket(app, ack_req);
 }
 
 void Client::SendGuildList() 
@@ -1157,8 +1180,13 @@ void Client::SendGuildList()
 	}
 
 	Log(Logs::Detail, Logs::Guilds, "Sending OP_GuildsList of length %d", outapp->size);
-
-	eqs->FastQueuePacket(&outapp);
+	if(eqs)
+		eqs->FastQueuePacket(&outapp);
+	else
+	{
+		safe_delete(outapp);
+		return;
+	}
 }
 
 void Client::SendApproveWorld()

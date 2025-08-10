@@ -128,47 +128,47 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 	0,  // leg texture
 	0,  // feet texture
 	0   // chest texture
-	),
-	//these must be listed in the order they appear in client.h
-	position_timer(250),
-	get_auth_timer(5000),
-	hpupdate_timer(6000),
-	camp_timer(35000),
-	process_timer(100),
-	stamina_timer(46000),
-	zoneinpacket_timer(1000),
-	accidentalfall_timer(15000),
-	linkdead_timer(RuleI(Zone,ClientLinkdeadMS)),
-	dead_timer(2000),
-	global_channel_timer(1000),
-	fishing_timer(8000),
-	autosave_timer(RuleI(Character, AutosaveIntervalS) * 1000),
-	kick_timer(RuleI(Quarm, BazaarAutoKickTimerS) * 1000),
-	m_client_npc_aggro_scan_timer(RuleI(Aggro, ClientAggroCheckIdleInterval)),
-	proximity_timer(ClientProximity_interval),
-	charm_class_attacks_timer(3000),
-	charm_cast_timer(3500),
-	qglobal_purge_timer(30000),
-	TrackingTimer(2000),
-	ItemTickTimer(10000),
-	ItemQuestTimer(500),
-	anon_toggle_timer(250),
-	afk_toggle_timer(250),
-	helm_toggle_timer(250),
-	trade_timer(3000),
-	door_check_timer(1000),
-	mend_reset_timer(60000),
-	underwater_timer(1000),
-	zoning_timer(5000),
-	instance_boot_grace_timer(RuleI(Quarm, ClientInstanceBootGraceMS)),
-	m_Proximity(FLT_MAX, FLT_MAX, FLT_MAX), //arbitrary large number
-	m_ZoneSummonLocation(-2.0f,-2.0f,-2.0f,-2.0f),
-	m_AutoAttackPosition(0.0f, 0.0f, 0.0f, 0.0f),
-	m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
+),
+//these must be listed in the order they appear in client.h
+position_timer(250),
+get_auth_timer(5000),
+hpupdate_timer(6000),
+camp_timer(35000),
+process_timer(100),
+stamina_timer(46000),
+zoneinpacket_timer(1000),
+accidentalfall_timer(15000),
+linkdead_timer(RuleI(Zone, ClientLinkdeadMS)),
+dead_timer(2000),
+global_channel_timer(1000),
+fishing_timer(8000),
+autosave_timer(RuleI(Character, AutosaveIntervalS) * 1000),
+kick_timer(RuleI(Quarm, BazaarAutoKickTimerS) * 1000),
+m_client_npc_aggro_scan_timer(RuleI(Aggro, ClientAggroCheckIdleInterval)),
+proximity_timer(ClientProximity_interval),
+charm_class_attacks_timer(3000),
+charm_cast_timer(3500),
+qglobal_purge_timer(30000),
+TrackingTimer(2000),
+ItemTickTimer(10000),
+ItemQuestTimer(500),
+anon_toggle_timer(250),
+afk_toggle_timer(250),
+helm_toggle_timer(250),
+trade_timer(3000),
+door_check_timer(1000),
+mend_reset_timer(60000),
+underwater_timer(1000),
+zoning_timer(5000),
+instance_boot_grace_timer(RuleI(Quarm, ClientInstanceBootGraceMS)),
+m_Proximity(FLT_MAX, FLT_MAX, FLT_MAX), //arbitrary large number
+m_ZoneSummonLocation(-2.0f, -2.0f, -2.0f, -2.0f),
+m_AutoAttackPosition(0.0f, 0.0f, 0.0f, 0.0f),
+m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 {
-	for(int cf=0; cf < _FilterCount; cf++)
+	for (int cf = 0; cf < _FilterCount; cf++)
 		ClientFilters[cf] = FilterShow;
-	
+
 	for (int aa_ix = 0; aa_ix < MAX_PP_AA_ARRAY; aa_ix++) { aa[aa_ix] = nullptr; }
 	cheat_manager.SetClient(this);
 	character_id = 0;
@@ -185,8 +185,16 @@ Client::Client(EQStreamInterface* ieqs) : Mob(
 	is_client_moving = false;
 	SetDevToolsEnabled(true);
 	eqs = ieqs;
-	ip = eqs->GetRemoteIP();
-	port = ntohs(eqs->GetRemotePort());
+	if (eqs)
+	{
+		ip = eqs->GetRemoteIP();
+		port = ntohs(eqs->GetRemotePort());
+	}
+	else
+	{
+		ip = 0;
+		port = 0;
+	}
 	client_state = CLIENT_CONNECTING;
 	Trader=false;
 	WithCustomer = false;
@@ -390,36 +398,36 @@ Client::~Client() {
 	if (horse)
 		horse->Depop();
 
-	if(Trader)
+	if (Trader)
 		database.DeleteTraderItem(this->CharacterID());
 
-	if(conn_state != ClientConnectFinished) {
+	if (conn_state != ClientConnectFinished) {
 		Log(Logs::General, Logs::None, "Client '%s' was destroyed before reaching the connected state:", GetName());
 		ReportConnectingState();
 	}
 
-	if(m_tradeskill_object != nullptr) {
+	if (m_tradeskill_object != nullptr) {
 		m_tradeskill_object->Close();
 		m_tradeskill_object = nullptr;
 	}
 
-	if(IsDueling() && GetDuelTarget() != 0) {
+	if (IsDueling() && GetDuelTarget() != 0) {
 		Entity* entity = entity_list.GetID(GetDuelTarget());
-		if(entity != nullptr && entity->IsClient()) {
+		if (entity != nullptr && entity->IsClient()) {
 			entity->CastToClient()->SetDueling(false);
 			entity->CastToClient()->SetDuelTarget(0);
-			entity_list.DuelMessage(entity->CastToClient(),this,true);
+			entity_list.DuelMessage(entity->CastToClient(), this, true);
 		}
 	}
 
-	if(GetTarget())
+	if (GetTarget())
 		GetTarget()->IsTargeted(-1);
 
 	//if we are in a group and we are not zoning, force leave the group
-	if(isgrouped && !zoning && is_zone_loaded)
+	if (isgrouped && !zoning && is_zone_loaded)
 		LeaveGroup();
 
-	Raid *myraid = entity_list.GetRaidByClient(this);
+	Raid* myraid = entity_list.GetRaidByClient(this);
 	if (myraid && !zoning && is_zone_loaded)
 		myraid->DisbandRaidMember(GetName());
 
@@ -442,9 +450,11 @@ Client::~Client() {
 	}
 
 	//let the stream factory know were done with this stream
-	eqs->Close();
-	eqs->ReleaseFromUse();
-
+	if (eqs)
+	{
+		eqs->Close();
+		eqs->ReleaseFromUse();
+	}
 	UninitializeBuffSlots();
 
 	if (zoneentry != nullptr)
@@ -1227,6 +1237,9 @@ void Client::QueuePacket(const EQApplicationPacket* app, bool ack_req, CLIENT_CO
 	if(client_state == PREDISCONNECTED)
 		return;
 
+	if(client_state == CLIENT_OFFLINE_TRADER)
+		return;
+
 	if(client_state != CLIENT_CONNECTED && required_state == CLIENT_CONNECTED){
 		// save packets during connection state
 		AddPacket(app, ack_req);
@@ -1256,7 +1269,7 @@ void Client::FastQueuePacket(EQApplicationPacket** app, bool ack_req, CLIENT_CON
 	// if the program doesnt care about the status or if the status isnt what we requested
 
 
-	if(client_state == PREDISCONNECTED)
+	if(client_state == PREDISCONNECTED || client_state == CLIENT_OFFLINE_TRADER)
 	{
 		if (app && (*app))
 			delete *app;
@@ -1989,7 +2002,7 @@ void Client::UpdateWho(uint8 remove) {
 	scl->baserace = this->GetBaseRace();
 	scl->mule = this->IsMule();
 	scl->AFK = this->AFK;
-	scl->Trader = this->IsTrader();
+	scl->Trader = this->IsOfflineTrader();
 	scl->Revoked = this->GetRevoked();
 
 	scl->selffound = this->IsSelfFoundAny();

@@ -92,6 +92,7 @@ private:
 	uint32 NextCLEID;
 	LinkedList<ClientListEntry *> clientlist;
 	uint32 cached_gm_count;
+	uint32 cached_trader_count;
 
 	std::unique_ptr<EQ::Timer> m_tick;
 };

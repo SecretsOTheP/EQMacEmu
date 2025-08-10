@@ -622,6 +622,16 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			}
 			break;
 		}
+
+		case ServerOP_KickPlayerAccount: {
+			ServerKickPlayerAccount_Struct* skp = (ServerKickPlayerAccount_Struct*)pack->pBuffer;
+			Client* client = entity_list.GetClientByAccID(skp->AccountID);
+			if (client != nullptr) {
+				client->WorldKick();
+			}
+			break;
+		}
+
 		case ServerOP_KillPlayer: {
 			ServerKillPlayer_Struct* skp = (ServerKillPlayer_Struct*) pack->pBuffer;
 			Client* client = entity_list.GetClientByName(skp->target);

@@ -78,7 +78,7 @@ bool Client::Process() {
 		return false; //delete client
 	}
 
-	if(ClientDataLoaded() && (Connected() || IsLD()))
+	if(ClientDataLoaded() && (Connected() || IsLD() || IsOfflineTrader()))
 	{
 		// try to send all packets that weren't sent before
 		if(!IsLD() && zoneinpacket_timer.Check())
@@ -593,9 +593,9 @@ bool Client::Process() {
 	EQApplicationPacket *app = nullptr;
 
 	//Predisconnecting is a state where we expect a zone change packet, and the next packet HAS to be a zone change packet once you request to zone. Otherwise, bad things happen!
-	if(!eqs->CheckState(CLOSING) && client_state != PREDISCONNECTED && client_state != ZONING)
+	if(eqs && !eqs->CheckState(CLOSING) && client_state != PREDISCONNECTED && client_state != ZONING)
 	{
-		while(ret && (app = (EQApplicationPacket *)eqs->PopPacket())) {
+		while(eqs && ret && (app = (EQApplicationPacket *)eqs->PopPacket())) {
 			if(app)
 				ret = HandlePacket(app);
 			safe_delete(app);
@@ -609,7 +609,7 @@ bool Client::Process() {
 		entity_list.CheckClientAggro(this);
 	}
 
-	if (client_state != CLIENT_LINKDEAD && (client_state == PREDISCONNECTED || client_state == CLIENT_ERROR || client_state == DISCONNECTED || client_state == CLIENT_KICKED || !eqs->CheckState(ESTABLISHED)))
+	if (client_state != CLIENT_LINKDEAD && client_state != CLIENT_OFFLINE_TRADER && (client_state == PREDISCONNECTED || client_state == CLIENT_ERROR || client_state == DISCONNECTED || client_state == CLIENT_KICKED || eqs && !eqs->CheckState(ESTABLISHED)))
 	{
 		//client logged out or errored out
 		//ResetTrade();

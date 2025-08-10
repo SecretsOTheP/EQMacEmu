@@ -298,6 +298,7 @@ public:
 	void	Trader_ShowItems();
 	void	Trader_CustomerBrowsing(Client *Customer);
 	void	Trader_CustomerBought(Client *Customer, uint32 Price, uint32 ItemID, uint32 Quantity, const char* ItemName, uint8 SlotID);
+	void	BecomeOfflineTrader();
 	void	Trader_EndTrader();
 	void	Trader_StartTrader();
 	void	KeyRingLoad();
@@ -379,12 +380,13 @@ public:
 	inline bool Connected() const { return (client_state == CLIENT_CONNECTED); }
 	inline bool InZone() const { return (client_state == CLIENT_CONNECTED || client_state == CLIENT_LINKDEAD); }
 	inline void Kick() { client_state = CLIENT_KICKED; }
-	inline void Disconnect() { eqs->Close(); client_state = DISCONNECTED; }
-	inline void HardDisconnect() { eqs->Close(); client_state = DISCONNECTED; }
+	inline void Disconnect() { if(eqs) eqs->Close(); client_state = DISCONNECTED; }
+	inline void HardDisconnect() { if (eqs) eqs->Close(); client_state = DISCONNECTED; }
 	inline void SetZoningState() { client_state = ZONING; }
 	inline void	PreDisconnect() { client_state = PREDISCONNECTED; }
 	inline void	Reconnect() { client_state = CLIENT_CONNECTED; }
 	inline bool IsLD() const { return (bool) (client_state == CLIENT_LINKDEAD); }
+	inline bool IsOfflineTrader() const { return (bool)(client_state == CLIENT_OFFLINE_TRADER); }
 	void Kick(const std::string& reason);
 	void WorldKick();
 	inline uint8 GetAnon() const { return m_pp.anon; }

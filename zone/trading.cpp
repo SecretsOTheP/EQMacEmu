@@ -941,7 +941,38 @@ void Client::Trader_CustomerBought(Client *Customer,uint32 Price, uint32 ItemID,
 	safe_delete(outapp);
 }
 
+void Client::BecomeOfflineTrader() {
+	
+	if (eqs)
+	{
+		eqs->Close();
+		eqs->ReleaseFromUse();
+	}
+
+	Trader = true;
+	UpdateWho();
+
+	eqs = nullptr;
+	linkdead_timer.Disable();
+	client_ld_timer.Disable();
+	kick_timer.Disable();
+	BuffFadeByEffect(SE_Levitate);
+
+	// Notify other clients we are now in trader mode
+	auto outapp = new EQApplicationPacket(OP_BecomeTrader, sizeof(BecomeTrader_Struct));
+	BecomeTrader_Struct* bts = (BecomeTrader_Struct*)outapp->pBuffer;
+	bts->Code = BazaarTrader_StartTraderMode;
+	bts->ID = this->GetID();
+
+	entity_list.QueueClients(this, outapp, false);
+	safe_delete(outapp);
+	client_state = CLIENT_OFFLINE_TRADER;
+}
+
 void Client::Trader_StartTrader() {
+
+	if (RuleB(Quarm, EnableOfflineTraders))
+		return BecomeOfflineTrader();
 
 	Trader=true;
 	UpdateWho();

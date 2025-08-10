@@ -31,6 +31,7 @@
 #define ServerOP_Who				0x000B	// #who
 #define ServerOP_ZonePlayer			0x000C	// #zone, or #summon
 #define ServerOP_KickPlayer			0x000D	// #kick
+#define ServerOP_KickPlayerAccount	0x4205	// #kick
 
 #define ServerOP_RefreshGuild		0x000E	// Notice to all zoneservers to refresh their guild cache for ID# in packet (ServerGuildRefresh_Struct)
 //#define ServerOP_GuildInvite		0x0010
@@ -486,6 +487,10 @@ struct ServerKickPlayer_Struct {
 	char adminname[64];
 	int16 adminrank;
 	char name[64];
+	uint32 AccountID;
+};
+
+struct ServerKickPlayerAccount_Struct {
 	uint32 AccountID;
 };
 

@@ -297,7 +297,7 @@ int Client::HandlePacket(const EQApplicationPacket *app)
 	LogPacketClientServer(
 		"[{}] [{:#06x}] Size [{}] {}",
 		OpcodeManager::EmuToName(app->GetOpcode()),
-		eqs->GetOpcodeManager()->EmuToEQ(app->GetOpcode()),
+		eqs ? eqs->GetOpcodeManager()->EmuToEQ(app->GetOpcode()) : 0,
 		app->Size(),
 		(LogSys.IsLogEnabled(Logs::Detail, Logs::PacketClientServer) ? DumpPacketToString(app) : "")
 	);
@@ -342,7 +342,8 @@ int Client::HandlePacket(const EQApplicationPacket *app)
 
 		break;
 	}
-	case CLIENT_CONNECTED: {
+	case CLIENT_CONNECTED:
+	{
 		ClientPacketProc p;
 		p = ConnectedOpcodes[opcode];
 		if(p == nullptr) { 
@@ -360,6 +361,7 @@ int Client::HandlePacket(const EQApplicationPacket *app)
 	case CLIENT_KICKED:
 	case DISCONNECTED:
 	case CLIENT_LINKDEAD:
+	case CLIENT_OFFLINE_TRADER:
 	case PREDISCONNECTED:
 	case ZONING:
 	case CLIENT_WAITING_FOR_AUTH:
@@ -1128,7 +1130,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		// have a ghost maybe?
 		/* Check for Client Spoofing */
 		Client* client = entity_list.GetClientByName(cze->char_name);
-		if (client != 0) {
+		if (client != 0 && eqs) {
 			uint16 remote_port = ntohs(eqs->GetRemotePort());
 			if (client->GetIP() != eqs->GetRemoteIP() || client->GetPort() != remote_port) {
 				struct in_addr ghost_addr;
@@ -1220,7 +1222,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 
 	strcpy(name, cze->char_name);
 	/* Check for Client Spoofing */
-	if (client != 0) {
+	if (client != 0 && eqs) {
 		uint16 remote_port = ntohs(eqs->GetRemotePort());
 		if (client->GetIP() != eqs->GetRemoteIP() || client->GetPort() != remote_port) {
 			struct in_addr ghost_addr;
@@ -4905,11 +4907,8 @@ void Client::Handle_OP_GMKick(const EQApplicationPacket *app)
 		if (!worldserver.Connected())
 			Message(Chat::White, "Error: World server disconnected");
 		else {
-			auto pack = new ServerPacket(ServerOP_KickPlayer, sizeof(ServerKickPlayer_Struct));
+			auto pack = new ServerPacket(ServerOP_KickPlayerAccount, sizeof(ServerKickPlayer_Struct));
 			ServerKickPlayer_Struct* skp = (ServerKickPlayer_Struct*)pack->pBuffer;
-			strcpy(skp->adminname, gmk->gmname);
-			strcpy(skp->name, gmk->name);
-			skp->adminrank = this->Admin();
 			worldserver.SendPacket(pack);
 			safe_delete(pack);
 		}
