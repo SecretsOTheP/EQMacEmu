@@ -385,6 +385,9 @@ void ClientList::CLCheckStale() {
 		if (!should_remove_playercount)
 			cached_gm_count++;
 
+		if (should_remove_baz_offline_player)
+			cached_trader_count++;
+
 		if (iterator.GetData()->CheckStale()) {
 
 			struct in_addr in;
