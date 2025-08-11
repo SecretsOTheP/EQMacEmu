@@ -139,7 +139,7 @@ bool ClientList::ActiveConnection(uint32 account_id, uint32 character_id) {
 		if (iterator.GetData()->AccountID() == account_id && iterator.GetData()->CharID() == character_id && iterator.GetData()->Online() > CLE_Status::CharSelect) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			LogInfo( "Client with account [{}] exists on [{}]", iterator.GetData()->AccountID());
+			LogInfo( "Client with account [{}] exists on [{}]", iterator.GetData()->AccountID(), inet_ntoa(in));
 			return true;
 		}
 		iterator.Advance();
