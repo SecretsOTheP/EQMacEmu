@@ -90,7 +90,7 @@ bool ClientList::ActiveConnectionIncludingStale(uint32 account_id) {
 		if (iterator.GetData()->AccountID() == account_id) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			LogInfo("Client with account [{}] exists on [{}]", iterator.GetData()->AccountID(), inet_ntoa(in));
+			LogInfo("Client with account [{}] exists on [{}] (active including stale) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 
 			return true;
 		}
@@ -112,18 +112,22 @@ bool ClientList::ActiveConnectionKickStale(uint32 account_id) {
 			{
 				if (eStatus == CLE_Status::OfflineBazaar)
 				{
+					struct in_addr in;
+					in.s_addr = iterator.GetData()->GetIP();
+					LogInfo("Client with account [{}] exists on [{}] (active kicking stale, sending packet to remove bazaar character) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 					auto pack = new ServerPacket(ServerOP_KickPlayerAccount, sizeof(ServerKickPlayerAccount_Struct));
 					ServerKickPlayerAccount_Struct* skp = (ServerKickPlayerAccount_Struct*)pack->pBuffer;
 					skp->AccountID = account_id;
 					zoneserver_list.SendPacket(pack);
 					safe_delete(skp);
-					iterator.RemoveCurrent();
-					continue;
 				}
 
 				found_active = true;
 			}
 			else if (eStatus <= CLE_Status::CharSelect) {
+				struct in_addr in;
+				in.s_addr = iterator.GetData()->GetIP();
+				LogInfo("Client with account [{}] exists on [{}] (active kicking stale) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 				iterator.RemoveCurrent();
 				continue;
 			}
@@ -141,7 +145,7 @@ bool ClientList::ActiveConnection(uint32 account_id, uint32 character_id) {
 		if (iterator.GetData()->AccountID() == account_id && iterator.GetData()->CharID() == character_id && iterator.GetData()->Online() > CLE_Status::CharSelect) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			LogInfo( "Client with account [{}] exists on [{}]", iterator.GetData()->AccountID(), inet_ntoa(in));
+			LogInfo( "Client with account [{}] exists on [{}] state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 			return true;
 		}
 		iterator.Advance();
@@ -197,7 +201,7 @@ bool ClientList::CheckIPLimit(uint32 iAccID, uint32 iIP, uint16 admin, ClientLis
 			(RuleI(World, ExemptMaxClientsStatus) < 0))) {
 
 			// Increment the occurrences of this IP address
-			if (countCLEIPs->Online() >= CLE_Status::Never && (cle == nullptr || cle != countCLEIPs))
+			if (countCLEIPs->Online() >= CLE_Status::Never && countCLEIPs->Online() != CLE_Status::OfflineBazaar && (cle == nullptr || cle != countCLEIPs))
 				IPInstances++;
 		}
 		iterator.Advance();

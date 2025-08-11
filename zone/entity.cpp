@@ -2571,7 +2571,7 @@ void EntityList::UpdateWho(bool iSendFullUpdate)
 
 	auto it = client_list.begin();
 	while (it != client_list.end()) {
-		if (it->second->InZone()) {
+		if (it->second->InZone() || it->second->IsOfflineTrader()) {
 			if (iSendFullUpdate) {
 				it->second->UpdateWho();
 			} else {
