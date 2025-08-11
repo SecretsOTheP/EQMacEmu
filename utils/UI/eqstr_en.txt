@@ -4585,7 +4585,7 @@ EQST0002
 13536 Healing Gift
 13537 This ability grants you a chance to score an exceptional heal at  3, 6, and 10 percent. An exceptional heal doubles the healing value of the spell.
 13538 Spell Casting Mastery
-13539 This ability gives you an increased chance of making your specialization checks.  It also reduces your chance to fizzle and increases the chance to lower the mana cost for the spell by 5, 15, and 30 percent.
+13539 This ability reduces the amount of mana spent on all spell casts by 2, 5, and 10 percent.
 13540 Spell Casting Reinforcement
 13541 This ability increases the duration of beneficial spells that you cast by 5, 15, and 30 percent.
 13542 Mental Clarity
