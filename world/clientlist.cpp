@@ -90,7 +90,7 @@ bool ClientList::ActiveConnectionIncludingStale(uint32 account_id) {
 		if (iterator.GetData()->AccountID() == account_id) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			LogInfo("Client with account [{}] exists on [{}] (active including stale) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
+			LogInfo("Client with account [{}] exists on [{}] (active including stale)", iterator.GetData()->AccountID(), inet_ntoa(in));
 
 			return true;
 		}
