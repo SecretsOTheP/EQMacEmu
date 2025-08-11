@@ -427,7 +427,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 				if (!is_stack_with_self_allowed || caster->GetID() == old_buff3->casterid)
 				{
 				OVERWRITE_SAME_SPELL_WITHOUT_REMOVING_FIRST:
-					if (caster->GetLevel() >= old_buff3->casterlevel
+					if (caster->GetCasterLevel(spell_id) >= old_buff3->casterlevel
 						&& GetSpellEffectIndex(new_spelldata->id, SE_EyeOfZomm) == -1
 						&& GetSpellEffectIndex(new_spelldata->id, SE_CompleteHeal) == -1 // Donal's BP
 						&& GetSpellEffectIndex(new_spelldata->id, SE_SummonHorse) == -1)
@@ -687,7 +687,7 @@ int Mob::FindAffectSlot(Mob *caster, uint16 spell_id, int *result_slotnum, int r
 	}
 
 	old_effect_value = CalcSpellEffectValue(old_spelldata->id, effect_slot_num, old_buff->casterlevel, 0, 10);
-	new_effect_value = CalcSpellEffectValue(new_spelldata->id, effect_slot_num, caster->GetLevel(), 0, 10);
+	new_effect_value = CalcSpellEffectValue(new_spelldata->id, effect_slot_num, caster->GetCasterLevel(new_spelldata->id), 0, 10);
 
 	if (spell_id == 1620 || spell_id == 1816 || spell_id == 833 || old_buff_spellid == 1814)// mistake or is this intentional?
 		new_effect_value = -1;
