@@ -112,9 +112,6 @@ bool ClientList::ActiveConnectionKickStale(uint32 account_id) {
 			{
 				if (eStatus == CLE_Status::OfflineBazaar)
 				{
-					struct in_addr in;
-					in.s_addr = iterator.GetData()->GetIP();
-					LogInfo("Client with account [{}] exists on [{}] (active kicking stale, sending packet to remove bazaar character) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 					auto pack = new ServerPacket(ServerOP_KickPlayerAccount, sizeof(ServerKickPlayerAccount_Struct));
 					ServerKickPlayerAccount_Struct* skp = (ServerKickPlayerAccount_Struct*)pack->pBuffer;
 					skp->AccountID = account_id;
@@ -125,9 +122,6 @@ bool ClientList::ActiveConnectionKickStale(uint32 account_id) {
 				found_active = true;
 			}
 			else if (eStatus <= CLE_Status::CharSelect) {
-				struct in_addr in;
-				in.s_addr = iterator.GetData()->GetIP();
-				LogInfo("Client with account [{}] exists on [{}] (active kicking stale) state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
 				iterator.RemoveCurrent();
 				continue;
 			}
@@ -145,7 +139,7 @@ bool ClientList::ActiveConnection(uint32 account_id, uint32 character_id) {
 		if (iterator.GetData()->AccountID() == account_id && iterator.GetData()->CharID() == character_id && iterator.GetData()->Online() > CLE_Status::CharSelect) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			LogInfo( "Client with account [{}] exists on [{}] state: [{}]", iterator.GetData()->AccountID(), inet_ntoa(in), CLEStatusString[iterator.GetData()->Online()]);
+			LogInfo( "Client with account [{}] exists on [{}]", iterator.GetData()->AccountID());
 			return true;
 		}
 		iterator.Advance();
