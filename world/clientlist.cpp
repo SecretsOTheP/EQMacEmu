@@ -354,9 +354,8 @@ void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForum
 	char	paccountname[32] = { 0 };
 	int16	padmin = 0;
 	bool pmule = false;
-	bool wasAccountActive = ActiveConnectionKickStale(iLSID);
 	
-	if (wasAccountActive || GetClientCount() >= RuleI(Quarm, PlayerPopulationCap))
+	if (GetClientCount() >= RuleI(Quarm, PlayerPopulationCap))
 	{
 		uint32 paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule);
 
