@@ -346,6 +346,8 @@ RULE_INT(Quarm, PlayerPopulationCap, 1200, "Max Players allowed in the Server. W
 RULE_BOOL(Quarm, EnableBazaar, false, "Master switch for bazaar. Set to true when Offline Traders are in and work.")
 RULE_BOOL(Quarm, EnableAdminChecks, false, "Master switch for admin check enforcement")
 RULE_INT(Quarm, BazaarAutoKickTimerS, 600, "Bazaar auto-kick timer.")
+RULE_REAL(Quarm, ArcheryCorneredDamage, 1.0, "% Modifier to Archery damage of cornered targets (0.5 = 50%, 1.0 = 100%")
+RULE_REAL(Quarm, ArcheryWalledDamage, 1.0, "% Modifier to Archery damage of walled targets (0.5 = 50%, 1.0 = 100%")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(SelfFound)

@@ -852,6 +852,8 @@ void Mob::DoArcheryAttackDmg(Mob* other)
 	float z_angle = 1.0f;
 	float height_diff = fabs(GetZ() - other->GetZ());
 	float vector_x, vector_y, magnitude;
+	bool cornered = false;
+	bool walled = false;
 
 	// if player is somehow shooting from well above or below the NPC and near it X and Y wise then allow archery even if cornered
 	if (height_diff > 15.0f)
@@ -863,7 +865,7 @@ void Mob::DoArcheryAttackDmg(Mob* other)
 		z_angle = vector_x;
 	}
 
-	if (other->IsNPC() && RuleB(AlKabor, BlockProjectileWalls) && other->CastToNPC()->IsWalled())
+	if (other->IsNPC() && other->CastToNPC()->IsWalled())
 	{
 		float xy_angle = 0.0f;
 
@@ -886,23 +888,35 @@ void Mob::DoArcheryAttackDmg(Mob* other)
 			// allow the shot if fired parallel to the wall; deny if fired perpendicular
 			if (xy_angle > 0.4f)
 			{
-				Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is against a wall(1)  xy_angle: %0.4f", other->GetName(), xy_angle);
-				return;
+				walled = true;
+				if (RuleB(AlKabor, BlockProjectileWalls))
+				{
+					Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is against a wall(1)  xy_angle: %0.4f", other->GetName(), xy_angle);
+					return;
+				}
 			}
 
 			xy_angle = fabs(-other->CastToNPC()->GetWallAngle2(vector_x, vector_y));
 			if (xy_angle > 0.4f)
 			{
-				Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is against a wall(2)  xy_angle: %0.4f", other->GetName(), xy_angle);
-				return;
+				walled = true;
+				if (RuleB(AlKabor, BlockProjectileWalls))
+				{
+					Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is against a wall(2)  xy_angle: %0.4f", other->GetName(), xy_angle);
+					return;
+				}
 			}
 		}
 	}
 
-	if (other->IsNPC() && RuleB(AlKabor, BlockProjectileCorners) && other->CastToNPC()->IsCornered() && (z_angle > 0.85f || z_angle < -0.85f))
+	if (other->IsNPC() && other->CastToNPC()->IsCornered() && (z_angle > 0.85f || z_angle < -0.85f))
 	{
-		Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is cornered.  z_angle: %0.2f", other->GetName(), z_angle);
-		return;
+		cornered = true;
+		if (RuleB(AlKabor, BlockProjectileCorners))
+		{
+			Log(Logs::Detail, Logs::Combat, "Poofing arrow; %s is cornered.  z_angle: %0.2f", other->GetName(), z_angle);
+			return;
+		}
 	}
 	
 	int baseDamage = GetBaseDamage(other, EQ::invslot::slotRange);		// this includes arrow damage
@@ -936,6 +950,15 @@ void Mob::DoArcheryAttackDmg(Mob* other)
 		baseDamage += baseDamage * spellbonuses.ArcheryDamageModifier / 100;
 
 		damage = CalcMeleeDamage(other, baseDamage, EQ::skills::SkillArchery);
+
+		if (cornered)
+		{
+			damage = static_cast<int>(RuleR(Quarm, ArcheryCorneredDamage) * 100.0) * damage / 100;
+		}
+		else if (walled)
+		{
+			damage = static_cast<int>(RuleR(Quarm, ArcheryWalledDamage) * 100.0) * damage / 100;
+		}
 
 		Log(Logs::Detail, Logs::Combat, "Base Damage: %d, Damage: %d.", baseDamage, damage);
 	}
