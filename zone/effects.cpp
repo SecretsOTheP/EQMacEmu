@@ -1164,7 +1164,7 @@ void EntityList::AESpell(Mob *caster, Mob *center, uint16 spell_id, bool affect_
 			// check may still be needed. Any changes here should also reflect in AEBardPulse()
 			else if (!IsNeutralSpell(spell_id))
 			{
-				if (caster->IsAttackAllowed(curmob, true))
+				if (!caster->IsBeneficialAllowed(curmob, spell_id))
 				{
 					Log(Logs::General, Logs::Spells, "Invalid target: Attempting to cast a beneficial AE spell/song on %s.", curmob->GetName());
 					if(!IsBardSong(spell_id) && spells[spell_id].targettype != ST_AEBard)
