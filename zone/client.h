@@ -1514,7 +1514,7 @@ private:
 	void CheckClientToNpcAggroTimer();
 
 	void BulkSendSharedBankItems();
-	void BulkSendInventoryItems();
+	void BulkSendInventoryItems(bool include_shared_bank);
 	void SendCursorItems();
 	void FillPPItems();
 
