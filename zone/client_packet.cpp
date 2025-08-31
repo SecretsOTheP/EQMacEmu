@@ -774,7 +774,7 @@ void Client::CompleteConnect()
 	auto* rule_sets_app = new EQApplicationPacket(OP_LogServer, sizeof(RuleSets_Struct));
 	RuleSets_Struct* rule_sets = (RuleSets_Struct*)rule_sets_app->pBuffer;
 	if (zone && zone->GetGuildID() == 1)
-		rule_sets->enable_pvp = 2; // 2 is Rallos-like, 4 is Sullon-like (shouldn't use Sullon as it causes a lot of side-affects)
+		rule_sets->enable_pvp = 1; // 1 is Rallos-like, 4 is Sullon-like (shouldn't use Sullon as it causes a lot of side-affects)
 	else
 		rule_sets->enable_pvp = (RuleI(World, PVPSettings));
 	if (RuleI(World, FVNoDropFlag) == 1 || RuleI(World, FVNoDropFlag) == 2 && Admin() > RuleI(Character, MinStatusForNoDropExemptions))
