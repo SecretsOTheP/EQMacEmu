@@ -1364,7 +1364,7 @@ private:
 	int32 CalcBaseHP(bool unbuffed = false);
 	int32 CalcHPRegen();
 	int32 CalcManaRegen(bool meditate = false);
-	void DoHPRegen();
+	void DoHPRegen(bool send_hp_update = true);
 	void DoManaRegen();
 
 	uint8 playeraction;

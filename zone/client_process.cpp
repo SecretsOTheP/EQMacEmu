@@ -126,10 +126,12 @@ bool Client::Process() {
 			}
 		}
 
+		bool send_hp_update = false;
 		if(hpupdate_timer.Check())
 		{
 			CalcMaxHP();
-			DoHPRegen();
+			DoHPRegen(false);
+			send_hp_update = true;
 		}
 
 		if(mana_timer.Check())
@@ -494,7 +496,12 @@ bool Client::Process() {
 			ProcessFatigue();
 			CalcMaxMana();
 			DoManaRegen();
+
+			int hp_start = GetHP();
+			int hp_max = GetMaxHP();
 			BuffProcess();
+			if (hp_start != GetHP() || hp_max != GetMaxHP())
+				send_hp_update = true;
 
 			if (fishing_timer.Check()) 
 			{
@@ -529,6 +536,8 @@ bool Client::Process() {
 			}
 		}
 
+		if (!dead && send_hp_update)
+			SendHPUpdate();
 
 		if (apperance_timer.Check())
 		{
@@ -2058,14 +2067,15 @@ void Client::OPGMSummon(const EQApplicationPacket *app)
 	}
 }
 
-void Client::DoHPRegen() 
+void Client::DoHPRegen(bool send_hp_update)
 {
 	if (GetHP() >= max_hp)
 		return;
 
 	SetHP(GetHP() + CalcHPRegen());
 	CalcAGI();
-	SendHPUpdate();
+	if (send_hp_update)
+		SendHPUpdate();
 }
 
 void Client::DoManaRegen() 
