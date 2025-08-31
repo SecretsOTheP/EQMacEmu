@@ -221,7 +221,7 @@ public:
 	void ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* newbon, uint16 casterID = 0,
 		bool item_bonus = false, int16 instrumentmod = 10, uint32 ticsremaining = 0, int buffslot = -1,
 		bool IsAISpellEffect = false, uint16 effect_id = 0, int32 se_base = 0, int32 se_limit = 0, int32 se_max = 0,
-		bool is_tap_recourse = false);
+		bool is_tap_recourse = false, bool buff_from_client = false);
 	virtual float GetActSpellRange(uint16 spell_id, float range, std::string& item_name) { return range;}
 	virtual float GetSpellRange(uint16 spell_id, float range) { return range; }
 	virtual int32 GetActSpellDamage(uint16 spell_id, int32 value, Mob* target = nullptr) { return value; }

@@ -1018,7 +1018,8 @@ void Mob::CalcSpellBonuses(StatBonuses* newbon)
 			uint8 caster_level = i == disc_slot ? GetLevel() : buffs[i].casterlevel; // disciplines are in a fake buff slot at last index and these need the current level
 			ApplySpellsBonuses(buffs[i].spellid, caster_level, newbon, buffs[i].casterid, false, buffs[i].instrumentmod, buffs[i].ticsremaining, i,
 				false, 0, 0, 0, 0,
-				buffs[i].bufftype == 4);
+				buffs[i].bufftype == 4,
+				buffs[i].client);
 		}
 	}
 
@@ -1033,7 +1034,7 @@ void Mob::CalcSpellBonuses(StatBonuses* newbon)
 }
 
 void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* new_bonus, uint16 casterId, bool item_bonus, int16 instrumentmod, uint32 ticsremaining, int buffslot,
-							 bool IsAISpellEffect, uint16 effect_id, int32 se_base, int32 se_limit, int32 se_max, bool is_tap_recourse)
+							 bool IsAISpellEffect, uint16 effect_id, int32 se_base, int32 se_limit, int32 se_max, bool is_tap_recourse, bool buff_from_client)
 {
 	int i, effect_value, base2, max, effectid;
 	Mob *caster = nullptr;
@@ -1283,30 +1284,40 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* ne
 			case SE_ResistFire:
 			{
 				new_bonus->FR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+					new_bonus->FR += (effect_value / 2); // PvP Servers had 50% bonus to resist debuffs
 				break;
 			}
 
 			case SE_ResistCold:
 			{
 				new_bonus->CR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+					new_bonus->CR += (effect_value / 2); // PvP Servers had 50% bonus to resist debuffs
 				break;
 			}
 
 			case SE_ResistPoison:
 			{
 				new_bonus->PR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+					new_bonus->PR += (effect_value / 2); // PvP Servers had 50% bonus to resist debuffs
 				break;
 			}
 
 			case SE_ResistDisease:
 			{
 				new_bonus->DR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+					new_bonus->DR += (effect_value / 2); // PvP Servers had 50% bonus to resist debuffs
 				break;
 			}
 
 			case SE_ResistMagic:
 			{
 				new_bonus->MR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+					new_bonus->MR += (effect_value / 2); // PvP Servers had 50% bonus to resist debuffs
 				break;
 			}
 
@@ -1317,6 +1328,15 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* ne
 				new_bonus->PR += effect_value;
 				new_bonus->CR += effect_value;
 				new_bonus->FR += effect_value;
+				if (IsClient() && effect_value < 0 && zone && zone->GetGuildID() == 1 && buffslot >= 0 && buff_from_client)
+				{
+					int half_value = effect_value / 2; // PvP Servers had 50% bonus to resist debuffs
+					new_bonus->MR += half_value;
+					new_bonus->DR += half_value;
+					new_bonus->PR += half_value;
+					new_bonus->CR += half_value;
+					new_bonus->FR += half_value;
+				}
 				break;
 			}
 
