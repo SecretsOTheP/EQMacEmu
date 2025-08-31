@@ -2086,6 +2086,16 @@ struct PickPocket_Struct
     uint8 data[6];
 };
 
+struct RuleSets_Struct
+{
+	/* 0x000 */ uint32 enable_FV;
+	/* 0x004 */ uint32 enable_pvp;
+	/* 0x008 */ uint32 auto_identify;
+	/* 0x00C */ uint32 NameGen;
+	/* 0x010 */ uint32 Gibberish;
+	/* 0x014 */ uint32 test_server;
+};
+
 struct LogServer_Struct
 {
 	/*000*/	uint32	enable_FV; //Is FV ruleset?

@@ -769,6 +769,23 @@ void Client::CompleteConnect()
 		ForceGoToDeath();
 	}
 
+	// Updates the client's Server ruleset flags when it enters a PvP or non-PvP zone.
+	// This causes the client to accurately show a few bonus features like the correct debuff amounts caused by players.
+	auto* rule_sets_app = new EQApplicationPacket(OP_LogServer, sizeof(RuleSets_Struct));
+	RuleSets_Struct* rule_sets = (RuleSets_Struct*)rule_sets_app->pBuffer;
+	if (zone && zone->GetGuildID() == 1)
+		rule_sets->enable_pvp = 2; // 2 is Rallos-like, 4 is Sullon-like (shouldn't use Sullon as it causes a lot of side-affects)
+	else
+		rule_sets->enable_pvp = (RuleI(World, PVPSettings));
+	if (RuleI(World, FVNoDropFlag) == 1 || RuleI(World, FVNoDropFlag) == 2 && Admin() > RuleI(Character, MinStatusForNoDropExemptions))
+		rule_sets->enable_FV = 1;
+	rule_sets->auto_identify = 0;
+	rule_sets->NameGen = 1;
+	rule_sets->Gibberish = 1;
+	rule_sets->test_server = 0;
+	QueuePacket(rule_sets_app);
+	safe_delete(rule_sets_app);
+
 	// Begins the shared bank negotiation with the client. Server sends how many slots are possible, waits to hear what the client supports.
 	// Upon client response, server will (optionally) enable the bank and stream the contents.
 	int shared_bank_bags = RuleI(Quarm, SharedBankBags);
