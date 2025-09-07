@@ -2159,6 +2159,20 @@ void Client::Handle_OP_AAAction(const EQApplicationPacket *app)
 		return;
 	}
 
+	if (GetLevel() < 51)
+	{
+		Message(Chat::Yellow, "You must be level 51 or higher to use Alternate Abilities.");
+		if (m_epp.perAA > 0u)
+		{
+			// Ensure their AA exp% is reset to 0% when below 51.
+			Message_StringID(Chat::White, StringID::AA_OFF); //OFF
+			m_epp.perAA = 0u;
+		}
+		SendAAStats();
+		SendAATable();
+		return;
+	}
+
 	if (strncmp((char *)app->pBuffer, "on ", 3) == 0)
 	{
 		if (m_epp.perAA == 0)

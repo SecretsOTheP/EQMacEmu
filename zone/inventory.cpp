@@ -717,6 +717,9 @@ void Client::ResetPlayerForNewGamePlus(uint8 in_level, uint8 in_level2, bool res
 	if (new_level < old_level) {
 		SetLevel(new_level, true);
 	}
+	if (new_level < 51) {
+		m_epp.perAA = 0u;
+	}
 
 	// Do additional skill cleanup if level2 was lowered
 	uint8 old_level2 = GetLevel2();
