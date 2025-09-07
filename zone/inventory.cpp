@@ -621,6 +621,7 @@ void Client::ClearPlayerInfoAndGrantStartingItems(bool goto_death)
 	RefundAA();
 	SetAAPoints(0);
 	m_pp.aapoints_spent = 0;
+	m_epp.perAA = 0u;
 	
 	//Remove all factions.
 	database.RemoveAllFactions(this);
