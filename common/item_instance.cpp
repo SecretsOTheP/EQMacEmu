@@ -629,11 +629,10 @@ void EQ::ItemInstance::ClearTimers() {
 
 bool EQ::ItemInstance::IsFlesh() const
 {
-	if (!m_item || m_item->ItemClass != EQ::item::ItemClassCommon)
+	if (!m_item || m_item->ItemClass != EQ::item::ItemClassCommon || !m_item->NoRent)
 		return false;
 
-	if (m_item->Icon == 601 ||
-		m_item->Icon == 797 ||
+	if (m_item->Icon == 797 ||
 		m_item->Icon == 814 ||
 		m_item->Icon == 815 ||
 		m_item->Icon == 816 ||
