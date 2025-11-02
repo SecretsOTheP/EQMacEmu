@@ -489,6 +489,7 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		zoneserver_list.SendPacket(pack);
 		break;
 	}
+	
 	case ServerOP_DetailsChange: {
 		if (pack->size != sizeof(ServerRaidGeneralAction_Struct)) {
 			break;
@@ -1387,7 +1388,9 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	case ServerOP_QSPlayerLootRecords:
 	case ServerOP_QSSendQuery:
 	case ServerOP_QueryServGeneric:
-	case ServerOP_Speech: {
+	case ServerOP_Speech:
+	case ServerOP_PlayerEvent:
+	{
 		QSLink.SendPacket(pack);
 		break;
 	}
