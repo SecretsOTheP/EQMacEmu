@@ -692,7 +692,7 @@ void NPC::AddItem(uint32 itemid, int8 charges, bool equipitem, bool quest, const
 
 void NPC::AddLootTable(bool is_quest_spawn) {
 	AddLootTable(m_loottable_id);
-	if (zone && zone->GetGuildID() == 1 && !is_quest_spawn)
+	if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !engage_notice || RuleB(Quarm, EnablePVPDoubleLoot) && zone->GetGuildID() == 1 && !engage_notice || RuleB(Quarm, EnablePVERaidDoubleLoot) && zone->GetGuildID() == 1 && engage_notice) && !is_quest_spawn)
 		AddLootTable(m_loottable_id);
 }
 
@@ -702,7 +702,7 @@ void NPC::CheckGlobalLootTables()
 	for (const auto &e : l) {
 
 		AddLootTable(e, true);
-		if (zone && zone->GetGuildID() == 1)
+		if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !engage_notice || RuleB(Quarm, EnablePVPDoubleLoot) && zone->GetGuildID() == 1 && !engage_notice || RuleB(Quarm, EnablePVERaidDoubleLoot) && zone->GetGuildID() == 1 && engage_notice))
 		{
 			AddLootTable(e, true);
 		}
