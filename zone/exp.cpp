@@ -143,7 +143,7 @@ float Mob::GetBaseEXP()
 	}
 
 	if (zone->IsHotzone()) {
-		hotzonexp = RuleR(Zone, HotZoneBonus) * 100;
+		zemmod = RuleR(Zone, HotZoneBonus) * 100;
 	}
 
 	// very low levels get an artifical ZEM.  It's either 100 or 114, not sure.  Also not sure how many levels this applies.  If you find out, fix this
