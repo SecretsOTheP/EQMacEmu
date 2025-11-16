@@ -503,6 +503,17 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	if (IsNPC() && cast_time == 0)		// NPC instant cast spells show a "begins to cast" message
 		orgcasttime = cast_time = 1;
 
+	if (zone && zone->IsPVPZone())
+	{
+		switch (spell_id)
+		{
+			case 2734: // "The Nexus"
+			case 2771: // "Exodus"
+				cast_time = 8000;
+				break;
+		}
+	}
+
 	// we checked for spells not requiring targets above
 	if(target_id == 0) {
 		Log(Logs::Detail, Logs::Spells, "Spell Error: no target. spell=%d\n", GetName(), spell_id);
