@@ -3378,4 +3378,18 @@ void Zone::SendDiscordMessage(const std::string& webhook_name, const std::string
 	}
 }
 
+bool Zone::IsNoLeashPVPZone()
+{
+	switch (GetZoneID())
+	{
+		case Zones::VEXTHAL:
+		case Zones::GREATDIVIDE:
+		case Zones::EASTWASTES:
+			return true;
+
+	}
+
+	return false;
+}
+
 #include "zone_loot.cpp"

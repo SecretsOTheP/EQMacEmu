@@ -1405,7 +1405,7 @@ void Mob::AI_Process() {
 			AIloiter_timer->Pause();
 
         auto npcSpawnPoint = CastToNPC()->GetSpawnPoint();
-		if (zone && zone->GetGuildID() == 1) {
+		if (zone && zone->GetGuildID() == 1 && !zone->IsNoLeashPVPZone()) {
 			if (!(IsPet() && HasOwner() && GetOwner()->IsClient()))
 			{
 				float leash_range = RuleR(Quarm, PVPMobLeashUnits);
