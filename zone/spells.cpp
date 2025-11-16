@@ -503,7 +503,7 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	if (IsNPC() && cast_time == 0)		// NPC instant cast spells show a "begins to cast" message
 		orgcasttime = cast_time = 1;
 
-	if (zone && zone->IsPVPZone())
+	if (zone && zone->GetGuildID() == 1)
 	{
 		switch (spell_id)
 		{
