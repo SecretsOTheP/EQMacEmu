@@ -3385,8 +3385,6 @@ bool Zone::IsNoLeashPVPZone()
 		case Zones::VEXTHAL:
 		case Zones::GREATDIVIDE:
 		case Zones::EASTWASTES:
-		case Zones::GROWTHPLANE:
-		case Zones::FEARPLANE:
 			return true;
 
 	}
