@@ -2519,7 +2519,7 @@ int CalcBuffDuration_modification(int spell_id, int duration, bool isclient)
 	const uint32 zoneId           = zone->GetZoneID();
 	
 	// Stop all spells that should never have durations modified
-	if (IsSplurtFormulaSpell(spell_id))
+	if (IsSplurtFormulaSpell(spell_id) || spell_id == 1292)
 	{
 		return duration;
 	}
