@@ -397,7 +397,7 @@ int NPC::GetDamageBonus()
 // Our database uses a min hit and max hit system, instead of Sony's DB + baseDmg * 0.1-2.0
 // This calcs a baseDamage value (which is DI*10) from min and max hits
 // baseDamage is the equivalent to weapon damage for clients
-int NPC::GetBaseDamage(Mob* defender, int slot)
+int NPC::GetBaseDamage(Mob* defender, int slot, bool throwing_dmg)
 {
 	if (slot != EQ::invslot::slotSecondary && slot != EQ::invslot::slotRange)
 		slot = EQ::invslot::slotPrimary;
@@ -453,7 +453,7 @@ int NPC::GetBaseDamage(Mob* defender, int slot)
 // slot parameter should be one of: SlotPrimary, SlotSecondary, SlotRange, SlotAmmo
 // does not check for immunities
 // calling this with SlotRange will also add the arrow damage
-int Client::GetBaseDamage(Mob *defender, int slot)
+int Client::GetBaseDamage(Mob *defender, int slot, bool throwing_dmg)
 {
 	if (slot != EQ::invslot::slotSecondary && slot != EQ::invslot::slotRange && slot != EQ::invslot::slotAmmo)
 		slot = EQ::invslot::slotPrimary;
@@ -503,7 +503,7 @@ int Client::GetBaseDamage(Mob *defender, int slot)
 				dmg += weapon->BaneDmgAmt;
 		}
 
-		if (slot == EQ::invslot::slotRange && GetInv().GetItem(EQ::invslot::slotAmmo))
+		if (slot == EQ::invslot::slotRange && GetInv().GetItem(EQ::invslot::slotAmmo) && !throwing_dmg)
 		{
 			dmg += GetBaseDamage(defender, EQ::invslot::slotAmmo);
 		}

@@ -302,7 +302,7 @@ public:
 	uint32	GetMaxDMG() const {return max_dmg;}
 	uint32	GetMinDMG() const {return min_dmg;}
 	int		GetDamageBonus();
-	int		GetBaseDamage(Mob* defender = nullptr, int slot = EQ::invslot::slotPrimary);
+	int		GetBaseDamage(Mob* defender = nullptr, int slot = EQ::invslot::slotPrimary, bool throwing_dmg = false);
 	inline void	TriggerClassAtkTimer() { classattack_timer.Trigger(); }
 	int16	GetSlowMitigation() const {return slow_mitigation;}
 	bool	IsAnimal() const { return(bodytype == BodyType::Animal); }

@@ -1212,7 +1212,23 @@ void Mob::DoThrowingAttackDmg(Mob* other)
 
 	int damage = 1;
 
-	int baseDamage = GetBaseDamage(other, EQ::invslot::slotRange);
+	int baseDamage = GetBaseDamage(other, EQ::invslot::slotRange, true);
+
+	if (IsClient())
+	{
+		EQ::ItemInstance* itemAmmo = nullptr;
+		itemAmmo = CastToClient()->GetInv().GetItem(EQ::invslot::slotAmmo);
+
+		EQ::ItemInstance* itemRange = nullptr;
+		itemRange = CastToClient()->GetInv().GetItem(EQ::invslot::slotRange);
+
+		if (itemAmmo && itemRange && itemAmmo->GetID() != itemRange->GetID())
+		{
+			int itemAmmoDamage = GetBaseDamage(other, EQ::invslot::slotAmmo);
+			baseDamage = std::min(itemAmmoDamage, baseDamage);
+		}
+	}
+
 	int hate = baseDamage;
 
 	if (other->IsImmuneToMelee(this, EQ::invslot::slotRange))

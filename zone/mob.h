@@ -171,7 +171,7 @@ public:
 	virtual bool TryFinishingBlow(Mob *defender, EQ::skills::SkillType skillinuse, uint32 dmgBonus = 0);
 	virtual void DoRiposte(Mob* defender);
 	static int RollD20(double offense, double mitigation);
-	virtual int GetBaseDamage(Mob* defender = nullptr, int slot = EQ::invslot::slotPrimary) { return 1; }		// weapon damage for clients; DI*10 for NPCs
+	virtual int GetBaseDamage(Mob* defender = nullptr, int slot = EQ::invslot::slotPrimary, bool throwing_dmg = false) { return 1; }		// weapon damage for clients; DI*10 for NPCs
 	virtual int GetDamageBonus() { return 0; }
 	static int CalcEleWeaponResist(int weaponDamage, int resistType, Mob *target);
 	bool IsImmuneToMelee(Mob* attacker, int slot = EQ::invslot::slotPrimary);

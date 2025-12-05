@@ -275,7 +275,7 @@ public:
 	virtual bool CombatRange(Mob* other, float dist_squared = 0.0f, bool check_z = false, bool pseudo_pos = false);
 	virtual uint8 Disarm(float chance);
 	bool ClientMoving() { return (m_Delta.x != 0.0f || m_Delta.y != 0.0f); }
-	int GetBaseDamage(Mob* defender = nullptr, int hand = EQ::invslot::slotPrimary);		// weapon damage for clients; DI*10 for NPCs
+	int GetBaseDamage(Mob* defender = nullptr, int hand = EQ::invslot::slotPrimary, bool throwing_dmg = false);		// weapon damage for clients; DI*10 for NPCs
 	int GetDamageBonus();
 	int GetHandToHandDamage();
 	int GetHandToHandDelay();
