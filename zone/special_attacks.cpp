@@ -1210,10 +1210,6 @@ void Mob::DoThrowingAttackDmg(Mob* other)
 	if (!CanDoSpecialAttack(other))
 		return;
 
-	int damage = 1;
-
-	int baseDamage = GetBaseDamage(other, EQ::invslot::slotRange, true);
-
 	if (IsClient())
 	{
 		EQ::ItemInstance* itemAmmo = nullptr;
@@ -1222,12 +1218,16 @@ void Mob::DoThrowingAttackDmg(Mob* other)
 		EQ::ItemInstance* itemRange = nullptr;
 		itemRange = CastToClient()->GetInv().GetItem(EQ::invslot::slotRange);
 
-		if (itemAmmo && itemRange && itemAmmo->GetID() != itemRange->GetID())
+		if (itemAmmo && itemRange)
 		{
-			int itemAmmoDamage = GetBaseDamage(other, EQ::invslot::slotAmmo);
-			baseDamage = std::min(itemAmmoDamage, baseDamage);
+			if (itemAmmo->GetID() != itemRange->GetID())
+				return;
 		}
 	}
+
+	int damage = 1;
+
+	int baseDamage = GetBaseDamage(other, EQ::invslot::slotRange, true);
 
 	int hate = baseDamage;
 
