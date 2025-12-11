@@ -712,7 +712,7 @@ bool Mob::DoPreCastingChecks(uint16 spell_id, CastingSlot slot, uint16 spell_tar
 				bool is_failed_cast = false;
 				const char* fail_message = nullptr;
 
-				if (!caster->CanHelp(spell_target->CastToClient()) && !IsWhitelistedBeneficialSpellForSelfFound(spell_id, caster, spell_target->CastToClient()))
+				if (!caster->CanHelp(spell_target->CastToClient()) && !IsedBeneficialSpellForSelfFound(spell_id, caster, spell_target->CastToClient()))
 				{
 					is_failed_cast = true;
 					fail_message = "Unable to cast spells on this player due to challenge modes.";
@@ -2714,9 +2714,9 @@ bool IsBuffLevelRestrictWhitelist(uint16 spell_id)
 	{
 		case SPELL_LEVITATION:
 		case SPELL_EVERLASTING_BREATH:
-			return true
+			return true;
 		default:
-			return false
+			return false;
 	}
 }
 
