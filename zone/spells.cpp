@@ -2698,7 +2698,7 @@ bool Client::CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, CastingSlo
 		}
 		else if (SpellLevel > 50)
 		{
-			if (GetLevel() < (SpellLevel / 2 + 15))
+			if (GetLevel() < (SpellLevel / 2 + 15) && !IsBuffLevelRestrictWhitelist(spell_id))
 			{
 				return false;
 			}
@@ -2706,6 +2706,18 @@ bool Client::CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, CastingSlo
 	}
 
 	return true;
+}
+
+bool IsBuffLevelRestrictWhitelist(uint16 spell_id)
+{
+	switch(spell_id)
+	{
+		case SPELL_LEVITATION:
+		case SPELL_EVERLASTING_BREATH:
+			return true
+		default:
+			return false
+	}
 }
 
 // used by some MobAI stuff
