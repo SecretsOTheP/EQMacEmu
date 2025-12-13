@@ -2712,6 +2712,7 @@ bool IsBuffLevelRestrictWhitelist(uint16 spell_id)
 {
 	switch(spell_id)
 	{
+		case SPELL_SPIRIT_OF_EAGLE:
 		case SPELL_LEVITATION:
 		case SPELL_EVERLASTING_BREATH:
 			return true;
