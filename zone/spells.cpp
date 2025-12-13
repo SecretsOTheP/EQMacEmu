@@ -2675,6 +2675,19 @@ bool Mob::CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, CastingSlot s
 	return true;
 }
 
+bool Mob::IsBuffLevelRestrictWhitelist(uint16 spell_id)
+{
+	switch (spell_id)
+	{
+	case SPELL_SPIRIT_OF_EAGLE:
+	case SPELL_LEVITATION:
+	case SPELL_EVERLASTING_BREATH:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool Client::CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, CastingSlot slot)
 {
 	if (IsBardSong(spell_id))
@@ -2706,19 +2719,6 @@ bool Client::CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, CastingSlo
 	}
 
 	return true;
-}
-
-bool IsBuffLevelRestrictWhitelist(uint16 spell_id)
-{
-	switch(spell_id)
-	{
-		case SPELL_SPIRIT_OF_EAGLE:
-		case SPELL_LEVITATION:
-		case SPELL_EVERLASTING_BREATH:
-			return true;
-		default:
-			return false;
-	}
 }
 
 // used by some MobAI stuff

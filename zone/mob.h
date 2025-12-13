@@ -253,6 +253,7 @@ public:
 		CastAction_type &CastAction, bool isproc = false, EQ::spells::CastingSlot slot = EQ::spells::CastingSlot::Item);
 	virtual bool CheckFizzle(uint16 spell_id);
 	virtual bool CheckSpellLevelRestriction(uint16 spell_id, Mob* caster, EQ::spells::CastingSlot slot);
+	bool IsBuffLevelRestrictWhitelist(uint16 spell_id);
 	virtual bool IsImmuneToSpell(uint16 spell_id, Mob *caster, bool isProc = false);
 	virtual float GetAOERange(uint16 spell_id);
 	bool DoCastingRangeCheck(uint16 spell_id, EQ::spells::CastingSlot slot, Mob* target = nullptr);
