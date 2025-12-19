@@ -192,6 +192,7 @@ bool NPC::AICastSpell(Mob* tar, uint8 iChance, uint16 iSpellTypes, bool zeroPrio
 					case SpellType_Escape:
 					{
 						if (!roambox_distance && !IsPet() && GetHPRatio() <= 15.0f && zone->GetZoneExpansion() != ClassicEQ && zone->GetZoneID() != Zones::FEARPLANE && zone->GetZoneID() != Zones::HATEPLANE
+							&& zone->GetZoneID() != 1072 && zone->GetZoneID() != 1076 // Instanced Hate and Fear Planes
 							&& zone->random.Roll(50) && DistanceSquared(CastToNPC()->GetSpawnPoint(), GetPosition()) > 40000)
 						{
 							entity_list.MessageClose_StringID(this, true, 200, Chat::Spells, StringID::BEGIN_GATE, this->GetCleanName());
