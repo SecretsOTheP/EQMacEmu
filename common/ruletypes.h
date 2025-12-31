@@ -158,6 +158,10 @@ RULE_BOOL (Zone, KillProcessOnDynamicShutdown, true, "When process has booted a 
 
 RULE_CATEGORY_END()
 
+RULE_CATEGORY( Raid )
+RULE_BOOL( Raid, RaidHealthUpdates, false, "If true, all raid members will receive HP updates for all other raid members. If false, only raid members in the same group will receive HP updates.")
+RULE_CATEGORY_END()
+
 RULE_CATEGORY( AlKabor )
 RULE_BOOL( AlKabor, AllowPetPull, false, "Allow Green Pet Pull (AK behavior is true)")
 RULE_BOOL( AlKabor, AllowTickSplit, false, "AK behavior is true")
