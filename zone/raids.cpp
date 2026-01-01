@@ -1853,7 +1853,7 @@ void Raid::SendHPPacketsTo(Client *c)
 	uint32 gid = this->GetGroup(c);
 	EQApplicationPacket hpapp;
 
-	bool raidHealthUpdate = RULE_BOOL(Raid, RaidHealthUpdates);
+	bool raidHealthUpdate = RuleB(Raid, RaidHealthUpdates);
 
 	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
 	{
