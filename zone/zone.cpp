@@ -1856,6 +1856,9 @@ uint16 Zone::GetPullLimit()
 		return 32000;
 	}
 
+	if (zone->IsNoLeashPVPZone())
+		return 32000;
+
 	if (!RuleB(Quarm, EnableRespawnReductionSystem))
 	{
 		return pull_limit;
@@ -3385,6 +3388,10 @@ bool Zone::IsNoLeashPVPZone()
 		case Zones::VEXTHAL:
 		case Zones::GREATDIVIDE:
 		case Zones::EASTWASTES:
+		case Zones::FEARPLANE:
+		case Zones::GROWTHPLANE:
+		case Zones::AIRPLANE:
+		case Zones::HATEPLANE:
 			return true;
 
 	}
