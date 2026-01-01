@@ -3887,6 +3887,14 @@ bool Mob::IsImmuneToSpell(uint16 spell_id, Mob *caster, bool isProc)
 			return true;
 		}
 
+		if (zone->GetZoneID() == Zones::VEKSAR && GetLevel() >= 50)
+		{
+			Log(Logs::Detail, Logs::Spells, "We are immune to Charm spells.");
+			caster->Message_StringID(Chat::SpellFailure, StringID::CANNOT_CHARM);
+			ResistSpell(caster, spell_id, isProc);
+			return true;
+		}
+
 		if(this == caster)
 		{
 			Log(Logs::Detail, Logs::Spells, "You are immune to your own charms.");
