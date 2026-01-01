@@ -173,6 +173,8 @@ float Mob::GetBaseEXP()
 	if (zone && zone->GetGuildID() == 1)
 	{
 		zemmod += RuleR(Quarm, PVPInstanceZEMOverride);
+		if (zone->IsHotzone())
+			zemmod -= RuleR(Zone, HotZoneBonus) * 100.0;
 	}
 
 	if (zone && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
