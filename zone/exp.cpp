@@ -143,7 +143,7 @@ float Mob::GetBaseEXP()
 	}
 
 	if (zone->IsHotzone()) {
-		zemmod = RuleR(Zone, HotZoneBonus) * 100;
+		zemmod += RuleR(Zone, HotZoneBonus) * 100;
 	}
 
 	// very low levels get an artifical ZEM.  It's either 100 or 114, not sure.  Also not sure how many levels this applies.  If you find out, fix this
@@ -167,10 +167,17 @@ float Mob::GetBaseEXP()
 			server_bonus += RuleR(Quarm, ThanksgivingExpBonusOutdoorAmt);
 		}
 	}
+
+
 	
-	if (zone && zone->GetGuildID() != GUILD_NONE)
+	if (zone && zone->GetGuildID() == 1)
 	{
-		zemmod = zone->GetGuildID() == 1 ? RuleR(Quarm, PVPInstanceZEMOverride) : RuleR(Quarm, InstanceZEMOverride);
+		zemmod += RuleR(Quarm, PVPInstanceZEMOverride);
+	}
+
+	if (zone && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
+	{
+		zemmod = RuleR(Quarm, InstanceZEMOverride);
 	}
 
 	float npc_pct = 1.0f;
