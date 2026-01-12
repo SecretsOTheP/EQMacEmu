@@ -3392,6 +3392,7 @@ bool Zone::IsNoLeashPVPZone()
 		case Zones::GROWTHPLANE:
 		case Zones::AIRPLANE:
 		case Zones::HATEPLANE:
+		case Zones::SSERU:
 			return true;
 
 	}
