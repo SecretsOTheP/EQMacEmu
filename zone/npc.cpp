@@ -413,9 +413,9 @@ NPC::NPC(const NPCType *npc_type_data, Spawn2* in_respawn, const glm::vec4& posi
 	SetCombatHPRegen(npc_type_data->combat_hp_regen);
 	SetCombatManaRegen(npc_type_data->combat_mana_regen);
 
+	raid_target = npc_type_data->raid_target;
 	InitializeBuffSlots();
 	CalcBonuses();
-	raid_target = npc_type_data->raid_target;
 	ignore_distance = npc_type_data->ignore_distance;
 	base_texture = npc_type_data->texture;
 	base_size = npc_type_data->size;
