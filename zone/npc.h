@@ -154,7 +154,7 @@ public:
 	virtual void CalcBonuses();
 	virtual int GetCurBuffSlots() const { return RuleI(Spells, MaxBuffSlotsNPC); }
 	virtual int GetMaxBuffSlots() const { return RuleI(Spells, MaxBuffSlotsNPC); }
-	virtual int GetMaxTotalSlots() const { return RuleI(Spells, MaxTotalSlotsNPC); }
+	virtual int GetMaxTotalSlots() const { return IsRaidTarget() ? RuleI(Spells, MaxTotalSlotsNPC) * 3 : RuleI(Spells, MaxTotalSlotsNPC); }
 	virtual int GetPetMaxTotalSlots() const { return RuleI(Spells, MaxTotalSlotsPET); }
 	virtual void InitializeBuffSlots();
 	virtual void UninitializeBuffSlots();
