@@ -1883,12 +1883,14 @@ void Raid::SendHPPacketsFrom(Mob *m)
 		gid = this->GetGroup(m->CastToClient());
 	EQApplicationPacket hpapp;
 
+	bool raidHealthUpdate = RuleB(Raid, RaidHealthUpdates);
 	m->CreateHPPacket(&hpapp);
 	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
 	{
 		if(members[x].member && members[x].member->Connected())
 		{
-			if(!m->IsClient() || ((members[x].member != m->CastToClient()) && (members[x].GroupNumber == gid)))
+			if(!m->IsClient() || ((members[x].member != m->CastToClient()) &&
+			  (raidHealthUpdate || members[x].GroupNumber == gid)))
 			{
 				members[x].member->QueuePacket(&hpapp, true);
 			}
