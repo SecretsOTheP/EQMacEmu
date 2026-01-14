@@ -7524,7 +7524,7 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 					return;
 				}
 
-				if (g == lg)
+				if (g && g == lg)
 				{
 					i->Message(Chat::Red, "Invite failed, you cannot invite yourself to your own raid group.");
 					return;
