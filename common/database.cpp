@@ -1491,9 +1491,9 @@ bool Database::AddToNameFilter(std::string name)
 	return true;
 }
 
-uint32 Database::GetAccountIDFromLSID(uint32 iLSID, char* oAccountName, int16* oStatus, int8* oRevoked, bool* isMule) {
+uint32 Database::GetAccountIDFromLSID(uint32 iLSID, char* oAccountName, int16* oStatus, int8* oRevoked, bool* isMule, int16* oIPExemptionCount ) {
 	uint32 account_id = 0;
-	std::string query = StringFormat("SELECT id, name, status, revoked, mule FROM account WHERE lsaccount_id=%i", iLSID);
+	std::string query = StringFormat("SELECT id, name, status, revoked, mule, ip_exemption_multiplier FROM account WHERE lsaccount_id=%i", iLSID);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success()) {
@@ -1512,8 +1512,10 @@ uint32 Database::GetAccountIDFromLSID(uint32 iLSID, char* oAccountName, int16* o
 			*oStatus = atoi(row[2]);
 		if (oRevoked)
 			*oRevoked = atoi(row[3]);
+		if (oIPExemptionCount)
+			*oIPExemptionCount = atoi(row[4]);
 		if (isMule)
-			*isMule = atoi(row[4]);
+			*isMule = atoi(row[5]);
 	}
 
 	return account_id;
@@ -2126,9 +2128,9 @@ void Database::ClearGroupLeader(uint32 gid) {
 		std::cout << "Unable to clear group leader: " << results.ErrorMessage() << std::endl;
 }
 
-bool Database::GetAccountRestriction(uint32 acctid, char (&forum_name)[31], uint16& expansion, bool& mule, uint32& force_guild_id)
+bool Database::GetAccountRestriction(uint32 acctid, char (&forum_name)[31], uint16& expansion, bool& mule, uint32& force_guild_id, int16& IPExemptionCount)
 {
-	std::string query = StringFormat("SELECT expansion, forum_name, mule, force_guild_id FROM account WHERE id=%i",acctid);
+	std::string query = StringFormat("SELECT expansion, forum_name, mule, force_guild_id, ip_exemption_multiplier FROM account WHERE id=%i",acctid);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success())
@@ -2144,6 +2146,7 @@ bool Database::GetAccountRestriction(uint32 acctid, char (&forum_name)[31], uint
 	forum_name[sizeof(forum_name) - 1] = '\0'; // Ensure null termination
 	mule = atoi(row[2]);
 	force_guild_id = atoi(row[3]);
+	IPExemptionCount = atoi(row[4]);
 
 	return true;
 }

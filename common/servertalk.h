@@ -440,6 +440,7 @@ struct ServerClientList_Struct {
 	bool	selffound;
 	bool	hardcore;
 	bool	solo;
+	int16	exemptioncount;
 };
 
 struct ServerClientListKeepAlive_Struct {

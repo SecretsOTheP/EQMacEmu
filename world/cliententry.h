@@ -86,6 +86,8 @@ public:
 	inline uint8			class_() const		{ return pclass_; }
 	inline uint16		race() const		{ return prace; }
 	inline void			SetRevoked(uint8 in_revoked) { pRevoked = in_revoked; }
+	inline int16		GetExemptionCount() const { return pExemptionCount; }
+	inline void			SetExemptionCount(int16 count) { pExemptionCount = count; }
 	inline uint16		baserace()	const		{ return pbaserace; }
 	inline uint8			Anon()				{ return panon; }
 	inline uint8			TellsOff() const	{ return ptellsoff; }
@@ -169,6 +171,7 @@ private:
 	bool	pLD;
 	uint16  pbaserace;
 	bool	pmule;
+	int16	pExemptionCount;
 	bool	pAFK;
 	bool	pTrader;
 	int8	pRevoked;

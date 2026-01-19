@@ -105,6 +105,7 @@ Client::Client(EQStreamInterface* ieqs)
 	enter_world_triggered = false;
 	m_ClientVersionBit = 0;
 	numclients++;
+	exemption_count = 1;
 	zoneGuildID = 0xFFFFFFFF;
 }
 
@@ -258,9 +259,9 @@ bool Client::HandleSendLoginInfoPacket(const EQApplicationPacket *app) {
 
 		expansion = 0;
 		mule = false;
+		exemption_count = 1;
 		uint32 force_guild_id = 0;
-		char forum_name[31];
-		database.GetAccountRestriction(cle->AccountID(), forum_name, expansion, mule, force_guild_id);
+		database.GetAccountRestriction(cle->AccountID(), forum_name, expansion, mule, force_guild_id, exemption_count);
 
 		if(cle->Online() < CLE_Status::Online)
 			cle->SetOnline();
@@ -548,7 +549,7 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 		return false;
 	}
 
-	if (!mule && RuleI(World, MaxClientsPerIP) >= 0 && !client_list.CheckIPLimit(GetAccountID(), GetIP(), GetAdmin(), cle)) {
+	if (!mule && RuleI(World, MaxClientsPerIP) >= 0 && !client_list.CheckIPLimit(GetAccountID(), GetIP(), GetForumName(), GetAdmin(), cle)) {
 		return false;
 	}
 

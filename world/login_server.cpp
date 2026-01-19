@@ -76,7 +76,8 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 	uint32 force_guild_id = 0;
 	bool does_account_exist = true;
 	char forum_name[31] = { 0 };
-	database.GetAccountRestriction(id, forum_name, expansion, mule, force_guild_id);
+	int16 exemption_count = 1;
+	database.GetAccountRestriction(id, forum_name, expansion, mule, force_guild_id, exemption_count);
 
 	if (id == 0) {
 		LogInfo("No world account found for LS account [{}] - will be created during authentication", utwr->lsaccountid);
@@ -130,7 +131,7 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 	if (utwrs->response == 1)
 	{
 		// ip limit checks
-		if (!mule && RuleI(World, MaxClientsPerIP) >= 0 && !client_list.CheckIPLimit(id, utwr->ip, status))
+		if (!mule && RuleI(World, MaxClientsPerIP) >= 0 && !client_list.CheckIPLimit(id, utwr->ip, utwr->forum_name, status))
 		{
 			utwrs->response = -5;
 		}

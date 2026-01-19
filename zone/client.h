@@ -358,6 +358,8 @@ public:
 
 	int8			GetRevoked() const { return revoked; }
 	void			SetRevoked(int8 rev) { revoked = rev; }
+	int16			GetExemptionCount() const { return exemptioncount; }
+	void			SetExemptionCount(int16 rev) { exemptioncount = rev; }
 	inline uint32	GetIP()			const { return ip; }
 	inline bool		GetHideMe()			const { return gmhideme; }
 	void			SetHideMe(bool hm);
@@ -1402,6 +1404,7 @@ private:
 	bool				medding;
 	uint16				horseId;
 	int8				revoked;
+	int16				exemptioncount;
 	uint32				pQueuedSaveWorkID;
 	uint16				pClientSideTarget;
 	int32				weight;

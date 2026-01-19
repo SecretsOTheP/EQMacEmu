@@ -173,7 +173,7 @@ ClientListEntry* ClientList::GetCLE(uint32 iID) {
 	return 0;
 }
 
-bool ClientList::CheckIPLimit(uint32 iAccID, uint32 iIP, uint16 admin, ClientListEntry* cle) {
+bool ClientList::CheckIPLimit(uint32 iAccID, uint32 iIP, const char* ForumName, uint16 admin, ClientListEntry* cle) {
 
 	ClientListEntry* countCLEIPs = 0;
 	LinkedListIterator<ClientListEntry*> iterator(clientlist);
@@ -190,7 +190,8 @@ bool ClientList::CheckIPLimit(uint32 iAccID, uint32 iIP, uint16 admin, ClientLis
 		
 		// If the IP matches, and the connection admin status is below the exempt status,
 		// or exempt status is less than 0 (no-one is exempt)
-		if ((countCLEIPs != nullptr && countCLEIPs->GetIP() == iIP && !countCLEIPs->mule()) &&
+		if (
+			(countCLEIPs != nullptr && countCLEIPs->GetIP() == iIP && !countCLEIPs->mule() || ForumName && ForumName[0] && countCLEIPs != nullptr && countCLEIPs->ForumName() && countCLEIPs->ForumName()[0] && strcmp(countCLEIPs->ForumName(), ForumName) == 0 && !countCLEIPs->mule() || ForumName && ForumName[0] && countCLEIPs != nullptr && countCLEIPs->ForumName() && countCLEIPs->ForumName()[0] && countCLEIPs->GetIP() == iIP && strcmp(countCLEIPs->ForumName(), ForumName) != 0 && ( countCLEIPs->GetExemptionCount() > 1 || exemptcount > 1) && !countCLEIPs->mule()) &&
 			((admin < (RuleI(World, ExemptMaxClientsStatus))) ||
 			(RuleI(World, ExemptMaxClientsStatus) < 0))) {
 
@@ -347,17 +348,18 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 	connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::NPCQuestSay, out.data());
 }
 
-void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version) {
+void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version, int16 ipexemptioncount) {
 	
 	// Account stuff
 	uint32	paccountid = 0;
 	char	paccountname[32] = { 0 };
 	int16	padmin = 0;
 	bool pmule = false;
+	int16 exempt = 1;
 	
 	if (GetClientCount() >= RuleI(Quarm, PlayerPopulationCap))
 	{
-		uint32 paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule);
+		uint32 paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule, &exempt);
 
 		if(padmin == 0)
 			return;

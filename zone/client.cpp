@@ -214,6 +214,7 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	tellsoff = false;
 	last_reported_mana = 0;
 	gmhideme = false;
+	exemptioncount = 1;
 	AFK = false;
 	LFG = false;
 	gmspeed = 0;
@@ -2008,6 +2009,7 @@ void Client::UpdateWho(uint8 remove) {
 	scl->selffound = this->IsSelfFoundAny();
 	scl->hardcore = this->IsHardcore();
 	scl->solo = this->IsSoloOnly();
+	scl->exemptioncount = this->GetExemptionCount();
 
 	worldserver.SendPacket(pack);
 	safe_delete(pack);

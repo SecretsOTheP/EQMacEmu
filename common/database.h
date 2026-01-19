@@ -168,11 +168,11 @@ public:
 	bool	SetAccountStatus(const char* name, int16 status);
 	bool	SetAccountStatus(const std::string& account_name, int16 status);
 	bool	SetLocalPassword(uint32 accid, const char* password);
-	uint32	GetAccountIDFromLSID(uint32 iLSID, char* oAccountName = 0, int16* oStatus = 0, int8* oRevoked = 0, bool* isMule = nullptr);
+	uint32	GetAccountIDFromLSID(uint32 iLSID, char* oAccountName = 0, int16* oStatus = 0, int8* oRevoked = 0, bool* isMule = nullptr, int16* oIPExemptionCount = nullptr);
 	bool	UpdateLiveChar(char* charname,uint32 lsaccount_id);
 	bool	GetLiveChar(uint32 account_id, char* cname);
 	bool	GetLiveCharByLSID(uint32 ls_id, char* cname);
-	bool	GetAccountRestriction(uint32 acctid, char(&forum_name)[31], uint16& expansion, bool& mule, uint32& force_guild);
+	bool	GetAccountRestriction(uint32 acctid, char(&forum_name)[31], uint16& expansion, bool& mule, uint32& force_guild, int16& exemption_count);
 	void	ClearAllConsented();
 	void	ClearAllConsented(char* oname, uint32 corpse_id, LinkedList<ConsentDenied_Struct*>* purged);
 	bool	SetIPExemption(const char* accountname, uint8 amount);

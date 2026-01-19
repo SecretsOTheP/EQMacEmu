@@ -61,6 +61,7 @@ public:
 	inline uint32		GetWID()			{ if (cle) { return cle->GetID(); } return 0; }
 	inline uint32		GetLSID()			{ if (cle) { return cle->LSID(); } return 0; }
 	inline const char*	GetLSKey()			{ if (cle) { return cle->GetLSKey(); } return "NOKEY"; }
+	inline const char* GetForumName() { if (cle) { return cle->ForumName(); } return "NOFORUMNAME"; }
 	inline uint32		GetCharID()			{ return char_id; }
 	inline const char*	GetCharName()		{ return char_name; }
 	inline ClientListEntry* GetCLE()		{ return cle; }
@@ -117,6 +118,8 @@ private:
 	uint16	expansion;
 	uint8	charcount;
 	bool	mule;
+	char	forum_name[31];
+	int16	exemption_count;
 };
 
 #endif

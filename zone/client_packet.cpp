@@ -1293,6 +1293,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		lsaccountid = a.lsaccount_id;
 		gmspeed = a.gmspeed;
 		revoked = a.revoked;
+		exemptioncount = a.ip_exemption_multiplier;
 		gmhideme = a.hideme;
 		account_creation = a.time_creation;
 		gminvul = a.gminvul;
@@ -1301,7 +1302,6 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	}
 
 	revoked = database.CheckRevoked(AccountID());
-
 	/* Load Character Data */
 	query = StringFormat("SELECT `firstlogon`, `guild_id`, `rank` FROM `character_data` LEFT JOIN `guild_members` ON `id` = `char_id` WHERE `id` = %i", cid);
 	
@@ -1782,7 +1782,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	uint16 expansion = 0;
 	bool mule = false;
 	uint32 force_guild;
-	database.GetAccountRestriction(AccountID(), forum_name, expansion, mule, force_guild);
+	database.GetAccountRestriction(AccountID(), forum_name, expansion, mule, force_guild, exemptioncount);
 	m_pp.force_guild_id = force_guild;
 	if (m_pp.force_guild_id != 0)
 	{

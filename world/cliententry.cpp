@@ -40,7 +40,7 @@ ClientListEntry::ClientListEntry(uint32 in_id, uint32 iLSID, const char* iLoginN
 	pIP = ip;
 	pLSID = iLSID;
 	if(iLSID > 0)
-		paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule);
+		paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule, &pExemptionCount);
 
 	strn0cpy(loginserver_account_name, iLoginName, sizeof(loginserver_account_name));
 	strn0cpy(plskey, iLoginKey, sizeof(plskey));
@@ -72,6 +72,7 @@ ClientListEntry::ClientListEntry(uint32 in_id, ZoneServer *iZS, ServerClientList
 	pversion = 2;
 	pRevoked = scl->Revoked;
 	pmule = scl->mule;
+	pExemptionCount = scl->exemptioncount;
 	pLFGFromLevel = 0;
 	pLFGToLevel = 0;
 	pLFGMatchFilter = false;
@@ -197,6 +198,7 @@ void ClientListEntry::Update(ZoneServer* iZS, ServerClientList_Struct* scl, CLE_
 	pbaserace = scl->baserace;
 
 	pmule = scl->mule;
+	pExemptionCount = scl->exemptioncount;
 	pAFK = scl->AFK;
 	pTrader = scl->Trader;
 	pRevoked = scl->Revoked;
@@ -269,6 +271,7 @@ void ClientListEntry::ClearVars(bool iAll)
 	pTrader = false;
 	pRevoked = 0;
 	pmule          = false;
+	pExemptionCount = 1;
 
 }
 
