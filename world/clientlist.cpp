@@ -191,7 +191,7 @@ bool ClientList::CheckIPLimit(uint32 iAccID, uint32 iIP, const char* ForumName, 
 		// If the IP matches, and the connection admin status is below the exempt status,
 		// or exempt status is less than 0 (no-one is exempt)
 		if (
-			(countCLEIPs != nullptr && countCLEIPs->GetIP() == iIP && !countCLEIPs->mule() || ForumName && ForumName[0] && countCLEIPs != nullptr && countCLEIPs->ForumName() && countCLEIPs->ForumName()[0] && strcmp(countCLEIPs->ForumName(), ForumName) == 0 && !countCLEIPs->mule() || ForumName && ForumName[0] && countCLEIPs != nullptr && countCLEIPs->ForumName() && countCLEIPs->ForumName()[0] && countCLEIPs->GetIP() == iIP && strcmp(countCLEIPs->ForumName(), ForumName) != 0 && ( countCLEIPs->GetExemptionCount() > 1 || exemptcount > 1) && !countCLEIPs->mule()) &&
+			(countCLEIPs != nullptr && countCLEIPs->GetIP() == iIP && !countCLEIPs->mule() || ForumName && ForumName[0] && countCLEIPs != nullptr && countCLEIPs->ForumName() && countCLEIPs->ForumName()[0] && countCLEIPs->GetIP() == iIP && strcmp(countCLEIPs->ForumName(), ForumName) != 0 && ( countCLEIPs->GetExemptionCount() > 1 || exemptcount > 1) && !countCLEIPs->mule()) &&
 			((admin < (RuleI(World, ExemptMaxClientsStatus))) ||
 			(RuleI(World, ExemptMaxClientsStatus) < 0))) {
 
