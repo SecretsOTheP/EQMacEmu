@@ -2877,10 +2877,7 @@ bool Mob::Rampage(int range, int damagePct)
 	if (IsCharmedPet())
 		return false;
 
-	if (!IsPet())
-		entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, StringID::NPC_RAMPAGE, GetCleanName());
-	else
-		entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::NPC_RAMPAGE, GetCleanName());
+	bool rampage_valid_target = false;
 
 	for (int i = 0; i < RampageArray.size(); i++)
 	{
@@ -2904,6 +2901,13 @@ bool Mob::Rampage(int range, int damagePct)
 			if (DistanceSquared(m_Position, m_target->GetPosition()) > (range * range))
 				continue;
 
+			rampage_valid_target = true;
+
+			if (!IsPet())
+				entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, StringID::NPC_RAMPAGE, GetCleanName(), m_target->GetCleanName());
+			else
+				entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::NPC_RAMPAGE, GetCleanName(), m_target->GetCleanName());
+
 			DoMainHandRound(m_target, damagePct);
 			if (IsDualWielding())
 				DoOffHandRound(m_target, damagePct);
@@ -2918,6 +2922,15 @@ bool Mob::Rampage(int range, int damagePct)
 			}
 			break;
 		}
+	}
+
+	if (!rampage_valid_target)
+	{
+		static const char* NPC_RAMPAGE_MSG_SUFFIX = "goes on a RAMPAGE!";
+		if (!IsPet())
+			entity_list.MessageClose_StringID(this, true, 200, Chat::NPCRampage, StringID::GENERIC_EMOTE, GetCleanName(), NPC_RAMPAGE_MSG_SUFFIX);
+		else
+			entity_list.MessageClose_StringID(this, true, 200, Chat::PetFlurry, StringID::GENERIC_EMOTE, GetCleanName(), NPC_RAMPAGE_MSG_SUFFIX);
 	}
 
 	// rampages always kick/bash/backstab the target
