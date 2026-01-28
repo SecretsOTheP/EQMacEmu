@@ -1246,6 +1246,13 @@ public:
 	bool camp_desktop;
 	void ClearGroupInvite();
 	void ClearTimersOnDeath();
+	
+	// Pending raid invite methods
+	void SetPendingCrossZoneRaidInvite(const char* inviter_name, ChallengeRules::RuleSet ruleset);
+	void ClearPendingCrossZoneRaidInvite();
+	bool HasPendingCrossZoneRaidInvite() const { return !PendingCrossZoneRaidInviter.empty(); }
+	const std::string& GetPendingCrossZoneRaidInviter() const { return PendingCrossZoneRaidInviter; }
+	ChallengeRules::RuleSet GetPendingCrossZoneRaidRuleset() const { return PendingCrossZoneRaidRuleset; }
 	void UpdateLFG(bool value = false, bool ignoresender = false);
 	uint16 poison_spell_id; // rogue apply poison
 	bool ShowHelm() { return m_pp.showhelm; }
@@ -1582,6 +1589,11 @@ private:
 
 	uint8 HideCorpseMode;
 	bool PendingGuildInvitation;
+	
+	// Pending raid invite state
+	std::string PendingCrossZoneRaidInviter;
+	ChallengeRules::RuleSet PendingCrossZoneRaidRuleset;
+	
 	int PendingRezzXP;
 	uint32 PendingRezzDBID;
 	uint32 PendingRezzZoneID;

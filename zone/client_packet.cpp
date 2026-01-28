@@ -7391,6 +7391,12 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 				return;
 			}
 			
+			if (i->GetRaid())
+			{
+				Message(Chat::Red, "That player is already in a raid.");
+				return;
+			}
+			
 			//This sends an "invite" to the client in question.
 			auto outapp = new EQApplicationPacket(OP_RaidInvite, sizeof(RaidGeneral_Struct));
 			RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
@@ -7402,12 +7408,45 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 			i->QueuePacket(outapp);
 			safe_delete(outapp);
 		}
+		else
+		{
+			// forward to world
+			Raid* raid = GetRaid();
+			ChallengeRules::RuleSet raidGroupType = raid ? raid->GetRuleSet() : GetRuleSet();
+
+			auto pack = new ServerPacket(ServerOP_RaidInvite, sizeof(ServerRaidInvite_Struct));
+			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+			strn0cpy(sris->inviter_name, ri->leader_name, 64);
+			strn0cpy(sris->invitee_name, ri->player_name, 64);
+			sris->rid = raid ? raid->GetID() : 0;
+			sris->invite_id = 0;
+			sris->raid_ruleset = raidGroupType;
+			sris->is_acceptance = false;
+			worldserver.SendPacket(pack);
+			safe_delete(pack);
+		}
 		break;
 	}
 	case RaidCommandDeclineInvite: {
 		Client *i = entity_list.GetClientByName(ri->player_name);
 		if (i)
+		{
 			i->QueuePacket(app);
+		}
+else
+		{
+			// forward to world
+			auto pack = new ServerPacket(ServerOP_RaidInviteResponse, sizeof(ServerRaidInvite_Struct));
+			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+			strn0cpy(sris->inviter_name, ri->player_name, 64);
+			strn0cpy(sris->invitee_name, ri->leader_name, 64);
+			sris->rid = 0;
+			sris->invite_id = 0;
+			sris->raid_ruleset = GetRuleSet();
+			sris->is_acceptance = false;  // decline
+			worldserver.SendPacket(pack);
+			safe_delete(pack);
+		}
 		// this should make the client show a message of reason for decline
 		// parameter value = string id of the message.
 		break;
@@ -7456,6 +7495,14 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 
 		if (i)
 		{
+			// clear stale flag if no raid exists
+			if (IsRaidGrouped() && !invited_raid)
+			{
+				Log(Logs::General, Logs::Debug, "RaidCommandAcceptInvite: Clearing stale IsRaidGrouped flag for '%s'", GetName());
+				SetRaidGrouped(false);
+				ClearPendingCrossZoneRaidInvite();
+			}
+			
 			if (IsRaidGrouped())
 			{
 				i->Message_StringID(Chat::DefaultText, StringID::ALREADY_IN_RAID, GetName()); //group failed, must invite members not in raid...
@@ -7524,7 +7571,7 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 					return;
 				}
 
-				if (g == lg)
+				if (g && g == lg)
 				{
 					i->Message(Chat::Red, "Invite failed, you cannot invite yourself to your own raid group.");
 					return;
@@ -7616,6 +7663,10 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 			strcpy(rg->player_name, this->GetName());
 			this->QueuePacket(outapp);
 			safe_delete(outapp);
+			
+			// Clear server-side state even if no local raid object exists
+			SetRaidGrouped(false);
+			ClearPendingCrossZoneRaidInvite();
 		}
 		break;
 	}
