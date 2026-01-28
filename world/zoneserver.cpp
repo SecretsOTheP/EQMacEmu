@@ -246,6 +246,56 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		client_list.SendPacket(gcs->name1, pack);
 		break;
 	}
+
+	// cross zone raid invite routing
+	case ServerOP_RaidInvite: {
+		if (pack->size != sizeof(ServerRaidInvite_Struct)) {
+			break;
+		}
+
+		auto sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+		
+		// Check if invitee is online before routing
+		ClientListEntry* invitee_cle = client_list.FindCharacter(sris->invitee_name);
+		if (!invitee_cle) {
+			// Invitee not found, send failure back to inviter
+			auto failpack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+			auto srif = (ServerRaidInviteFailure_Struct*)failpack->pBuffer;
+			strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+			strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+			strn0cpy(srif->failure_message, "That player is not online.", 256);
+			srif->notify_inviter = true;
+			client_list.SendPacket(sris->inviter_name, failpack);
+			safe_delete(failpack);
+			break;
+		}
+		
+		client_list.SendPacket(sris->invitee_name, pack);
+		break;
+	}
+	case ServerOP_RaidInviteResponse: {
+		if (pack->size != sizeof(ServerRaidInvite_Struct)) {
+			break;
+		}
+
+		auto sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+		client_list.SendPacket(sris->inviter_name, pack);
+		break;
+	}
+	case ServerOP_RaidInviteFailure: {
+		if (pack->size != sizeof(ServerRaidInviteFailure_Struct)) {
+			break;
+		}
+
+		auto srif = (ServerRaidInviteFailure_Struct*)pack->pBuffer;
+		if (srif->notify_inviter) {
+			client_list.SendPacket(srif->inviter_name, pack);
+		} else {
+			client_list.SendPacket(srif->invitee_name, pack);
+		}
+		break;
+	}
+
 	case ServerOP_GroupSetID: {
 		if (pack->size != sizeof(GroupSetID_Struct)) {
 			break;

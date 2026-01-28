@@ -293,6 +293,10 @@ int command_init(void)
 		command_add("qtest", "QueryServ testing command.", AccountStatus::GMTester, command_qtest) ||
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
 
+		command_add("ra", "[playername] - Alias for #raidaccept.", AccountStatus::Player, command_raidaccept) ||
+		command_add("raidaccept", "- Accept a pending cross-zone raid invite (use when Accept button doesn't work).", AccountStatus::Player, command_raidaccept) ||
+		command_add("raidinvite", "[playername] - Invite a player to your raid. Use #raidaccept for cross-zone invites.", AccountStatus::Player, command_raidinvite) ||
+		command_add("ri", "[playername] - Alias for #raidinvite.", AccountStatus::Player, command_raidinvite) ||
 		command_add("raidloot", "LEADER|GROUPLEADER|SELECTED|ALL - Sets your raid loot settings if you have permission to do so.", 1, command_raidloot) ||
 		command_add("randtest", "Perform a sampling of random number generation", AccountStatus::GMImpossible, command_randtest) ||
 		command_add("randomfeatures", "Temporarily randomizes the Facial Features of your target.", AccountStatus::GMCoder, command_randomfeatures) ||
@@ -1011,6 +1015,8 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/push.cpp"
 #include "gm_commands/qtest.cpp"
 #include "gm_commands/quaketrigger.cpp"
+#include "gm_commands/raidaccept.cpp"
+#include "gm_commands/raidinvite.cpp"
 #include "gm_commands/raidloot.cpp"
 #include "gm_commands/randomfeatures.cpp"
 #include "gm_commands/randtest.cpp"
