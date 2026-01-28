@@ -540,7 +540,7 @@ EQST0002
 1041 %1 fails to cast the gate spell due to a translocational disruption.
 1042 %1 has become ENRAGED.
 1043 %1 is no longer enraged.
-1044 %1 goes on a RAMPAGE!
+1044 %1 goes on a RAMPAGE against %2!
 1045 %1 executes a FLURRY of attacks on %2!
 1046 %1 executes an amazing attack sequence.
 1047 %1 shouts, 'Guards! Guards! Stop that thief!!'
