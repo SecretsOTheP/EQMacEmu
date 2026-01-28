@@ -6462,6 +6462,17 @@ void Client::ClearGroupInvite()
 	safe_delete(outapp);
 }
 
+void Client::SetPendingCrossZoneRaidInvite(const char* inviter_name, ChallengeRules::RuleSet ruleset)
+{
+	PendingCrossZoneRaidInviter = inviter_name;
+	PendingCrossZoneRaidRuleset = ruleset;
+}
+
+void Client::ClearPendingCrossZoneRaidInvite()
+{
+	PendingCrossZoneRaidInviter.clear();
+	PendingCrossZoneRaidRuleset = ChallengeRules::RuleSet::NORMAL;
+}
 
 void Client::WarCry(uint8 rank)
 {

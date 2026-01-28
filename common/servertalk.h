@@ -125,6 +125,11 @@
 #define ServerOP_RaidAddLooter		0x0115
 #define ServerOP_RemoveRaidLooter	0x0116
 
+// cross-zone raid invites
+#define ServerOP_RaidInvite			0x0117
+#define ServerOP_RaidInviteResponse	0x0118
+#define ServerOP_RaidInviteFailure	0x0119
+
 #define ServerOP_WhoAll				0x0210
 #define ServerOP_FriendsWho			0x0211
 #define ServerOP_LFGMatches			0x0212
@@ -380,6 +385,24 @@ struct ServerGroupFollowAck_Struct {
 	char Name[64];
 	uint32 charid;
 	uint32 groupid;
+};
+
+// raid invite data passed between zones
+struct ServerRaidInvite_Struct {
+	char inviter_name[64];
+	char invitee_name[64];
+	uint32 rid;
+	uint32 invite_id;
+	ChallengeRules::RuleSet raid_ruleset;
+	bool is_acceptance;
+};
+
+// raid invite failure notification
+struct ServerRaidInviteFailure_Struct {
+	char inviter_name[64];
+	char invitee_name[64];
+	char failure_message[256];
+	bool notify_inviter;
 };
 
 struct ServerChannelMessage_Struct {

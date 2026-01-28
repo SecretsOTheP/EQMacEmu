@@ -200,6 +200,8 @@ void Raid::RemoveMember(const char *characterName)
 
 	if (client) {
 		SendRaidDisband(client);
+		client->SetRaidGrouped(false);
+		client->ClearPendingCrossZoneRaidInvite();
 	}
 	SendRaidRemoveAll(characterName, client);
 
@@ -352,9 +354,22 @@ void Raid::DisbandRaidMember(const char *name, Client *who)
 
 void Raid::MoveMember(const char *name, uint32 newGroup)
 {
-	std::string query = StringFormat("UPDATE raid_members SET groupid = %lu WHERE name = '%s'",
-                                    (unsigned long)newGroup, name);
-    auto results = database.QueryDatabase(query);
+	std::string query;
+	if (newGroup == 0xFFFFFFFF) {
+		// Moving to ungrouped, also clear group leader flag
+		query = StringFormat("UPDATE raid_members SET groupid = %lu, isgroupleader = 0 WHERE name = '%s'",
+			(unsigned long)newGroup, name);
+	} else {
+		query = StringFormat("UPDATE raid_members SET groupid = %lu WHERE name = '%s'",
+			(unsigned long)newGroup, name);
+	}
+	auto results = database.QueryDatabase(query);
+
+	// update client flag to match new group state
+	Client *c = entity_list.GetClientByName(name);
+	if (c) {
+		c->SetRaidGrouped(newGroup != 0xFFFFFFFF);
+	}
 
 	LearnMembers();
 	VerifyRaid();

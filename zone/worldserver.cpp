@@ -1071,6 +1071,368 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			}
 			break;
 		}
+		// cross zone raid invite handler
+		case ServerOP_RaidInvite: {
+			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+			
+			Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite received: inviter='%s' invitee='%s'",
+				sris->inviter_name, sris->invitee_name);
+
+			Client *Invitee = entity_list.GetClientByName(sris->invitee_name);
+
+			if (Invitee && Invitee->IsClient())
+			{
+				auto sendFailureToInviter = [&](const char* message) {
+					auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+					ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+					strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+					strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+					strn0cpy(srif->failure_message, message, 256);
+					srif->notify_inviter = true;
+					worldserver.SendPacket(failPack);
+					safe_delete(failPack);
+				};
+
+				if (!Invitee->CanGroupWith(sris->raid_ruleset))
+				{
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: rejected - challenge mode mismatch");
+					sendFailureToInviter("That player's challenge mode does not match your raid's.");
+					break;
+				}
+
+				if (Invitee->GetGroup())
+				{
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: rejected - invitee is in a group");
+					sendFailureToInviter("That player is already in a group.");
+					break;
+				}
+
+				// IsRaidGrouped indicates invitee is in a raid group.
+				// however, the flag can become stale in cross-zone scenarios
+				// (player left raid in another zone, flag wasn't cleared here)
+				// verify against database before rejecting
+				if (Invitee->IsRaidGrouped())
+				{
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: rejected - invitee already raid grouped");
+					Raid* existingRaid = entity_list.GetRaidByClient(Invitee);
+					if (!existingRaid) {
+						// no local raid object found despite flag being set
+						// query database to determine if flag is stale or if raid exists in another zone
+						std::string raidQuery = StringFormat(
+							"SELECT raidid FROM raid_members WHERE charid = %lu",
+							(unsigned long)Invitee->CharacterID());
+						auto raidResults = database.QueryDatabase(raidQuery);
+						if (raidResults.Success() && raidResults.RowCount() > 0) {
+							// database confirms raid membership, reject invite
+							Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: database confirms invitee is in a raid");
+							sendFailureToInviter("That player is already in a raid.");
+							break;
+						}
+						// database shows no raid membership, flag is stale. clear it and allow invite to proceed
+						Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: clearing stale IsRaidGrouped flag");
+						Invitee->SetRaidGrouped(false);
+					} else {
+						// local raid object exists, invitee is definitely in a raid
+						sendFailureToInviter("That player is already in a raid.");
+						break;
+					}
+				}
+				else {
+					// database check for ungrouped raid members
+					std::string raidQuery = StringFormat(
+						"SELECT raidid FROM raid_members WHERE charid = %lu",
+						(unsigned long)Invitee->CharacterID());
+					auto raidResults = database.QueryDatabase(raidQuery);
+					if (raidResults.Success() && raidResults.RowCount() > 0) {
+						Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: database shows invitee is in a raid");
+						sendFailureToInviter("That player is already in a raid.");
+						break;
+					}
+				}
+
+				if (RuleB(Quarm, EnableAdminChecks) && Invitee->Admin() > 0)
+				{
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: rejected - invitee is GM");
+					sendFailureToInviter("That player cannot be invited to a raid.");
+					break;
+				}
+
+				Invitee->SetPendingCrossZoneRaidInvite(sris->inviter_name, sris->raid_ruleset);
+				Invitee->Message(Chat::Yellow, "%s has invited you to join a raid.", sris->inviter_name);
+				Invitee->Message(Chat::Yellow, "Type #raidaccept to accept the invite.");
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: invite stored and notification sent");
+			}
+			else {
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: invitee '%s' not found in this zone", sris->invitee_name);
+				auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+				ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+				strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+				strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+				strn0cpy(srif->failure_message, "That player could not be found.", 256);
+				srif->notify_inviter = true;
+				worldserver.SendPacket(failPack);
+				safe_delete(failPack);
+			}
+			break;
+		}
+
+		// cross zone raid invite response handler
+		case ServerOP_RaidInviteResponse: {
+			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
+			
+			Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse received: inviter='%s' invitee='%s' is_acceptance=%d", 
+				sris->inviter_name, sris->invitee_name, sris->is_acceptance);
+
+			Client *Inviter = entity_list.GetClientByName(sris->inviter_name);
+
+			if (!Inviter || !Inviter->IsClient())
+			{
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: Inviter '%s' not found in this zone", sris->inviter_name);
+				
+				if (sris->is_acceptance) {
+					auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+					ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+					strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+					strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+					strn0cpy(srif->failure_message, "The raid leader is no longer available. Invite cancelled.", 256);
+					srif->notify_inviter = false;
+					worldserver.SendPacket(failPack);
+					safe_delete(failPack);
+				}
+				break;
+			}
+
+			if (!sris->is_acceptance)
+			{
+				auto outapp = new EQApplicationPacket(OP_RaidInvite, sizeof(RaidGeneral_Struct));
+				RaidGeneral_Struct *rg = (RaidGeneral_Struct*)outapp->pBuffer;
+				rg->action = RaidCommandDeclineInvite;
+				strn0cpy(rg->leader_name, sris->invitee_name, 64);
+				strn0cpy(rg->player_name, sris->inviter_name, 64);
+				rg->parameter = 0;
+				Inviter->QueuePacket(outapp);
+				safe_delete(outapp);
+				break;
+			}
+
+			Raid *r = entity_list.GetRaidByClient(Inviter);
+			bool newRaidCreated = false;
+
+			if (!r)
+			{
+				// create new raid
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: Creating new raid for inviter '%s'", sris->inviter_name);
+				
+				r = new Raid(Inviter);
+				entity_list.AddRaid(r);
+				r->SetRaidDetails();
+				r->SendRaidCreate(Inviter);
+				
+				// convert existing group to raid if present
+				Group* inviterGroup = Inviter->GetGroup();
+				uint32 groupNum = r->GetFreeGroup();
+				
+				if (inviterGroup)
+				{
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: Converting inviter's group to raid group %d", groupNum);
+					bool inviterWasGroupLeader = inviterGroup->IsLeader(Inviter);
+					r->AddMember(Inviter, groupNum, true, inviterWasGroupLeader, true);
+					Inviter->SetRaidGrouped(true);
+					r->SendRaidMembers(Inviter);
+					
+					for (int x = 0; x < MAX_GROUP_MEMBERS; x++)
+					{
+						if (inviterGroup->members[x] && inviterGroup->members[x] != Inviter && inviterGroup->members[x]->IsClient())
+						{
+							Client* groupMember = inviterGroup->members[x]->CastToClient();
+							bool wasGroupLeader = inviterGroup->IsLeader(groupMember);
+							
+							r->AddMember(groupMember, groupNum, false, wasGroupLeader, r->GetLootType() == 2);
+							groupMember->SetRaidGrouped(true);
+							r->SendRaidMembers(groupMember);
+							
+							Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: Added group member '%s' to raid", groupMember->GetName());
+						}
+					}
+					
+					inviterGroup->DisbandGroup(true);
+					r->GroupUpdate(groupNum);
+				}
+				else
+				{
+					r->AddMember(Inviter, groupNum, true, true, true);
+					Inviter->SetRaidGrouped(true);
+					r->SendRaidMembers(Inviter);
+				}
+				
+				Inviter->Message(Chat::Yellow, "You have formed a raid.");
+				
+				// broadcast to other zones
+				for (int i = 0; i < MAX_RAID_MEMBERS; i++)
+				{
+					if (strlen(r->members[i].membername) > 0)
+					{
+						auto memberPack = new ServerPacket(ServerOP_RaidAdd, sizeof(ServerRaidGeneralAction_Struct));
+						ServerRaidGeneralAction_Struct* mrga = (ServerRaidGeneralAction_Struct*)memberPack->pBuffer;
+						strn0cpy(mrga->playername, r->members[i].membername, 64);
+						mrga->rid = r->GetID();
+						mrga->zoneid = zone->GetZoneID();
+						mrga->zoneguildid = zone->GetGuildID();
+						worldserver.SendPacket(memberPack);
+						safe_delete(memberPack);
+					}
+				}
+				
+				newRaidCreated = true;
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: New raid created with ID %d", r->GetID());
+			}
+
+			if (!ChallengeRules::CanGroupWith(sris->raid_ruleset, r->GetRuleSet()))
+			{
+				Inviter->Message(Chat::Red, "That player's challenge mode does not match your raid's.");
+				
+				auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+				ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+				strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+				strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+				strn0cpy(srif->failure_message, "Your challenge mode does not match the raid's. You cannot join.", 256);
+				srif->notify_inviter = false;
+				worldserver.SendPacket(failPack);
+				safe_delete(failPack);
+				break;
+			}
+
+			// lookup character data for database insert
+			uint32 invitee_charid = database.GetCharacterID(sris->invitee_name);
+			if (invitee_charid == 0)
+			{
+				Inviter->Message(Chat::Red, "Could not find character information for %s.", sris->invitee_name);
+				break;
+			}
+
+			std::string query = StringFormat(
+				"SELECT c.class, c.level, g.guild_id, g.rank "
+				"FROM character_data c "
+				"LEFT JOIN guild_members g ON c.id = g.char_id "
+				"WHERE c.id = %lu",
+				(unsigned long)invitee_charid);
+			auto results = database.QueryDatabase(query);
+			if (!results.Success() || results.RowCount() == 0)
+			{
+				Inviter->Message(Chat::Red, "Could not find character data for %s.", sris->invitee_name);
+				break;
+			}
+
+			auto row = results.begin();
+			uint8 invitee_class = atoi(row[0]);
+			uint8 invitee_level = atoi(row[1]);
+			uint32 invitee_guild_id = row[2] ? atoi(row[2]) : GUILD_NONE;
+			uint8 invitee_guild_rank = row[3] ? atoi(row[3]) : 0;
+
+			if (1 + r->RaidCount() > MAX_RAID_MEMBERS)
+			{
+				Inviter->Message(Chat::Red, "Invite failed, member invite would create a raid larger than the maximum number of members allowed.");
+				auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+				ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+				strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+				strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+				strn0cpy(srif->failure_message, "The raid is full. You cannot join at this time.", 256);
+				srif->notify_inviter = false;
+				worldserver.SendPacket(failPack);
+				safe_delete(failPack);
+				break;
+			}
+
+			// add invitee to raid_members table directly
+			uint32 invitee_groupid = 0xFFFFFFFF;
+			int invitee_isgroupleader = 0;
+			
+			std::string insertQuery = StringFormat(
+				"INSERT INTO raid_members SET raidid = %lu, charid = %lu, groupid = %lu, "
+				"_class = %d, level = %d, name = '%s', isgroupleader = %d, israidleader = %d, "
+				"islooter = %d, guild_id = %lu, is_officer = %d",
+				(unsigned long)r->GetID(), (unsigned long)invitee_charid,
+				(unsigned long)invitee_groupid,
+				invitee_class, invitee_level, sris->invitee_name,
+				invitee_isgroupleader, 0, 0, (unsigned long)invitee_guild_id, invitee_guild_rank);
+			auto insertResult = database.QueryDatabase(insertQuery);
+
+			if (!insertResult.Success())
+			{
+				Log(Logs::General, Logs::Error, "Error inserting cross-zone raid member: %s", insertResult.ErrorMessage().c_str());
+				Inviter->Message(Chat::Red, "Failed to add %s to the raid.", sris->invitee_name);
+				break;
+			}
+
+			r->LearnMembers();
+			r->VerifyRaid();
+			
+			Client *localInvitee = entity_list.GetClientByName(sris->invitee_name);
+			r->SendRaidAddAll(sris->invitee_name, localInvitee);
+
+			// same zone invites send packets directly
+			if (localInvitee) {
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: invitee '%s' is in local zone, sending raid packets directly", sris->invitee_name);
+				int memberIndex = r->GetPlayerIndex(sris->invitee_name);
+				if (memberIndex >= 0) {
+					auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidAddMember_Struct));
+					RaidAddMember_Struct *ram = (RaidAddMember_Struct*)outapp->pBuffer;
+					ram->raidGen.action = RaidCommandInviteIntoExisting;
+					ram->raidGen.parameter = r->members[memberIndex].GroupNumber;
+					strn0cpy(ram->raidGen.leader_name, sris->invitee_name, 64);
+					strn0cpy(ram->raidGen.player_name, sris->invitee_name, 64);
+					ram->_class = r->members[memberIndex]._class;
+					ram->level = r->members[memberIndex].level;
+					ram->isGroupLeader = r->members[memberIndex].IsGroupLeader;
+					localInvitee->QueuePacket(outapp);
+					safe_delete(outapp);
+				}
+				
+				r->SendRaidMembers(localInvitee);
+				localInvitee->SetRaidGrouped(false);  // ungrouped raid members have flag false
+				localInvitee->ClearPendingCrossZoneRaidInvite();
+			}
+
+			// broadcast to other zones
+			auto raidPack = new ServerPacket(ServerOP_RaidAdd, sizeof(ServerRaidGeneralAction_Struct));
+			ServerRaidGeneralAction_Struct *rga = (ServerRaidGeneralAction_Struct*)raidPack->pBuffer;
+			rga->rid = r->GetID();
+			strn0cpy(rga->playername, sris->invitee_name, 64);
+			rga->zoneid = zone->GetZoneID();
+			rga->zoneguildid = zone->GetGuildID();
+			worldserver.SendPacket(raidPack);
+			safe_delete(raidPack);
+			
+			Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: sent ServerOP_RaidAdd for '%s' to world (rid=%d)",
+				sris->invitee_name, r->GetID());
+			Inviter->UpdateLFG();
+			break;
+		}
+
+		// cross zone raid invite failure handler
+		case ServerOP_RaidInviteFailure: {
+			ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)pack->pBuffer;
+			
+			if (srif->notify_inviter)
+			{
+				Client *Inviter = entity_list.GetClientByName(srif->inviter_name);
+				if (Inviter && Inviter->IsClient())
+				{
+					Inviter->Message(Chat::Red, "%s", srif->failure_message);
+				}
+			}
+			else
+			{
+				Client *Invitee = entity_list.GetClientByName(srif->invitee_name);
+				if (Invitee && Invitee->IsClient())
+				{
+					Invitee->Message(Chat::Red, "%s", srif->failure_message);
+					Invitee->ClearPendingCrossZoneRaidInvite();
+				}
+			}
+			break;
+		}
+
 		case ServerOP_GroupJoin: {
 			ServerGroupJoin_Struct* gj = (ServerGroupJoin_Struct*)pack->pBuffer;
 			if(zone){
@@ -1174,17 +1536,86 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 		case ServerOP_RaidAdd:{
 			ServerRaidGeneralAction_Struct* rga = (ServerRaidGeneralAction_Struct*)pack->pBuffer;
 			if(zone){
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidAdd received: player='%s' rid=%d from_zone=%d our_zone=%d",
+					rga->playername, rga->rid, rga->zoneid, zone->GetZoneID());
+				
 				if (rga->zoneid == zone->GetZoneID() && rga->zoneguildid == zone->GetGuildID()) {
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidAdd: skipping (packet from our zone)");
 					break;
 				}
 
 				Raid *r = entity_list.GetRaidByID(rga->rid);
 				if(r){
+				// existing raid in this zone
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidAdd: raid already exists locally, updating");
+				r->LearnMembers();
+				r->VerifyRaid();
+				r->GetRaidDetails();
+				
+				// if the newly added member is in this zone send them the full member list
+				Client *addedClient = entity_list.GetClientByName(rga->playername);
+				
+				// notify existing raid members that a new player joined
+				// if the added player is in this zone, pass them as skip parameter
+				// to avoid duplicate "joined the raid" message
+				r->SendRaidAddAll(rga->playername, addedClient);
+				if (addedClient) {
+					int memberIndex = r->GetPlayerIndex(rga->playername);
+					if (memberIndex >= 0) {
+						auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidAddMember_Struct));
+						RaidAddMember_Struct *ram = (RaidAddMember_Struct*)outapp->pBuffer;
+						ram->raidGen.action = RaidCommandInviteIntoExisting;
+						ram->raidGen.parameter = r->members[memberIndex].GroupNumber;
+						strn0cpy(ram->raidGen.leader_name, rga->playername, 64);
+						strn0cpy(ram->raidGen.player_name, rga->playername, 64);
+						ram->_class = r->members[memberIndex]._class;
+						ram->level = r->members[memberIndex].level;
+						ram->isGroupLeader = r->members[memberIndex].IsGroupLeader;
+						addedClient->QueuePacket(outapp);
+						safe_delete(outapp);
+						
+						r->SendRaidMembers(addedClient);
+						addedClient->SetRaidGrouped(r->members[memberIndex].GroupNumber != 0xFFFFFFFF);
+					}
+				}
+			}
+			else {
+				// Raid doesnt exist in this zone yet. Create it if the added member is here.
+				Client *addedClient = entity_list.GetClientByName(rga->playername);
+				Log(Logs::General, Logs::Debug, "ServerOP_RaidAdd: raid doesn't exist locally, looking for client '%s': %s",
+					rga->playername, addedClient ? "FOUND" : "NOT FOUND");
+				
+				if (addedClient) {
+					// Create local raid object using the existing raid ID
+					r = new Raid(rga->rid);
+					entity_list.AddRaid(r, rga->rid);
+					
+					r->GetRaidDetails();
 					r->LearnMembers();
 					r->VerifyRaid();
-					r->GetRaidDetails();
-					r->SendRaidAddAll(rga->playername);
+					
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidAdd: created local raid id=%u, member count=%d, leader='%s'",
+						r->GetID(), r->RaidCount(), r->leadername);
+
+					int memberIndex = r->GetPlayerIndex(rga->playername);
+					if (memberIndex >= 0) {
+						auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidAddMember_Struct));
+						RaidAddMember_Struct *ram = (RaidAddMember_Struct*)outapp->pBuffer;
+						ram->raidGen.action = RaidCommandInviteIntoExisting;
+						ram->raidGen.parameter = r->members[memberIndex].GroupNumber;
+						strn0cpy(ram->raidGen.leader_name, rga->playername, 64);
+						strn0cpy(ram->raidGen.player_name, rga->playername, 64);
+						ram->_class = r->members[memberIndex]._class;
+						ram->level = r->members[memberIndex].level;
+						ram->isGroupLeader = r->members[memberIndex].IsGroupLeader;
+						addedClient->QueuePacket(outapp);
+						safe_delete(outapp);
+						
+						r->SendRaidMembers(addedClient);
+						addedClient->SetRaidGrouped(r->members[memberIndex].GroupNumber != 0xFFFFFFFF);
+					}
 				}
+			}
 			}
 			break;
 		}
@@ -1195,9 +1626,16 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					break;
 				}
 
+				// always try to clear state for the removed player if they're in this zone
+				// this handles cross-zone disbands where the raid object may not exist locally
+				Client *rem = entity_list.GetClientByName(rga->playername);
+				if (rem) {
+					rem->SetRaidGrouped(false);
+					rem->ClearPendingCrossZoneRaidInvite();
+				}
+
 				Raid *r = entity_list.GetRaidByID(rga->rid);
 				if(r){
-					Client *rem = entity_list.GetClientByName(rga->playername);
 					if (rem) {
 						r->SendRaidDisband(rem);
 					}
@@ -1352,6 +1790,13 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				if(r){
 					r->LearnMembers();
 					r->VerifyRaid();
+					// update IsRaidGrouped for cross-zone players
+					// local zone handles this in Raid::MoveMember, but other zones
+					// only receive this packet and need to sync the flag here
+					Client *c = entity_list.GetClientByName(rga->playername);
+					if (c) {
+						c->SetRaidGrouped(rga->gid != 0xFFFFFFFF);
+					}
 					r->SendRaidChangeGroup(rga->playername, rga->gid);
 				}
 			}
