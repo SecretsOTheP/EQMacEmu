@@ -7408,45 +7408,12 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket *app)
 			i->QueuePacket(outapp);
 			safe_delete(outapp);
 		}
-		else
-		{
-			// forward to world
-			Raid* raid = GetRaid();
-			ChallengeRules::RuleSet raidGroupType = raid ? raid->GetRuleSet() : GetRuleSet();
-
-			auto pack = new ServerPacket(ServerOP_RaidInvite, sizeof(ServerRaidInvite_Struct));
-			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
-			strn0cpy(sris->inviter_name, ri->leader_name, 64);
-			strn0cpy(sris->invitee_name, ri->player_name, 64);
-			sris->rid = raid ? raid->GetID() : 0;
-			sris->invite_id = 0;
-			sris->raid_ruleset = raidGroupType;
-			sris->is_acceptance = false;
-			worldserver.SendPacket(pack);
-			safe_delete(pack);
-		}
 		break;
 	}
 	case RaidCommandDeclineInvite: {
 		Client *i = entity_list.GetClientByName(ri->player_name);
 		if (i)
-		{
 			i->QueuePacket(app);
-		}
-else
-		{
-			// forward to world
-			auto pack = new ServerPacket(ServerOP_RaidInviteResponse, sizeof(ServerRaidInvite_Struct));
-			ServerRaidInvite_Struct* sris = (ServerRaidInvite_Struct*)pack->pBuffer;
-			strn0cpy(sris->inviter_name, ri->player_name, 64);
-			strn0cpy(sris->invitee_name, ri->leader_name, 64);
-			sris->rid = 0;
-			sris->invite_id = 0;
-			sris->raid_ruleset = GetRuleSet();
-			sris->is_acceptance = false;  // decline
-			worldserver.SendPacket(pack);
-			safe_delete(pack);
-		}
 		// this should make the client show a message of reason for decline
 		// parameter value = string id of the message.
 		break;
