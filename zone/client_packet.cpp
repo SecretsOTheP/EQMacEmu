@@ -1205,8 +1205,11 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 			// copy name over, so when it is made to disconnect
 			// it will be removed from raid/groups
 			// this is a client that likely disconnected while zoning
-			if (strlen(cze->char_name) > 2)
+			if (strlen(cze->char_name) > 2) {
 				strcpy(name, cze->char_name);
+				clean_name[0] = 0; // clear clean name cache
+				clean_name_spaces[0] = 0; // clear clean name cache
+			}
 		}
 		if (client_state == CLIENT_CONNECTING) {
 			Log(Logs::General, Logs::Error, "GetAuth() returned false - saving packet for retry");
@@ -1249,6 +1252,9 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	Log(Logs::Detail, Logs::ZoneServer, "ClientVersionBit is: %i : %s ", m_ClientVersionBit, clientname.c_str());
 
 	strcpy(name, cze->char_name);
+	clean_name[0] = 0; // clear clean name cache
+	clean_name_spaces[0] = 0; // clear clean name cache
+
 	/* Check for Client Spoofing */
 	if (client != 0 && eqs) {
 		uint16 remote_port = ntohs(eqs->GetRemotePort());
@@ -1460,6 +1466,8 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		m_pp.intoxication = 0;
 
 	strcpy(name, m_pp.name);
+	clean_name[0] = 0; // clear clean name cache
+	clean_name_spaces[0] = 0; // clear clean name cache
 	strcpy(lastname, m_pp.last_name);
 
 	// Customized lastname is stored in temp_last_name. This can be changed at the Title NPC (PoD).
