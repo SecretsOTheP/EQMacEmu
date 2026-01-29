@@ -225,7 +225,7 @@ namespace StringID {
 	const uint16 OTHER_CRIT_BLAST               = 1040; //%1 delivers a critical blast! (%2)
 	const uint16 NPC_ENRAGE_START               = 1042; //%1 has become ENRAGED.
 	const uint16 NPC_ENRAGE_END                 = 1043; //%1 is no longer enraged.
-	const uint16 NPC_RAMPAGE                    = 1044; //%1 goes on a RAMPAGE against %2!
+	const uint16 NPC_RAMPAGE                    = 1044; //%1 goes on a RAMPAGE!
 	const uint16 NPC_FLURRY                     = 1045; //%1 executes a FLURRY of attacks on %2!
 	const uint16 DISCIPLINE_AGRESSIVE           = 1048; //%1 assumes an aggressive fighting style.
 	const uint16 DISCIPLINE_PRECISION           = 1049; //%1 assumes a highly precise fighting style.

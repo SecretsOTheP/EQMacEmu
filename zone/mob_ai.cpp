@@ -2905,7 +2905,7 @@ bool Mob::Rampage(int range, int damagePct)
 
 			rampage_valid_target = true;
 
-			entity_list.MessageClose_StringID(this, true, 200, rampage_message_type, StringID::NPC_RAMPAGE, GetCleanName(), m_target->GetCleanName());
+			entity_list.MessageClose(this, true, 200, rampage_message_type, "%s goes on a RAMPAGE against %s!", GetCleanName(), m_target->GetCleanName());
 
 			DoMainHandRound(m_target, damagePct);
 			if (IsDualWielding())
