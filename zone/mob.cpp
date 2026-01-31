@@ -485,11 +485,22 @@ void Mob::SetInvisible(uint8 state, bool showInvis, bool skipSelf)
 		SendAppearancePacket(AppearanceType::Invisibility, state, true, skipSelf);
 	}
 
-	// Invis and hide breaks charms
-	if (GetPet() && state != INVIS_OFF)
+	Mob* pet = GetPet();
+	// Invis and hide pet actions
+	if (pet && state != INVIS_OFF)
 	{
-		if (GetPet() && GetPet()->IsCharmedPet())
+		// Break charmed pets
+		if (pet && pet->IsCharmedPet())
 			FadePetCharmBuff();
+		// Disengage regular player pets
+		else if (IsClient()) {
+			pet->InterruptSpell();
+			pet->WipeHateList();
+			pet->SetTarget(nullptr);
+			pet->SetPetOrder(SPO_Follow);
+			Message_StringID(Chat::MyPet, StringID::GENERIC_SAY, pet->GetCleanName(), "Master, where did you go?");
+		}
+		// Kill other pets
 		else
 			DepopPet();
 	}

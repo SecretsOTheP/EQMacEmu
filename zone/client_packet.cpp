@@ -6898,6 +6898,12 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 	if (mypet->GetPetType() == petFamiliar && pet->command != PET_GETLOST)
 		return;
 
+	// If invisible/hidden/etc, only allow "/pet get lost"
+	if (pet->command != PET_GETLOST && (invisible || invisible_undead || invisible_animals || hidden || improved_hidden)) {
+		Message_StringID(Chat::MyPet, StringID::GENERIC_SAY, mypet->GetCleanName(), "Master, I can't see you!");
+		return;
+	}
+
 	uint32 PetCommand = pet->command;
 
 	switch (PetCommand)
