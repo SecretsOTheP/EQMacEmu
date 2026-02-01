@@ -14,6 +14,7 @@ void command_raidaccept(Client *c, const Seperator *sep)
 
 	std::string inviter_name = c->GetPendingCrossZoneRaidInviter();
 	ChallengeRules::RuleSet inviter_ruleset = c->GetPendingCrossZoneRaidRuleset();
+	uint32 requested_group = c->GetPendingCrossZoneRaidGroupNumber();
 
 	Group *g = c->GetGroup();
 	if (g) {
@@ -47,6 +48,7 @@ void command_raidaccept(Client *c, const Seperator *sep)
 	sris->invite_id = 0;
 	sris->raid_ruleset = c->GetRuleSet();
 	sris->is_acceptance = true;
+	sris->requested_group = requested_group;
 	worldserver.SendPacket(pack);
 	safe_delete(pack);
 

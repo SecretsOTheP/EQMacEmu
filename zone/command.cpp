@@ -231,6 +231,8 @@ int command_init(void)
 		command_add("interrogateinv", "use [help] argument for available options.", AccountStatus::GMLeadAdmin, command_interrogateinv) ||
 		command_add("interrogatelegacy", "Interrogates legacy items of your current target", AccountStatus::GMAdmin, command_interrogatelegacy) ||		
 		command_add("interrupt", "[message id] [color] - Interrupt your casting. Arguments are optional.", AccountStatus::EQSupport, command_interrupt) ||
+		command_add("inv", "[playername] - Alias for #invite.", AccountStatus::Player, command_invite) ||
+		command_add("invite", "[playername] - Send a group invite by name (no target required).", AccountStatus::Player, command_invite) ||
 		command_add("ipban", "[IP address] - Ban IP by character name.", AccountStatus::GMMgmt, command_ipban) ||
 		command_add("ipexemption", "[accountname] [exemption] - Set IP exemption amount for accountname by amount. Accounts default to 1.", AccountStatus::GMAdmin, command_ipexemption) ||
 	
@@ -294,7 +296,7 @@ int command_init(void)
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
 
 		command_add("ra", "[playername] - Alias for #raidaccept.", AccountStatus::Player, command_raidaccept) ||
-		command_add("raidaccept", "- Accept a pending cross-zone raid invite (use when Accept button doesn't work).", AccountStatus::Player, command_raidaccept) ||
+		command_add("raidaccept", "- Accept a pending cross-zone raid invite", AccountStatus::Player, command_raidaccept) ||
 		command_add("raidinvite", "[playername] - Invite a player to your raid. Use #raidaccept for cross-zone invites.", AccountStatus::Player, command_raidinvite) ||
 		command_add("ri", "[playername] - Alias for #raidinvite.", AccountStatus::Player, command_raidinvite) ||
 		command_add("raidloot", "LEADER|GROUPLEADER|SELECTED|ALL - Sets your raid loot settings if you have permission to do so.", 1, command_raidloot) ||
@@ -967,6 +969,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/interrogateinv.cpp"
 #include "gm_commands/interrogatelegacy.cpp"
 #include "gm_commands/interrupt.cpp"
+#include "gm_commands/invite.cpp"
 #include "gm_commands/ipban.cpp"
 #include "gm_commands/ipexemption.cpp"
 #include "gm_commands/iteminfo.cpp"
