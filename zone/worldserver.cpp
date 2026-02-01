@@ -1157,8 +1157,14 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					break;
 				}
 
-				Invitee->SetPendingCrossZoneRaidInvite(sris->inviter_name, sris->raid_ruleset);
-				Invitee->Message(Chat::Yellow, "%s has invited you to join a raid.", sris->inviter_name);
+				Invitee->SetPendingCrossZoneRaidInvite(sris->inviter_name, sris->raid_ruleset, sris->requested_group);
+
+				if (sris->requested_group != 0xFFFFFFFF && sris->requested_group < MAX_RAID_GROUPS) {
+					Invitee->Message(Chat::Yellow, "%s has invited you to lead group %d in a raid.", sris->inviter_name, sris->requested_group + 1);
+				} else {
+					Invitee->Message(Chat::Yellow, "%s has invited you to join a raid.", sris->inviter_name);
+				}
+
 				Invitee->Message(Chat::Yellow, "Type #raidaccept to accept the invite.");
 				Log(Logs::General, Logs::Debug, "ServerOP_RaidInvite: invite stored and notification sent");
 			}
@@ -1331,7 +1337,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 
 			if (1 + r->RaidCount() > MAX_RAID_MEMBERS)
 			{
-				Inviter->Message(Chat::Red, "Invite failed, member invite would create a raid larger than the maximum number of members allowed.");
+				Inviter->Message(Chat::Red, "Invite failed. The raid is full.");
 				auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
 				ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
 				strn0cpy(srif->inviter_name, sris->inviter_name, 64);
@@ -1347,6 +1353,29 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			uint32 invitee_groupid = 0xFFFFFFFF;
 			int invitee_isgroupleader = 0;
 			
+			// check if a specific group was requested and if it's available
+			uint32 requested_group = sris->requested_group;
+			if (requested_group != 0xFFFFFFFF && requested_group < MAX_RAID_GROUPS) {
+				if (r->GroupCount(requested_group) == 0) {
+					// group is empty, add invitee as group leader
+					invitee_groupid = requested_group;
+					invitee_isgroupleader = 1;
+					Log(Logs::General, Logs::Debug, "ServerOP_RaidInviteResponse: assigning '%s' as leader of group %d",
+						sris->invitee_name, requested_group + 1);
+				} else {
+					Inviter->Message(Chat::Red, "%s failed to join the raid. Group %d already has a leader.", sris->invitee_name, requested_group+1);
+					auto failPack = new ServerPacket(ServerOP_RaidInviteFailure, sizeof(ServerRaidInviteFailure_Struct));
+					ServerRaidInviteFailure_Struct* srif = (ServerRaidInviteFailure_Struct*)failPack->pBuffer;
+					strn0cpy(srif->inviter_name, sris->inviter_name, 64);
+					strn0cpy(srif->invitee_name, sris->invitee_name, 64);
+					strn0cpy(srif->failure_message, "Invite failed. This group already has a leader.", 256);
+					srif->notify_inviter = false;
+					worldserver.SendPacket(failPack);
+					safe_delete(failPack);
+					break;
+				}
+			}
+
 			std::string insertQuery = StringFormat(
 				"INSERT INTO raid_members SET raidid = %lu, charid = %lu, groupid = %lu, "
 				"_class = %d, level = %d, name = '%s', isgroupleader = %d, israidleader = %d, "
@@ -1389,7 +1418,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				}
 				
 				r->SendRaidMembers(localInvitee);
-				localInvitee->SetRaidGrouped(false);  // ungrouped raid members have flag false
+				localInvitee->SetRaidGrouped(invitee_groupid != 0xFFFFFFFF);  // true if in a group, false if ungrouped
 				localInvitee->ClearPendingCrossZoneRaidInvite();
 			}
 

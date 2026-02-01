@@ -125,6 +125,7 @@ void command_hotfix(Client* c, const Seperator* sep);
 void command_interrogateinv(Client* c, const Seperator* sep);
 void command_interrogatelegacy(Client* c, const Seperator* sep);
 void command_interrupt(Client* c, const Seperator* sep);
+void command_invite(Client* c, const Seperator* sep);
 void command_ipban(Client* c, const Seperator* sep);
 void command_ipexemption(Client* c, const Seperator* sep);
 void command_iteminfo(Client* c, const Seperator* sep);

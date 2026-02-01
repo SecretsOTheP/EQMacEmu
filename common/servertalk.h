@@ -395,6 +395,7 @@ struct ServerRaidInvite_Struct {
 	uint32 invite_id;
 	ChallengeRules::RuleSet raid_ruleset;
 	bool is_acceptance;
+	uint32 requested_group;  // 0xFFFFFFFF = ungrouped, 0-11 = group 1-12 (as group leader)
 };
 
 // raid invite failure notification

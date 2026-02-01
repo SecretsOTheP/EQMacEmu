@@ -6462,16 +6462,18 @@ void Client::ClearGroupInvite()
 	safe_delete(outapp);
 }
 
-void Client::SetPendingCrossZoneRaidInvite(const char* inviter_name, ChallengeRules::RuleSet ruleset)
+void Client::SetPendingCrossZoneRaidInvite(const char* inviter_name, ChallengeRules::RuleSet ruleset, uint32 group_number)
 {
 	PendingCrossZoneRaidInviter = inviter_name;
 	PendingCrossZoneRaidRuleset = ruleset;
+	PendingCrossZoneRaidGroupNumber = group_number;
 }
 
 void Client::ClearPendingCrossZoneRaidInvite()
 {
 	PendingCrossZoneRaidInviter.clear();
 	PendingCrossZoneRaidRuleset = ChallengeRules::RuleSet::NORMAL;
+	PendingCrossZoneRaidGroupNumber = 0xFFFFFFFF;
 }
 
 void Client::WarCry(uint8 rank)

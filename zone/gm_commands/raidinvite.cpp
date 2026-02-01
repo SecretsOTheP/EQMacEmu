@@ -21,36 +21,50 @@ void command_raidinvite(Client *c, const Seperator *sep)
 	if (it != raidinvite_cooldowns.end()) {
 		time_t elapsed = now - it->second;
 		if (elapsed < RAIDINVITE_COOLDOWN_SECONDS) {
-			c->Message(Chat::Red, "Please wait %d second(s) before sending another raid invite.", 
+			c->Message(Chat::Red, "Please wait %d second(s) before sending another raid invite.",
 				(int)(RAIDINVITE_COOLDOWN_SECONDS - elapsed));
 			return;
 		}
 	}
 
 	if (!sep->arg[1][0]) {
-		c->Message(Chat::White, "Usage: #raidinvite [playername]");
+		c->Message(Chat::White, "Usage: #raidinvite [playername] [group]");
 		c->Message(Chat::White, "Sends a cross-zone raid invite to a player by name.");
+		c->Message(Chat::White, "Optional: Specify group 1-12 to invite them as leader of that group.");
 		c->Message(Chat::White, "The invitee must type #raidaccept to join.");
 		return;
 	}
 
 	std::string invitee_name = sep->arg[1];
 
+	// parse optional group number
+	uint32 requested_group = 0xFFFFFFFF;  // ungrouped by default
+	if (sep->arg[2][0]) {
+		int group_num = atoi(sep->arg[2]);
+		if (group_num >= 1 && group_num <= 12) {
+			requested_group = group_num - 1;
+		}
+		else {
+			c->Message(Chat::Red, "Group number must be between 1 and 12.");
+			return;
+		}
+	}
+
 	if (strcasecmp(c->GetName(), invitee_name.c_str()) == 0) {
 		c->Message(Chat::Red, "You cannot invite yourself to a raid.");
 		return;
 	}
-	
+
 	if (!c->IsInAGuild()) {
 		c->Message(Chat::Red, "You must be in a guild with raiding enabled to use this command.");
 		return;
 	}
-	
+
 	if (!guild_mgr.IsGuildRaidEnabled(c->GuildID())) {
 		c->Message(Chat::Red, "You must be in a guild with raiding enabled to use this command.");
 		return;
 	}
-	
+
 	if (c->GuildRank() < GUILD_OFFICER) {
 		c->Message(Chat::Red, "You must be an officer or leader of your guild to use this command.");
 		return;
@@ -58,9 +72,25 @@ void command_raidinvite(Client *c, const Seperator *sep)
 
 	Raid* raid = c->GetRaid();
 
-	if (raid && !raid->IsRaidLeader(c->GetName())) {
-		c->Message(Chat::Red, "You must be the raid leader to use this command.");
-		return;
+	if (raid) {
+		if (!raid->IsRaidLeader(c->GetName())) {
+			c->Message(Chat::Red, "You must be the raid leader to use this command.");
+			return;
+		}
+		else {
+			if (requested_group != 0xFFFFFFFF) {
+				if (raid->GroupCount(requested_group) != 0) {
+					c->Message(Chat::Red, "Group %d already has a leader.", requested_group+1);
+					return;
+				}
+			}
+		}
+	}
+	else {
+		if (requested_group == 0) {
+			c->Message(Chat::Red, "You cannot form a raid with invitee as leader of group %d", requested_group+1);
+			return;
+		}
 	}
 
 	if (!worldserver.Connected()) {
@@ -78,15 +108,21 @@ void command_raidinvite(Client *c, const Seperator *sep)
 	sris->invite_id = 0;
 	sris->raid_ruleset = raidGroupType;
 	sris->is_acceptance = false;
+	sris->requested_group = requested_group;
 	worldserver.SendPacket(pack);
 	safe_delete(pack);
 
 	raidinvite_cooldowns[char_id] = now;
 
-	if (raid) {
-		c->Message(Chat::White, "Cross-zone raid invite sent to %s.", invitee_name.c_str());
+	if (requested_group != 0xFFFFFFFF) {
+		c->Message(Chat::White, "Cross-zone raid invite sent to %s to lead group %d.", invitee_name.c_str(), requested_group + 1);
 	} else {
-		c->Message(Chat::White, "Cross-zone raid invite sent to %s. A raid will be formed when they accept.", invitee_name.c_str());
+		c->Message(Chat::White, "Cross-zone raid invite sent to %s.", invitee_name.c_str());
 	}
+
 	c->Message(Chat::White, "They will need to type #raidaccept to join.");
+
+	if (!raid) {
+		c->Message(Chat::White, " A raid will be formed when they accept.");
+	}
 }
