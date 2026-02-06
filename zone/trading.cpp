@@ -1661,8 +1661,31 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 		return;
 	}
 
-	if (BuyItem->GetPrice() <= 0) {
-		Log(Logs::Detail, Logs::Bazaar, "Trader item has invalid price.");
+	// Pull the items this Trader currently has for sale from the trader table.
+	TraderCharges_Struct* gis = database.LoadTraderItemWithCharges(Trader->CharacterID());
+
+	if (!gis) {
+		Log(Logs::Detail, Logs::Bazaar, "[CLIENT] Error retrieving Trader items details to update price.");
+		TradeRequestFailed(app);
+		safe_delete(outapp);
+		return;
+	}
+
+	uint32 RealPrice = 0;
+
+	for (int i = 0; i < 80; i++)
+	{
+		if ((gis->ItemID[i] > 0) && (gis->ItemID[i] == tbs->ItemID))
+		{
+			RealPrice = gis->ItemCost[i];
+
+			break;
+		}
+	}
+
+	if (RealPrice == 0)
+	{
+		Log(Logs::Detail, Logs::Bazaar, "[CLIENT] Error retrieving Trader items details to update price.");
 		TradeRequestFailed(app);
 		safe_delete(outapp);
 		return;
@@ -1674,14 +1697,17 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 		tbs->Quantity = 1;
 	}
 
-	uint32 priceper = BuyItem->GetPrice() / tbs->Quantity;
-	outtbs->Price = BuyItem->GetPrice();
+	outtbs->Price = RealPrice;
 	Log(Logs::Detail, Logs::Bazaar, "%s Buyitem: Name: %s, IsStackable: %i, Requested Quantity: %i, Trader Quantity %i Price: %i TraderSlot: %i InvSlot: %d Price per item: %i",
 					GetName(), BuyItem->GetItem()->Name, BuyItem->IsStackable(), tbs->Quantity, BuyItem->GetCharges(), BuyItem->GetPrice(), tbs->Slot, SlotID, priceper);
 	// If the item is not stackable, then we can only be buying one of them.
-	if(!BuyItem->IsStackable())
-		outtbs->Quantity = tbs->Quantity;
-	else {
+	if (!BuyItem->IsStackable())
+	{
+		outtbs->Quantity = 1;
+		outtbs->Price = RealPrice;
+	}
+	else 
+	{
 		// Stackable items, arrows, diamonds, etc
 		int ItemCharges = BuyItem->GetCharges();
 
@@ -1691,11 +1717,14 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 		// If the purchaser requested more than is in the stack, just sell them how many are actually in the stack.
 		else if(ItemCharges < (int16)tbs->Quantity)
 		{
-			outtbs->Price =  BuyItem->GetPrice() - ((tbs->Quantity - ItemCharges) * priceper);
+			outtbs->Price = RealPrice * ItemCharges;
 			outtbs->Quantity = ItemCharges;
 		}
 		else
+		{
+			outtbs->Price = RealPrice * tbs->Quantity;
 			outtbs->Quantity = tbs->Quantity;
+		}
 	}
 
 	Log(Logs::Detail, Logs::Bazaar, "Actual quantity that will be traded is %i for cost: %i", outtbs->Quantity, outtbs->Price);
@@ -1764,7 +1793,7 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 		QServ->QSBazaarAudit(Trader->GetName(), GetName(), BuyItem->GetItem()->Name, BuyItem->GetID(), outtbs->Quantity, outtbs->Price);
 
 	Trader->FindAndNukeTraderItem(tbs->ItemID, outtbs->Quantity, this, SlotID, tbs->Slot);
-	Trader->Trader_CustomerBought(this,outtbs->Price,tbs->ItemID,outtbs->Quantity,BuyItem->GetItem()->Name, tbs->Slot);
+	Trader->Trader_CustomerBought(this,outtbs->Price, tbs->ItemID,outtbs->Quantity,BuyItem->GetItem()->Name, tbs->Slot);
 
 	safe_delete(outapp);
 	safe_delete(outapp2);
