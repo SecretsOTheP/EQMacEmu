@@ -1259,7 +1259,7 @@ GetItems_Struct* Client::GetTraderItems(bool skip_stackable)
 	return gis;
 }
 
-GetItem_Struct Client::GrabItem(uint16 item_id)
+GetItem_Struct Client::GrabItem(uint16 item_id, ItemInstance* inst)
 {
 
 	const EQ::ItemInstance* item = nullptr;
@@ -1305,6 +1305,7 @@ GetItem_Struct Client::GrabItem(uint16 item_id)
 					gi.Charges = item->GetCharges();
 					Log(Logs::Detail, Logs::Bazaar, "GrabItem: Item %d in slot %d is unused and will be added to the trader list.", gi.Items, gi.SlotID);
 					safe_delete(TraderItems);
+					inst = item;
 					return gi;
 				}
 			}
