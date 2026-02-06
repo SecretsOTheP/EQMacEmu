@@ -1699,7 +1699,7 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 
 	outtbs->Price = RealPrice;
 	Log(Logs::Detail, Logs::Bazaar, "%s Buyitem: Name: %s, IsStackable: %i, Requested Quantity: %i, Trader Quantity %i Price: %i TraderSlot: %i InvSlot: %d Price per item: %i",
-					GetName(), BuyItem->GetItem()->Name, BuyItem->IsStackable(), tbs->Quantity, BuyItem->GetCharges(), BuyItem->GetPrice(), tbs->Slot, SlotID, priceper);
+					GetName(), BuyItem->GetItem()->Name, BuyItem->IsStackable(), tbs->Quantity, BuyItem->GetCharges(), BuyItem->GetPrice(), tbs->Slot, SlotID, RealPrice);
 	// If the item is not stackable, then we can only be buying one of them.
 	if (!BuyItem->IsStackable())
 	{
@@ -1712,8 +1712,11 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 		int ItemCharges = BuyItem->GetCharges();
 
 		// ItemCharges for stackables should not be <= 0
-		if(ItemCharges <= 0)
+		if (ItemCharges <= 0)
+		{
+			outtbs->Price = RealPrice;
 			outtbs->Quantity = 1;
+		}
 		// If the purchaser requested more than is in the stack, just sell them how many are actually in the stack.
 		else if(ItemCharges < (int16)tbs->Quantity)
 		{
