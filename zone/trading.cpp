@@ -1259,10 +1259,10 @@ GetItems_Struct* Client::GetTraderItems(bool skip_stackable)
 	return gis;
 }
 
-GetItem_Struct Client::GrabItem(uint16 item_id, ItemInstance* inst)
+GetItem_Struct Client::GrabItem(uint16 item_id, EQ::ItemInstance* inst)
 {
 
-	const EQ::ItemInstance* item = nullptr;
+	EQ::ItemInstance* item = nullptr;
 	uint16 SlotID = 0;
 	GetItem_Struct gi;
 	TraderCharges_Struct* TraderItems = database.LoadTraderItemWithCharges(this->CharacterID());
