@@ -3497,7 +3497,8 @@ void Mob::GenerateDamagePackets(Mob* attacker, bool FromDamageShield, int32 dama
 		if (a->force > 0.0f)
 			a->sequence = attacker->GetHeading() * 2.0f;
 
-		if (IsNPC())
+		// NPC Push unless Player-Pet
+		if (IsNPC() && !(attacker->IsPet() && attacker->GetOwner()->IsClient()))
 		{
 			CastToNPC()->AddPush(attacker->GetHeading() * 2.0f, a->force);
 		}
