@@ -1389,7 +1389,9 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 				killer_message += pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str();
 				killer_message += "> has died to ";
 				killer_message += killerMob->GetCleanName();
-				killer_message += " in combat!";
+				killer_message += " in combat in ";
+				killer_message += zone->GetLongName();
+				killer_message += "!";
 				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast,0, 0, 100, killer_message.c_str());
 			}
 
@@ -1407,13 +1409,31 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 				killedby = Killed_PVP;
 				std::string pvpKilledGuildName = GetGuildName();
 				std::string pvpKillerGuildName = killerMob->CastToClient()->GetGuildName();
-				entity_list.Message(0, 15, "[PVP] %s of <%s> has been killed in combat by %s of <%s>!", GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str(), killerMob->GetCleanName(), pvpKillerGuildName.empty() ? " " : pvpKillerGuildName.c_str());
+				std::string killer_message = "";
+				killer_message += GetCleanName();
+				killer_message += " of <";
+				killer_message += pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str();
+				killer_message += "> has been killed in combat by ";
+				killer_message += killerMob->GetCleanName();
+				killer_message += " of <";
+				killer_message += pvpKillerGuildName.empty() ? " " : pvpKillerGuildName.c_str();
+				killer_message += "> in ";
+				killer_message += zone->GetLongName();
+				killer_message += "!";
+				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 			else
 			{
 				killedby = Killed_Self;
 				std::string pvpKilledGuildName = GetGuildName();
-				entity_list.Message(0, 15, "[PVP] %s of <%s> has unalived themselves!", GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str());
+				std::string killer_message = "";
+				killer_message += GetCleanName();
+				killer_message += " of <";
+				killer_message += pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str();
+				killer_message += "> has unalived themselves in ";
+				killer_message += zone->GetLongName();
+				killer_message += "!";
+				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 		}
 		else if (killerMob->IsClient() && (dueling || killerMob->CastToClient()->IsDueling())) 
