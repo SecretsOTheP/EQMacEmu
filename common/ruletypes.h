@@ -359,6 +359,7 @@ RULE_REAL(Quarm, MaxPVPDamagePercent, 0.75, "Max damage percent of target's curr
 RULE_BOOL(Quarm, EnablePVPDoubleLoot, false, "Master switch for PVP Double loot")
 RULE_BOOL(Quarm, EnablePVERaidDoubleLoot, false, "Master switch for PVP Raid Double loot")
 RULE_BOOL(Quarm, EnablePVEDoubleLoot, false, "Master switch for PVE Double loot")
+RULE_BOOL(Quarm, EnableMustEquipClickFromBags, true, "Allows clicking MustEquip items from bags.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(SelfFound)
