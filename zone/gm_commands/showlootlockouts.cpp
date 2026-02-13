@@ -17,9 +17,9 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 		{
 			c->Message(Chat::Red, "== %s: Expires in %s", lockout.second.npc_name, Strings::SecondsToTime((int)time_remaining).c_str());
 		}
-		else
+		else // Available
 		{
-			if (time_remaining <= 1)
+			if (time_remaining >= -2592000) // Shows lockouts that ended within the last 30 days
 			{
 				c->Message(Chat::Lime, "== %s: Available", lockout.second.npc_name);
 			}
@@ -56,7 +56,10 @@ void command_showlootlockouts(Client *c, const Seperator *sep)
 		}
 		else //Available
 		{
-			c->Message(Chat::Lime, "== %s: Available", item->Name);
+			if (time_remaining >= -2592000) // Shows lockouts that ended within the last 30 days
+			{
+				c->Message(Chat::Lime, "== %s: Available", item->Name);
+			}
 		}
 	}
 }
