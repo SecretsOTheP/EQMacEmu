@@ -1751,7 +1751,7 @@ bool Mob::DetermineSpellTargets(uint16 spell_id, Mob *&spell_target, Mob *&ae_ce
 	}
 
 	// PvP - Bard Selo is self only
-	if (zone->GetGuildID() == 1 && spells[spell_id].bardsong && spells[spell_id].goodEffect && GetSpellEffectIndex(spell_id, SE_MovementSpeed) != -1)
+	if (zone->GetGuildID() == 1 && spells[spell_id].bardsong && spells[spell_id].goodEffect && GetSpellEffectIndex(spell_id, SE_MovementSpeed) != -1 && zone->GetZoneID() != Zones::VEXTHAL)
 		targetType = ST_Self;
 
 	switch (targetType)
