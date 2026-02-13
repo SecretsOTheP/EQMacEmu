@@ -37,7 +37,7 @@ static const EQ::inventory::LookupEntry inventory_lookup_entries[EQ::versions::M
 		ClientUnknown::INULL,
 
 		false, 
-		false, 
+		true, 
 		false, 
 		false
 	},
