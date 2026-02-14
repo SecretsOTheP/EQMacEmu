@@ -9760,7 +9760,8 @@ void Client::Handle_OP_Trader(const EQApplicationPacket *app)
 				//again.
 				if (!stacked)
 				{
-					GetItem_Struct gi = GrabItem(Item->ID);
+					EQ::ItemInstance* inst = nullptr;
+					GetItem_Struct gi = GrabItem(Item->ID, inst);
 					const EQ::ItemData *checkitem = database.GetItem(gi.Items);
 					if (checkitem)
 					{
@@ -9776,6 +9777,11 @@ void Client::Handle_OP_Trader(const EQApplicationPacket *app)
 						//break;
 						continue;
 					}
+					if (inst)
+					{
+						inst->SetPrice(ints->ItemCost[i]);
+					}
+
 				}
 				else
 				{

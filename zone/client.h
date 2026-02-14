@@ -315,7 +315,7 @@ public:
 	int16	GetStackSlot(EQ::ItemInstance* item, bool try_worn = true, bool try_cursor = true);
 	void	SendTraderPacket(Client* trader);
 	GetItems_Struct* GetTraderItems(bool skipstackable = false);
-	GetItem_Struct GrabItem(uint16 item_id);
+	GetItem_Struct GrabItem(uint16 item_id, EQ::ItemInstance* inst = nullptr);
 	GetItem_Struct GrabStackedItem(uint16 item_id);
 	int16	GrabStackedSlot(uint16 item_id, uint8 charges);
 	uint16	GrabStackedCharges(uint16 item_id);

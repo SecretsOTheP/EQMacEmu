@@ -1259,10 +1259,10 @@ GetItems_Struct* Client::GetTraderItems(bool skip_stackable)
 	return gis;
 }
 
-GetItem_Struct Client::GrabItem(uint16 item_id)
+GetItem_Struct Client::GrabItem(uint16 item_id, EQ::ItemInstance* inst)
 {
 
-	const EQ::ItemInstance* item = nullptr;
+	EQ::ItemInstance* item = nullptr;
 	uint16 SlotID = 0;
 	GetItem_Struct gi;
 	TraderCharges_Struct* TraderItems = database.LoadTraderItemWithCharges(this->CharacterID());
@@ -1305,6 +1305,7 @@ GetItem_Struct Client::GrabItem(uint16 item_id)
 					gi.Charges = item->GetCharges();
 					Log(Logs::Detail, Logs::Bazaar, "GrabItem: Item %d in slot %d is unused and will be added to the trader list.", gi.Items, gi.SlotID);
 					safe_delete(TraderItems);
+					inst = item;
 					return gi;
 				}
 			}
@@ -1617,16 +1618,16 @@ void Client::TradeRequestFailed(const EQApplicationPacket* app) {
 	safe_delete(outapp);
 }
 
-void Client::BuyTraderItem(TraderBuy_Struct* tbs,Client* Trader,const EQApplicationPacket* app){
+void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplicationPacket* app) {
 
-	if(!Trader) return;
+	if (!Trader) return;
 
-	if(!Trader->IsTrader()) {
+	if (!Trader->IsTrader()) {
 		TradeRequestFailed(app);
 		return;
 	}
 
-	auto outapp = new EQApplicationPacket(OP_Trader,sizeof(TraderBuy_Struct));
+	auto outapp = new EQApplicationPacket(OP_Trader, sizeof(TraderBuy_Struct));
 	TraderBuy_Struct* outtbs = (TraderBuy_Struct*)outapp->pBuffer;
 	outtbs->ItemID = tbs->ItemID;
 
@@ -1635,7 +1636,7 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs,Client* Trader,const EQApplicat
 	if (database.ItemQuantityType(tbs->ItemID) == EQ::item::Quantity_Stacked)
 	{
 		SlotID = Trader->GrabStackedSlot(tbs->ItemID, tbs->Quantity);
-		if(SlotID != INVALID_INDEX)
+		if (SlotID != INVALID_INDEX)
 			Log(Logs::Detail, Logs::Bazaar, "Found stackable item %d in slot %d", tbs->ItemID, SlotID);
 	}
 	else
@@ -1643,7 +1644,7 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs,Client* Trader,const EQApplicat
 		SlotID = database.GetTraderItemBySlot(Trader->CharacterID(), tbs->Slot);
 	}
 
-	if(SlotID == INVALID_INDEX)
+	if (SlotID == INVALID_INDEX)
 	{
 		Log(Logs::Detail, Logs::Bazaar, "Unable to find a valid item slot on trader.");
 		TradeRequestFailed(app);
@@ -1653,35 +1654,80 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs,Client* Trader,const EQApplicat
 
 	BuyItem = Trader->FindTraderItemByIDAndSlot(tbs->ItemID, SlotID);
 
-	if(!BuyItem) {
+	if (!BuyItem) {
 		Log(Logs::Detail, Logs::Bazaar, "Unable to find item on trader.");
 		TradeRequestFailed(app);
 		safe_delete(outapp);
 		return;
 	}
 
-	uint32 priceper = tbs->Price / tbs->Quantity;
-	outtbs->Price = tbs->Price;
+	// Pull the items this Trader currently has for sale from the trader table.
+	TraderCharges_Struct* gis = database.LoadTraderItemWithCharges(Trader->CharacterID());
+
+	if (!gis) {
+		Log(Logs::Detail, Logs::Bazaar, "[CLIENT] Error retrieving Trader items details to update price.");
+		TradeRequestFailed(app);
+		safe_delete(outapp);
+		return;
+	}
+
+	uint32 RealPrice = 0;
+
+	for (int i = 0; i < 80; i++)
+	{
+		if ((gis->ItemID[i] > 0) && (gis->ItemID[i] == tbs->ItemID))
+		{
+			RealPrice = gis->ItemCost[i];
+
+			break;
+		}
+	}
+
+	if (RealPrice == 0)
+	{
+		Log(Logs::Detail, Logs::Bazaar, "[CLIENT] Error retrieving Trader items details to update price.");
+		TradeRequestFailed(app);
+		safe_delete(outapp);
+		return;
+	}
+
+	if (tbs->Quantity == 0)
+	{
+		Log(Logs::Detail, Logs::Bazaar, "Trader item has invalid quantity of zero; setting to 1.");
+		tbs->Quantity = 1;
+	}
+
+	outtbs->Price = RealPrice;
 	Log(Logs::Detail, Logs::Bazaar, "%s Buyitem: Name: %s, IsStackable: %i, Requested Quantity: %i, Trader Quantity %i Price: %i TraderSlot: %i InvSlot: %d Price per item: %i",
-					GetName(), BuyItem->GetItem()->Name, BuyItem->IsStackable(), tbs->Quantity, BuyItem->GetCharges(), tbs->Price, tbs->Slot, SlotID, priceper);
+					GetName(), BuyItem->GetItem()->Name, BuyItem->IsStackable(), tbs->Quantity, BuyItem->GetCharges(), BuyItem->GetPrice(), tbs->Slot, SlotID, RealPrice);
 	// If the item is not stackable, then we can only be buying one of them.
-	if(!BuyItem->IsStackable())
-		outtbs->Quantity = tbs->Quantity;
-	else {
+	if (!BuyItem->IsStackable())
+	{
+		outtbs->Quantity = 1;
+		outtbs->Price = RealPrice;
+	}
+	else 
+	{
 		// Stackable items, arrows, diamonds, etc
 		int ItemCharges = BuyItem->GetCharges();
 
 		// ItemCharges for stackables should not be <= 0
-		if(ItemCharges <= 0)
+		if (ItemCharges <= 0)
+		{
+			outtbs->Price = RealPrice;
 			outtbs->Quantity = 1;
+		}
 		// If the purchaser requested more than is in the stack, just sell them how many are actually in the stack.
 		else if(ItemCharges < (int16)tbs->Quantity)
 		{
-			outtbs->Price =  tbs->Price - ((tbs->Quantity - ItemCharges) * priceper);
+			outtbs->Price = RealPrice * ItemCharges;
 			outtbs->Quantity = ItemCharges;
 		}
 		else
+		{
+			outtbs->Price = RealPrice * tbs->Quantity;
 			outtbs->Quantity = tbs->Quantity;
+		}
 	}
 
 	Log(Logs::Detail, Logs::Bazaar, "Actual quantity that will be traded is %i for cost: %i", outtbs->Quantity, outtbs->Price);
@@ -1750,7 +1796,7 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs,Client* Trader,const EQApplicat
 		QServ->QSBazaarAudit(Trader->GetName(), GetName(), BuyItem->GetItem()->Name, BuyItem->GetID(), outtbs->Quantity, outtbs->Price);
 
 	Trader->FindAndNukeTraderItem(tbs->ItemID, outtbs->Quantity, this, SlotID, tbs->Slot);
-	Trader->Trader_CustomerBought(this,outtbs->Price,tbs->ItemID,outtbs->Quantity,BuyItem->GetItem()->Name, tbs->Slot);
+	Trader->Trader_CustomerBought(this,outtbs->Price, tbs->ItemID,outtbs->Quantity,BuyItem->GetItem()->Name, tbs->Slot);
 
 	safe_delete(outapp);
 	safe_delete(outapp2);
