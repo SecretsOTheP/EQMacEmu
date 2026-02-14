@@ -3,7 +3,7 @@
 
 // rate limit
 static std::map<uint32, time_t> invite_cooldowns;
-static const int INVITE_COOLDOWN_SECONDS = 2;
+static const int INVITE_COOLDOWN_SECONDS = 1;
 
 void command_invite(Client *c, const Seperator *sep)
 {
@@ -54,6 +54,8 @@ void command_invite(Client *c, const Seperator *sep)
 		return;
 	}
 
+	c->Message(Chat::White, "You invite %s to join your group.", localInvitee->GetName());
+
 	auto app = new EQApplicationPacket(OP_GroupInvite, sizeof(GroupInvite_Struct));
 	GroupInvite_Struct* gis = (GroupInvite_Struct*)app->pBuffer;
 	memset(gis, 0, sizeof(GroupInvite_Struct));
@@ -63,6 +65,6 @@ void command_invite(Client *c, const Seperator *sep)
 	c->Handle_OP_GroupInvite(app);
 
 	safe_delete(app);
-	
+
 	invite_cooldowns[char_id] = now;
 }

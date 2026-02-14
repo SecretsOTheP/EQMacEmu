@@ -296,6 +296,74 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		break;
 	}
 
+	// cross-zone raid move routing
+	case ServerOP_RaidMove: {
+		if (pack->size != sizeof(ServerRaidMove_Struct)) {
+			break;
+		}
+
+		auto srm = (ServerRaidMove_Struct*)pack->pBuffer;
+
+		ClientListEntry* target_cle = client_list.FindCharacter(srm->target_name);
+		if (!target_cle) {
+			auto resp = new ServerPacket(ServerOP_RaidMoveResponse, sizeof(ServerRaidMoveResponse_Struct));
+			auto srmr = (ServerRaidMoveResponse_Struct*)resp->pBuffer;
+			strn0cpy(srmr->requester_name, srm->requester_name, 64);
+			strn0cpy(srmr->target_name, srm->target_name, 64);
+			srmr->success = false;
+			strn0cpy(srmr->message, "That player is not online.", 256);
+			client_list.SendPacket(srm->requester_name, resp);
+			safe_delete(resp);
+			break;
+		}
+
+		client_list.SendPacket(srm->target_name, pack);
+		break;
+	}
+	case ServerOP_RaidMoveResponse: {
+		if (pack->size != sizeof(ServerRaidMoveResponse_Struct)) {
+			break;
+		}
+
+		auto srmr = (ServerRaidMoveResponse_Struct*)pack->pBuffer;
+		client_list.SendPacket(srmr->requester_name, pack);
+		break;
+	}
+
+	// cross-zone raid promote routing
+	case ServerOP_RaidPromote: {
+		if (pack->size != sizeof(ServerRaidPromote_Struct)) {
+			break;
+		}
+
+		auto srp = (ServerRaidPromote_Struct*)pack->pBuffer;
+
+		ClientListEntry* target_cle = client_list.FindCharacter(srp->target_name);
+		if (!target_cle) {
+			auto resp = new ServerPacket(ServerOP_RaidPromoteResponse, sizeof(ServerRaidPromoteResponse_Struct));
+			auto srpr = (ServerRaidPromoteResponse_Struct*)resp->pBuffer;
+			strn0cpy(srpr->requester_name, srp->requester_name, 64);
+			strn0cpy(srpr->target_name, srp->target_name, 64);
+			srpr->success = false;
+			strn0cpy(srpr->message, "That player is not online.", 256);
+			client_list.SendPacket(srp->requester_name, resp);
+			safe_delete(resp);
+			break;
+		}
+
+		client_list.SendPacket(srp->target_name, pack);
+		break;
+	}
+	case ServerOP_RaidPromoteResponse: {
+		if (pack->size != sizeof(ServerRaidPromoteResponse_Struct)) {
+			break;
+		}
+
+		auto srpr = (ServerRaidPromoteResponse_Struct*)pack->pBuffer;
+		client_list.SendPacket(srpr->requester_name, pack);
+		break;
+	}
+
 	case ServerOP_GroupSetID: {
 		if (pack->size != sizeof(GroupSetID_Struct)) {
 			break;

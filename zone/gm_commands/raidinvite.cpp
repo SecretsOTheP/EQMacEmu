@@ -11,7 +11,7 @@ extern WorldServer worldserver;
 
 // rate limit
 static std::map<uint32, time_t> raidinvite_cooldowns;
-static const int RAIDINVITE_COOLDOWN_SECONDS = 2;
+static const int RAIDINVITE_COOLDOWN_SECONDS = 1;
 
 void command_raidinvite(Client *c, const Seperator *sep)
 {
@@ -72,21 +72,22 @@ void command_raidinvite(Client *c, const Seperator *sep)
 
 	Raid* raid = c->GetRaid();
 
-	if (raid) {
+	if (raid)
+	{
 		if (!raid->IsRaidLeader(c->GetName())) {
 			c->Message(Chat::Red, "You must be the raid leader to use this command.");
 			return;
 		}
-		else {
-			if (requested_group != 0xFFFFFFFF) {
-				if (raid->GroupCount(requested_group) != 0) {
-					c->Message(Chat::Red, "Group %d already has a leader.", requested_group+1);
-					return;
-				}
+
+		if (requested_group != 0xFFFFFFFF) {
+			if (raid->GroupCount(requested_group) != 0) {
+				c->Message(Chat::Red, "Group %d already has a leader.", requested_group+1);
+				return;
 			}
 		}
 	}
-	else {
+	else
+	{
 		if (requested_group == 0) {
 			c->Message(Chat::Red, "You cannot form a raid with invitee as leader of group %d", requested_group+1);
 			return;

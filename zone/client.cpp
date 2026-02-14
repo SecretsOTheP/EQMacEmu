@@ -6476,6 +6476,11 @@ void Client::ClearPendingCrossZoneRaidInvite()
 	PendingCrossZoneRaidGroupNumber = 0xFFFFFFFF;
 }
 
+void Client::SetLastTellFrom(const char* name)
+{
+	LastTellFromName = name ? name : "";
+}
+
 void Client::WarCry(uint8 rank)
 {
 	uint32 time = rank * 10;

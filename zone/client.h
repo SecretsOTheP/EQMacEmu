@@ -1254,6 +1254,11 @@ public:
 	const std::string& GetPendingCrossZoneRaidInviter() const { return PendingCrossZoneRaidInviter; }
 	ChallengeRules::RuleSet GetPendingCrossZoneRaidRuleset() const { return PendingCrossZoneRaidRuleset; }
 	uint32 GetPendingCrossZoneRaidGroupNumber() const { return PendingCrossZoneRaidGroupNumber; }
+
+	void SetLastTellFrom(const char* name);
+	const std::string& GetLastTellFrom() const { return LastTellFromName; }
+	bool HasLastTellFrom() const { return !LastTellFromName.empty(); }
+
 	void UpdateLFG(bool value = false, bool ignoresender = false);
 	uint16 poison_spell_id; // rogue apply poison
 	bool ShowHelm() { return m_pp.showhelm; }
@@ -1595,6 +1600,8 @@ private:
 	std::string PendingCrossZoneRaidInviter;
 	ChallengeRules::RuleSet PendingCrossZoneRaidRuleset;
 	uint32 PendingCrossZoneRaidGroupNumber;
+
+	std::string LastTellFromName;
 	
 	int PendingRezzXP;
 	uint32 PendingRezzDBID;

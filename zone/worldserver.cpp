@@ -264,6 +264,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 						}
 					}
 					else if (scm->chan_num == ChatChannel_Tell) {
+						client->SetLastTellFrom(scm->from); // for #replyraidinvite, #replyinvite, #replyraidtarget
 						client->ChannelMessageSend(scm->from, scm->to, scm->chan_num, scm->language, scm->lang_skill, scm->message);
 						if (scm->queued == 0) { // this is not a queued tell
 							// if it's a tell, echo back to acknowledge it and make it show on the sender's client
@@ -1462,6 +1463,247 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			break;
 		}
 
+		// cross-zone raid move handler
+		case ServerOP_RaidMove: {
+			ServerRaidMove_Struct* srm = (ServerRaidMove_Struct*)pack->pBuffer;
+
+			auto sendResponse = [&](bool success, const char* msg) {
+				auto resp = new ServerPacket(ServerOP_RaidMoveResponse, sizeof(ServerRaidMoveResponse_Struct));
+				auto srmr = (ServerRaidMoveResponse_Struct*)resp->pBuffer;
+				strn0cpy(srmr->requester_name, srm->requester_name, 64);
+				strn0cpy(srmr->target_name, srm->target_name, 64);
+				srmr->new_group = srm->new_group;
+				srmr->success = success;
+				strn0cpy(srmr->message, msg, 256);
+				worldserver.SendPacket(resp);
+				safe_delete(resp);
+			};
+
+			Client* target = entity_list.GetClientByName(srm->target_name);
+			if (!target) {
+				sendResponse(false, "That player could not be found.");
+				break;
+			}
+
+			Raid* r = entity_list.GetRaidByID(srm->rid);
+			if (!r) {
+				sendResponse(false, "Raid not found.");
+				break;
+			}
+
+			uint32 player_index = r->GetPlayerIndex(srm->target_name);
+			if (player_index == 0xFFFFFFFF) {
+				sendResponse(false, "That player is not in your raid.");
+				break;
+			}
+
+			uint32 old_group = r->members[player_index].GroupNumber;
+
+			if (old_group == srm->new_group)
+			{
+				sendResponse(false, "Player is already in that group.");
+				break;
+			}
+
+			if (srm->new_group != 0xFFFFFFFF)
+			{
+				uint8 group_count = r->GroupCount(srm->new_group);
+				if (group_count >= MAX_GROUP_MEMBERS) {
+					sendResponse(false, "That group is full.");
+					break;
+				}
+			}
+
+			// handle group leader demotion and new leader promotion
+			if (r->members[player_index].IsGroupLeader && old_group != 0xFFFFFFFF) {
+				r->SetGroupLeader(srm->target_name, old_group, false);
+				// promote a new leader if the group will have remaining members
+				if (r->GroupCount(old_group) > 1) {
+					for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+						if (r->members[i].GroupNumber == old_group &&
+						    strlen(r->members[i].membername) > 0 &&
+						    strcmp(r->members[i].membername, srm->target_name) != 0) {
+							r->SetGroupLeader(r->members[i].membername, old_group, true);
+							break;
+						}
+					}
+				}
+			}
+
+			// perform the move
+			r->MoveMember(srm->target_name, srm->new_group);
+
+			// only make leader if they are the sole member of the new group
+			if (srm->new_group != 0xFFFFFFFF && r->GroupCount(srm->new_group) == 1) {
+				r->SetGroupLeader(srm->target_name, srm->new_group, true);
+			}
+
+			// update group windows locally and cross zone
+			if (old_group != 0xFFFFFFFF) {
+				r->SendGroupLeave(srm->target_name, old_group);
+			}
+			if (srm->new_group != 0xFFFFFFFF) {
+				if (r->GroupCount(srm->new_group) == 1) {
+					// target is sole member, SetGroupLeader already handles notifications
+					r->SendGroupUpdate(target);
+				} else {
+					r->GroupJoin(srm->target_name, srm->new_group, target, true);
+					r->SendGroupUpdate(target);
+				}
+				// send cross zone group update
+				auto updatePack = new ServerPacket(ServerOP_UpdateGroup, sizeof(ServerRaidGeneralAction_Struct));
+				ServerRaidGeneralAction_Struct* rga = (ServerRaidGeneralAction_Struct*)updatePack->pBuffer;
+				rga->gid = srm->new_group;
+				rga->rid = r->GetID();
+				rga->zoneid = zone->GetZoneID();
+				rga->zoneguildid = zone->GetGuildID();
+				worldserver.SendPacket(updatePack);
+				safe_delete(updatePack);
+			}
+
+			// notify old group members in other zones
+			if (old_group != 0xFFFFFFFF) {
+				auto leavePack = new ServerPacket(ServerOP_RaidGroupRemove, sizeof(ServerRaidGeneralAction_Struct));
+				ServerRaidGeneralAction_Struct* rga = (ServerRaidGeneralAction_Struct*)leavePack->pBuffer;
+				rga->rid = r->GetID();
+				rga->gid = old_group;
+				rga->zoneid = zone->GetZoneID();
+				rga->zoneguildid = zone->GetGuildID();
+				strn0cpy(rga->playername, srm->target_name, 64);
+				worldserver.SendPacket(leavePack);
+				safe_delete(leavePack);
+			}
+
+			// send full raid member update to refresh leader status in raid window
+			for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+				if (r->members[i].member) {
+					r->SendRaidMembers(r->members[i].member);
+				}
+			}
+
+			sendResponse(true, "Move successful.");
+			break;
+		}
+
+		case ServerOP_RaidMoveResponse: {
+			ServerRaidMoveResponse_Struct* srmr = (ServerRaidMoveResponse_Struct*)pack->pBuffer;
+
+			Client* requester = entity_list.GetClientByName(srmr->requester_name);
+			if (!requester) {
+				break;
+			}
+
+			if (srmr->success)
+			{
+				if (srmr->new_group == 0xFFFFFFFF) {
+					requester->Message(Chat::White, "%s has been moved to ungrouped.", srmr->target_name);
+				} else {
+					requester->Message(Chat::White, "%s has been moved to group %d.", srmr->target_name, srmr->new_group + 1);
+				}
+			}
+			else
+			{
+				requester->Message(Chat::Red, "%s", srmr->message);
+			}
+			break;
+		}
+
+		// cross-zone raid promote handler
+		case ServerOP_RaidPromote: {
+			ServerRaidPromote_Struct* srp = (ServerRaidPromote_Struct*)pack->pBuffer;
+
+			auto sendResponse = [&](bool success, const char* msg, uint32 gid = 0xFFFFFFFF) {
+				auto resp = new ServerPacket(ServerOP_RaidPromoteResponse, sizeof(ServerRaidPromoteResponse_Struct));
+				auto srpr = (ServerRaidPromoteResponse_Struct*)resp->pBuffer;
+				strn0cpy(srpr->requester_name, srp->requester_name, 64);
+				strn0cpy(srpr->target_name, srp->target_name, 64);
+				srpr->gid = gid;
+				srpr->success = success;
+				strn0cpy(srpr->message, msg, 256);
+				worldserver.SendPacket(resp);
+				safe_delete(resp);
+			};
+
+			Client* target = entity_list.GetClientByName(srp->target_name);
+			if (!target) {
+				sendResponse(false, "That player could not be found.");
+				break;
+			}
+
+			Raid* r = entity_list.GetRaidByID(srp->rid);
+			if (!r) {
+				sendResponse(false, "Raid not found.");
+				break;
+			}
+
+			uint32 player_index = 0xFFFFFFFF;
+			for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+				if (strlen(r->members[i].membername) > 0 && strcasecmp(srp->target_name, r->members[i].membername) == 0) {
+					player_index = i;
+					break;
+				}
+			}
+			if (player_index == 0xFFFFFFFF) {
+				sendResponse(false, "That player is not in your raid.");
+				break;
+			}
+
+			uint32 gid = r->members[player_index].GroupNumber;
+			if (gid == 0xFFFFFFFF) {
+				sendResponse(false, "That player is not in a raid group.");
+				break;
+			}
+
+			if (r->members[player_index].IsGroupLeader) {
+				sendResponse(false, "That player is already the group leader.");
+				break;
+			}
+
+			// find current group leader
+			const char* old_leader = nullptr;
+			for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+				if (r->members[i].GroupNumber == gid && r->members[i].IsGroupLeader) {
+					old_leader = r->members[i].membername;
+					break;
+				}
+			}
+
+			// demote old leader and promote new leader
+			if (old_leader) {
+				r->SetGroupLeader(old_leader, gid, false);
+			}
+			r->SetGroupLeader(srp->target_name, gid, true);
+
+			// send full raid member update to refresh leader status in raid window
+			for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+				if (r->members[i].member) {
+					r->SendRaidMembers(r->members[i].member);
+				}
+			}
+
+			sendResponse(true, "Promotion successful.", gid);
+			break;
+		}
+
+		case ServerOP_RaidPromoteResponse: {
+			ServerRaidPromoteResponse_Struct* srpr = (ServerRaidPromoteResponse_Struct*)pack->pBuffer;
+
+			Client* requester = entity_list.GetClientByName(srpr->requester_name);
+			if (!requester) {
+				break;
+			}
+
+			if (srpr->success)
+			{
+				requester->Message(Chat::White, "%s has been promoted to leader of group %d.", srpr->target_name, srpr->gid + 1);
+			}
+			else
+			{
+				requester->Message(Chat::Red, "%s", srpr->message);
+			}
+			break;
+		}
+
 		case ServerOP_GroupJoin: {
 			ServerGroupJoin_Struct* gj = (ServerGroupJoin_Struct*)pack->pBuffer;
 			if(zone){
@@ -1827,6 +2069,13 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 						c->SetRaidGrouped(rga->gid != 0xFFFFFFFF);
 					}
 					r->SendRaidChangeGroup(rga->playername, rga->gid);
+					// refresh raid window to clear stale leader status
+					// when a #raidmove is performed on a group leader
+					for (int i = 0; i < MAX_RAID_MEMBERS; i++) {
+						if (r->members[i].member) {
+							r->SendRaidMembers(r->members[i].member);
+						}
+					}
 				}
 			}
 			break;

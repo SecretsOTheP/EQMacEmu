@@ -234,6 +234,8 @@ int command_init(void)
 		command_add("inv", "[playername] - Alias for #invite.", AccountStatus::Player, command_invite) ||
 		command_add("invite", "[playername] - Send a group invite by name (no target required).", AccountStatus::Player, command_invite) ||
 		command_add("ipban", "[IP address] - Ban IP by character name.", AccountStatus::GMMgmt, command_ipban) ||
+		command_add("replyinvite", "- Send a group invite to the last person who sent you a tell.", AccountStatus::Player, command_replyinvite) ||
+		command_add("rinv", "- Alias for #replyinvite.", AccountStatus::Player, command_replyinvite) ||
 		command_add("ipexemption", "[accountname] [exemption] - Set IP exemption amount for accountname by amount. Accounts default to 1.", AccountStatus::GMAdmin, command_ipexemption) ||
 	
 		command_add("iteminfo", "Get information about the item on your cursor.", AccountStatus::Guide, command_iteminfo) ||
@@ -300,6 +302,16 @@ int command_init(void)
 		command_add("raidinvite", "[playername] - Invite a player to your raid. Use #raidaccept for cross-zone invites.", AccountStatus::Player, command_raidinvite) ||
 		command_add("ri", "[playername] - Alias for #raidinvite.", AccountStatus::Player, command_raidinvite) ||
 		command_add("raidloot", "LEADER|GROUPLEADER|SELECTED|ALL - Sets your raid loot settings if you have permission to do so.", 1, command_raidloot) ||
+		command_add("raidmove", "[playername] [groupnumber] - Move a raid member to a different group (0 for ungrouped).", AccountStatus::Player, command_raidmove) ||
+		command_add("rm", "[playername] [groupnumber] - Alias for #raidmove.", AccountStatus::Player, command_raidmove) ||
+		command_add("raidpromote", "[playername] - Promote a raid group member to leader of their group.", AccountStatus::Player, command_raidpromote) ||
+		command_add("rp", "[playername] - Alias for #raidpromote.", AccountStatus::Player, command_raidpromote) ||
+		command_add("raidtarget", "[playername] - Target a raid member in your zone.", AccountStatus::Player, command_raidtarget) ||
+		command_add("rt", "[playername] - Alias for #raidtarget.", AccountStatus::Player, command_raidtarget) ||
+		command_add("replyraidinvite", "[group] - Send a raid invite to the last person who sent you a tell.", AccountStatus::Player, command_replyraidinvite) ||
+		command_add("rri", "[group] - Alias for #replyraidinvite.", AccountStatus::Player, command_replyraidinvite) ||
+		command_add("replyraidtarget", "- Target the last person who sent you a tell if they are in your raid.", AccountStatus::Player, command_replyraidtarget) ||
+		command_add("rrt", "- Alias for #replyraidtarget.", AccountStatus::Player, command_replyraidtarget) ||
 		command_add("randtest", "Perform a sampling of random number generation", AccountStatus::GMImpossible, command_randtest) ||
 		command_add("randomfeatures", "Temporarily randomizes the Facial Features of your target.", AccountStatus::GMCoder, command_randomfeatures) ||
 		command_add("refreshgroup", "Refreshes Group.", AccountStatus::EQSupport, command_refreshgroup) ||
@@ -971,6 +983,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/interrupt.cpp"
 #include "gm_commands/invite.cpp"
 #include "gm_commands/ipban.cpp"
+#include "gm_commands/replyinvite.cpp"
 #include "gm_commands/ipexemption.cpp"
 #include "gm_commands/iteminfo.cpp"
 #include "gm_commands/keyring.cpp"
@@ -1021,6 +1034,11 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/raidaccept.cpp"
 #include "gm_commands/raidinvite.cpp"
 #include "gm_commands/raidloot.cpp"
+#include "gm_commands/raidmove.cpp"
+#include "gm_commands/raidpromote.cpp"
+#include "gm_commands/raidtarget.cpp"
+#include "gm_commands/replyraidinvite.cpp"
+#include "gm_commands/replyraidtarget.cpp"
 #include "gm_commands/randomfeatures.cpp"
 #include "gm_commands/randtest.cpp"
 #include "gm_commands/refreshgroup.cpp"
