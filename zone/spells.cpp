@@ -2011,6 +2011,18 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		}
 	}
 
+	if(IsEffectInSpell(spell_id, SE_BindAffinity)){
+		if(IsClient() && !CastToClient()->GetGM() && !RuleB(Character, BindAnywhere)){
+			if(!zone->CanBind()
+				|| (GetZoneID() == Zones::KAEL && !zone->IsBindArea(GetX(), GetY(), GetZ()))
+				|| (GetZoneID() == Zones::SKYSHRINE && !zone->IsBindArea(GetX(), GetY(), GetZ())))
+			{
+				interrupt_message = StringID::CANNOT_BIND;
+				return false;
+			}
+		}
+	}
+
 	if (IsBardSong(spell_id) && !HasSongInstrument(spell_id))
 	{
 		return false;
