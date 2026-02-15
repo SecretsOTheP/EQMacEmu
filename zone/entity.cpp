@@ -1474,7 +1474,7 @@ void EntityList::RemoveFromTargets(Mob *mob)
 			continue;
 
 		m->RemoveFromHateList(mob);
-		m->RemoveFromRampageList(mob);
+		m->RemoveFromRampageList(mob, true);
 	}
 }
 
