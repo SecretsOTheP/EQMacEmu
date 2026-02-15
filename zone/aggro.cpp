@@ -1155,7 +1155,7 @@ type', in which case, the answer is yes.
 // to the target. clients cannot affect npcs and vice versa, and clients
 // cannot affect other clients that are not of the same pvp flag as them.
 // also goes for their pets
-bool Mob::IsBeneficialAllowed(Mob *target)
+bool Mob::IsBeneficialAllowed(Mob *target, uint16 spellid)
 {
 	Mob *mob1 = nullptr, *mob2 = nullptr, *tempmob = nullptr;
 	Client *c1 = nullptr, *c2 = nullptr;
@@ -1193,7 +1193,7 @@ bool Mob::IsBeneficialAllowed(Mob *target)
 					return false;
 				}
 
-				if (c1->IsDueling() || c2->IsDueling())
+				if (zone && zone->GetGuildID() != 1 && (c1->IsDueling() || c2->IsDueling()))
 				{
 					if
 					(
@@ -1209,7 +1209,11 @@ bool Mob::IsBeneficialAllowed(Mob *target)
 				}
 
 				if ((bool)c1->GetPVP() == (bool)c2->GetPVP() && zone && zone->GetGuildID() == 1)
+				{
+					if (IsBeneficialSpell(spellid) && spells[spellid].targettype == ST_AEBard && !(c1->InSameGroup(c2) || c1->InSameRaid(c2)))
+						return false; // [PvP] Beneficial AEs should only affect their group/raid (bard AE, mass mod rod, etc)
 					return true;
+				}
 				else if (zone->GetGuildID() != 1)
 					return true;
 			}
