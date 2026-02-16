@@ -1383,14 +1383,25 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			if (killerMob && zone->GetGuildID() == 1)
 			{
 				std::string pvpKilledGuildName = GetGuildName();
-				std::string killer_message = "";
-				killer_message += GetCleanName();
-				killer_message += " of <";
-				killer_message += pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str();
-				killer_message += "> has died to ";
-				killer_message += killerMob->GetCleanName();
-				killer_message += " in combat!";
-				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast,0, 0, 100, killer_message.c_str());
+				std::string killer_message;
+
+				Mob* petOwner = killerMob->IsPet() ? killerMob->GetOwner() : nullptr;
+				if (petOwner && petOwner->IsClient())
+				{
+					std::string ownerGuildName = petOwner->CastToClient()->GetGuildName();
+					killer_message = fmt::format("{} of <{}> has been killed in combat by {} of <{}> in {}!",
+						GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
+						petOwner->GetCleanName(), ownerGuildName.empty() ? " " : ownerGuildName,
+						zone->GetLongName());
+				}
+				else
+				{
+					killer_message = fmt::format("{} of <{}> has died to {} in combat in {}!",
+						GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
+						killerMob->GetCleanName(), zone->GetLongName());
+				}
+
+				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 
 			killedby = Killed_NPC;
@@ -1407,13 +1418,20 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 				killedby = Killed_PVP;
 				std::string pvpKilledGuildName = GetGuildName();
 				std::string pvpKillerGuildName = killerMob->CastToClient()->GetGuildName();
-				entity_list.Message(0, 15, "[PVP] %s of <%s> has been killed in combat by %s of <%s>!", GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str(), killerMob->GetCleanName(), pvpKillerGuildName.empty() ? " " : pvpKillerGuildName.c_str());
+				std::string killer_message = fmt::format("{} of <{}> has been killed in combat by {} of <{}> in {}!",
+					GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
+					killerMob->GetCleanName(), pvpKillerGuildName.empty() ? " " : pvpKillerGuildName,
+					zone->GetLongName());
+				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 			else
 			{
 				killedby = Killed_Self;
 				std::string pvpKilledGuildName = GetGuildName();
-				entity_list.Message(0, 15, "[PVP] %s of <%s> has unalived themselves!", GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str());
+				std::string killer_message = fmt::format("{} of <{}> has unalived themselves in {}!",
+					GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
+					zone->GetLongName());
+				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 		}
 		else if (killerMob->IsClient() && (dueling || killerMob->CastToClient()->IsDueling())) 
