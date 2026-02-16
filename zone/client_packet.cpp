@@ -1112,7 +1112,14 @@ void Client::Handle_Connect_OP_SpawnAppearance(const EQApplicationPacket *app)
 			{
 				BulkSendSharedBankItems();
 			}
+			break;
 		}
+		case ClientFeature::UseFromBag:
+		{
+			feature_value = RuleB(Quarm, EnableClickFromBags) && m_inv.SupportsClickCasting(250) ? 1 : 0;
+			break;
+		}
+
 		// -----------------------------------------------------------------------------------------------------------------------------------
 		// End of Client/Server known feature messages
 		// -----------------------------------------------------------------------------------------------------------------------------------
