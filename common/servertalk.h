@@ -130,6 +130,14 @@
 #define ServerOP_RaidInviteResponse	0x0118
 #define ServerOP_RaidInviteFailure	0x0119
 
+// cross-zone raid move
+#define ServerOP_RaidMove			0x011A
+#define ServerOP_RaidMoveResponse	0x011B
+
+// cross-zone raid promote
+#define ServerOP_RaidPromote			0x011C
+#define ServerOP_RaidPromoteResponse	0x011D
+
 #define ServerOP_WhoAll				0x0210
 #define ServerOP_FriendsWho			0x0211
 #define ServerOP_LFGMatches			0x0212
@@ -404,6 +412,38 @@ struct ServerRaidInviteFailure_Struct {
 	char invitee_name[64];
 	char failure_message[256];
 	bool notify_inviter;
+};
+
+// cross-zone raid move
+struct ServerRaidMove_Struct {
+	char requester_name[64];
+	char target_name[64];
+	uint32 rid;
+	uint32 old_group;
+	uint32 new_group;
+};
+
+struct ServerRaidMoveResponse_Struct {
+	char requester_name[64];
+	char target_name[64];
+	uint32 new_group;
+	bool success;
+	char message[256];
+};
+
+// cross-zone raid promote
+struct ServerRaidPromote_Struct {
+	char requester_name[64];
+	char target_name[64];
+	uint32 rid;
+};
+
+struct ServerRaidPromoteResponse_Struct {
+	char requester_name[64];
+	char target_name[64];
+	uint32 gid;
+	bool success;
+	char message[256];
 };
 
 struct ServerChannelMessage_Struct {
