@@ -856,6 +856,11 @@ void SharedDatabase::LoadItems(void* data, uint32 size, int32 items, uint32 max_
 		item.Click.Level2 = static_cast<uint8>(std::stoul(row[ItemField::clicklevel2]));
 		item.RecastDelay = std::stoul(row[ItemField::recastdelay]);
 		item.RecastType = std::stoul(row[ItemField::recasttype]);
+		if (item.Click.Type == EQ::item::ItemEffectEquipClick && RuleB(Quarm, EnableMustEquipClickFromBags)) {
+			// convert MustEquip to CanEquip to allow clicking 'Must Equip' items from bags.
+			// All class/race/level checks still apply as normal.
+			item.Click.Type = EQ::item::ItemEffectClick2;
+		}
 
 		// Focus Effect
 		if (RuleB(Expansion, UseItemExpansionSetting) && !content_service.IsTheShadowsOfLuclinEnabled()) {
