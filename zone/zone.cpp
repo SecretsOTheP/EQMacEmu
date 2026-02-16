@@ -1065,6 +1065,10 @@ Zone::Zone(uint32 in_zoneid, const char* in_short_name, uint32 in_guildid)
 
 	short_name = strcpy(new char[strlen(in_short_name)+1], in_short_name);
 	strlwr(short_name);
+	// Fungusgrove-specific: skip LoS for FleeAllyCount
+	if (strcmp(short_name, "fungusgrove") == 0) {
+		flee_ally_skip_los = true; // skip LoS for FleeAllyCount
+	}
 	memset(file_name, 0, sizeof(file_name));
 
 	long_name = 0;
