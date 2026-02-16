@@ -65,6 +65,7 @@ namespace ClientFeature {
 	constexpr uint16 CodeVersion = 4; // Sent by eqgame.dll, provides its DLL_VERSION value to the server. Could theoretically be used by Zeal too if desired.
 	constexpr uint16 SharedBankBagsSupported = 5; // Number of SharedBank bag supported (0-30)
 	constexpr uint16 SharedBankMode = 6; // 0 = Disabled, 1 = Enabled, 2 = SelfFound
+	constexpr uint16 UseFromBag = 7; // 0 = Disabled, 1 = Enabled
 }
 
 // solar: Animations for AnimationType:Animation
