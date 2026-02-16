@@ -3706,6 +3706,8 @@ void Client::Handle_OP_Consent(const EQApplicationPacket *app)
 			Message_StringID(Chat::White, StringID::NO_CORPSES);
 			return;
 		}
+		// TODO: Will need special handling if the gname is guild or Guild
+		// Probably split up the response packets below to be generic for if it worked or not
 		else if (IsConsented(gname))
 		{
 			Message_StringID(Chat::White, StringID::CONSENT_DENIED, c->name);
