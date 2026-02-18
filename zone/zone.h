@@ -143,6 +143,7 @@ class MobMovementManager;
 class Zone
 {
 public:
+	bool flee_ally_skip_los = false; // Fungusgrove: skip LoS for FleeAllyCount
 	static bool Bootup(uint32 iZoneID, bool is_static = false, uint32 iGuildID = 0xFFFFFFFF);
 	static void Shutdown(bool quite = false);
 
@@ -306,7 +307,9 @@ public:
 	bool	DragAggro() const {return(drag_aggro);}
 	bool	IsBoatZone();
 	bool	IsBindArea(float x_coord, float y_coord, float z_coord);
-	bool	SkipLoS() const { return(skip_los); }
+	// If true, skip LoS checks for FleeAllyCount (used for fungusgrove)
+	bool SkipLoS() const { return skip_los; }
+	bool FleeAllySkipLoS() const { return flee_ally_skip_los; }
 	bool	IsWaterZone(float z);
 	bool	ZoneWillNotIdle() { return newzone_data.never_idle; };
 	bool	IsIdling() { return (idle || (numclients <= 0 && ZoneWillNotIdle())); };
