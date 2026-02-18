@@ -959,7 +959,7 @@ bool Mob::IsAttackAllowed(Mob *target, bool isSpellAttack, int16 spellid)
 			RemoveFromRampageList(target, true);
 			return false;
 		}
-		if (npc_faction != 0 && target->GetReverseFactionCon(this) <= FACTION_KINDLY)
+		if (npc_faction != 0 && target->GetReverseFactionCon(this) <= FACTION_KINDLY && GetReverseFactionCon(target) <= FACTION_KINDLY)
 		{
 			Log(Logs::General, Logs::Combat, "IsAttackAllowed failed: %s is allied with %s", GetName(), target->GetName());
 			RemoveFromHateList(target);
