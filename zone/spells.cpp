@@ -3276,6 +3276,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 	else if ((IsBeneficialSpell(spell_id) || is_tap_recourse) && !IsSummonPCSpell(spell_id) && !IsAEMemBlurSpell(spell_id) && !IsBindSightSpell(spell_id)
 		&& (!spelltar->IsPet() || spelltar->IsCharmedPet())											// no beneficial aggro for summoned pets
 		&& (!IsNPC() || !isproc || CastToNPC()->GetInnateProcSpellId() != spell_id)					// NPC innate procs always hit the target, even if beneficial. we don't want beneficial procs aggroing nearby NPCs
+        && !(IsNPC() && spelltar->IsCharmedPet())                                                   // NPCs that were mid-cast of beneficial spells while a pet was charmed should not aggro nearby NPCs
 		&& (!spelltar->IsCharmedPet() || (spelltar->IsCharmedPet() && !IsHealingSpell(spell_id)))	// Healing spells on charmed pets don't cause aggro.
 		)
 	{
