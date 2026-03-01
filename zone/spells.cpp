@@ -2108,11 +2108,6 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		}
 	}
 
-	// NPC innate procs that are AoE spells only hit the target they are attacking
-	if (IsNPC() && isproc && CastToNPC()->GetInnateProcSpellId() == spell_id && (CastAction == AETarget || CastAction == AECaster))
-	{
-		CastAction = SingleTarget;
-	}
 	// if a spell has the AEDuration flag, it becomes an AE on target
 	// spell that's recast every 2500 msec for AEDuration msec. There are
 	// spells of all kinds of target types that do this, strangely enough
