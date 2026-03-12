@@ -736,11 +736,12 @@ int EntityList::FleeAllyCount(Mob *attacker, Mob *exclude)
 		if (!mob || (mob == exclude))
 			continue;
 
-		if (!zone->SkipLoS())
-		{
-			if (!exclude->CheckLosFN(mob))
-				continue;
-		}
+		   // Skip LoS for FleeAllyCount if zone disables LoS or fungusgrove-specific flag is set
+		   if (!(zone->SkipLoS() || zone->FleeAllySkipLoS()))
+		   {
+			   if (!exclude->CheckLosFN(mob))
+				   continue;
+		   }
 
 		float AggroRange = mob->GetAggroRange();
 		float AssistRange = mob->GetAssistRange();
