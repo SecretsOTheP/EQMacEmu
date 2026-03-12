@@ -2629,9 +2629,19 @@ void Mob::AddToHateList(Mob* other, int32 hate, int32 damage, bool bFrenzy, bool
 			{
 				if (lootLockoutItr->second.HasLockout(Timer::GetTimeSeconds()))
 				{
+					
+					int grace_period = RuleI(Quarm, LockoutGracePeriod);
+
+					// Get the remaining lockout time, same as showlootlockouts
+					int64_t current_time = Timer::GetTimeSeconds();
+					int64_t time_remaining = lootLockoutItr->second.expirydate - current_time;
+
+					// Figure out how long it's been since the lockout mob died
+					int64_t lockout_time_elapsed = CastToNPC()->loot_lockout_timer - time_remaining;
+					
 					// WORKAROUND: This HP check prevents a bug where you could be booted after a mob is already dead.
 					// This could happen if the mob is hit by a spell or arrow at almost the exact time it dies.
-					if(GetHP() > 0)
+					if(GetHP() > 0 && lockout_time_elapsed > grace_period)
 					{
 						other->CastToClient()->Message(Chat::Red, "You were locked out of %s. Sending you out.", GetCleanName() );
 						other->CastToClient()->BootFromGuildInstance(true);

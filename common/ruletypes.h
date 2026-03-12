@@ -361,6 +361,7 @@ RULE_BOOL(Quarm, EnablePVERaidDoubleLoot, false, "Master switch for PVP Raid Dou
 RULE_BOOL(Quarm, EnablePVEDoubleLoot, false, "Master switch for PVE Double loot")
 RULE_BOOL(Quarm, EnableClickFromBags, true, "Allows using clicky items from bags.")
 RULE_BOOL(Quarm, EnableMustEquipClickFromBags, true, "Allows using MustEquip clicky items from bags.")
+RULE_INT(Quarm, LockoutGracePeriod, 3, "Grace period in seconds to prevent being booted on boss death.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(SelfFound)
