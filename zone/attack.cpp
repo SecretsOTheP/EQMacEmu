@@ -1242,7 +1242,7 @@ void Mob::AggroPet(Mob* attacker)
 	 * Pets should always assist if someone is trying to attack the master
 	 * Uneless Pet hold is activated
 	 */
-	if(attacker) {
+	if(attacker && this != attacker) {
 		Mob *pet = GetPet();
 		if (pet && !pet->IsFamiliar() && !pet->GetSpecialAbility(SpecialAbility::AggroImmunity) && attacker && attacker != this && !attacker->IsCorpse() && !attacker->IsUnTargetable())
 		{

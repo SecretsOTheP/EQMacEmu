@@ -3243,6 +3243,8 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 	else if (IsDetrimentalSpell(spell_id) && !is_tap_recourse && !IsHarmonySpell(spell_id) && !IsAllianceSpellLine(spell_id) &&
 		     CancelMagicShouldAggro(spell_id, spelltar))
 	{
+	  if (spelltar != this) // Don't aggro ourselves!
+	  {
 		Log(Logs::Detail, Logs::Spells, "Applying aggro for spell %d", spell_id);
 		// Damage aggro is handled in CommonDamage()
 		if (!HasDirectDamageEffect(spell_id)) {
@@ -3272,6 +3274,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 				spelltar->CastToNPC()->CallForHelp(this);	// this will fail if timer is ticking down, so won't spam
 			}
 		}
+	  }
 	}
 	else if ((IsBeneficialSpell(spell_id) || is_tap_recourse) && !IsSummonPCSpell(spell_id) && !IsAEMemBlurSpell(spell_id) && !IsBindSightSpell(spell_id)
 		&& (!spelltar->IsPet() || spelltar->IsCharmedPet())											// no beneficial aggro for summoned pets

@@ -808,6 +808,8 @@ int EntityList::StackedMobsCount(Mob *center)
 // if attacker is null, then will try to use target or top hater
 void NPC::CallForHelp(Mob* attacker, bool ignoreTimer)
 {
+	if (attacker == this)
+		return;
 	if (IsPet())
 		return;
 
