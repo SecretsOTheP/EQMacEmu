@@ -2103,7 +2103,7 @@ const int32& Client::SetMana(int32 amount) {
 }
 
 void Client::SendManaUpdatePacket() {
-	if (!Connected() || IsCasting())
+	if (!Connected())
 		return;
 
 	if (last_reported_mana != cur_mana) {
