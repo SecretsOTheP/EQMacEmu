@@ -2131,6 +2131,8 @@ bool Mob::CheckHateSummon(Mob* summoned) {
 		return false;
 	}
 
+	if (summoned->IsClient() && summoned->CastToClient()->GetZoneMode() != ZoneUnsolicited) return false;
+
 	if (IsCharmedPet() || summoned->PermaRooted() || (summoned->IsNPC() && summoned->GetMaxHP() > 300000)) { // raid bosses may not have been summonable
 		return false;
 	}

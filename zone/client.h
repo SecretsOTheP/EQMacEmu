@@ -405,6 +405,7 @@ public:
 	inline PetInfo& GetPetInfo() { return m_petinfo; }
 	inline PetInfo& GetSuspendedPetInfo() { return m_suspendedminion; }
 	const std::vector<int16> &GetInventorySlots();
+	inline ZoneMode GetZoneMode() const { return zone_mode; }
 
 	bool CheckAccess(int16 iDBLevel, int16 iDefaultLevel);
 
