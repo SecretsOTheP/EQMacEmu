@@ -1093,7 +1093,9 @@ struct Stamina_Struct {
 /*00*/ int16 food;		// clamped to 0 - 32000
 /*02*/ int16 water;		// clamped to 0 - 32000
 /*04*/ int8 fatigue;	// clamped to 0 - 100
-/*05*/ //uint8 pad1[3];	// just alignment padding
+/*05*/ uint8 pad05;	// just alignment padding
+/*06*/ uint8 pad06;	// just alignment padding
+/*07*/ uint8 pad07;	// just alignment padding
 };
 
 /*

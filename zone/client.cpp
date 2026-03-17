@@ -2125,13 +2125,16 @@ void Client::SendManaUpdate()
 	FastQueuePacket(&mana_app);
 }
 
-void Client::SendStaminaUpdate()
+void Client::SendStaminaUpdate(bool is_client_tic)
 {
 	auto outapp = new EQApplicationPacket(OP_Stamina, sizeof(Stamina_Struct));
 	Stamina_Struct* sta = (Stamina_Struct*)outapp->pBuffer;
 	sta->food = m_pp.hunger_level;
 	sta->water = m_pp.thirst_level;
 	sta->fatigue = m_pp.fatigue;
+	sta->pad05 = 0;
+	sta->pad06 = 1;
+	sta->pad07 = is_client_tic;
 	//Message(MT_Broadcasts, "OP_Stamina hunger %d thirst %d fatigue %d timer duration %d remaining %d", (int)sta->food, (int)sta->water, (int)sta->fatigue, stamina_timer.GetDuration(), stamina_timer.GetRemainingTime());
 	QueuePacket(outapp);
 	safe_delete(outapp);

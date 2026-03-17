@@ -782,7 +782,7 @@ public:
 
 	void	SendManaUpdatePacket();
 	void	SendManaUpdate();
-	void	SendStaminaUpdate();
+	void	SendStaminaUpdate(bool is_client_tic = false);
 	uint8	GetFace()		const { return m_pp.face; }
 	void	WhoAll(Who_All_Struct* whom);
 	void	FriendsWho(char *FriendsString);

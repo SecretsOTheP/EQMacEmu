@@ -2184,7 +2184,7 @@ void Client::ProcessFatigue()
 	last_fatigue = GetFatigue();
 
 	CalcBonuses(); // STR/AGI/DEX depend on fatigue
-	SendStaminaUpdate();
+	SendStaminaUpdate(true);
 }
 
 void Client::AddWeaponAttackFatigue(const EQ::ItemInstance *weapon)
