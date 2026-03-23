@@ -241,6 +241,7 @@ void MapOpcodes()
 	ConnectedOpcodes[OP_ShopPlayerBuy] = &Client::Handle_OP_ShopPlayerBuy;
 	ConnectedOpcodes[OP_ShopPlayerSell] = &Client::Handle_OP_ShopPlayerSell;
 	ConnectedOpcodes[OP_ShopRequest] = &Client::Handle_OP_ShopRequest;
+	ConnectedOpcodes[OP_ShopPlayerRecharge] = &Client::Handle_OP_ShopPlayerRecharge;
 	ConnectedOpcodes[OP_Sneak] = &Client::Handle_OP_Sneak;
 	ConnectedOpcodes[OP_SpawnAppearance] = &Client::Handle_OP_SpawnAppearance;
 	ConnectedOpcodes[OP_Split] = &Client::Handle_OP_Split;
@@ -8996,6 +8997,104 @@ void Client::Handle_OP_ShopRequest(const EQApplicationPacket *app)
 	}
 
 	return;
+}
+
+void Client::Handle_OP_ShopPlayerRecharge(const EQApplicationPacket* app)
+{
+	if (app->size < sizeof(Merchant_Recharge_Struct)) {
+		Log(Logs::General, Logs::Error, "Wrong size: OP_ShopPlayerRecharge, size=%i, expected %i", app->size, sizeof(Merchant_Recharge_Struct));
+		return;
+	}
+
+	Merchant_Recharge_Struct* request = (Merchant_Recharge_Struct*)app->pBuffer;
+
+	auto returnapp = new EQApplicationPacket(OP_ShopPlayerRecharge, sizeof(Merchant_Recharge_Struct));
+	Merchant_Recharge_Struct* response = (Merchant_Recharge_Struct*)returnapp->pBuffer;
+	response->npcid = request->npcid;
+	response->playerid = GetID();
+	response->itemid = request->itemid;
+	response->charges = request->charges;
+	response->itemslot = -1; // default response: error
+	response->price = 0;
+
+	if (!ClientDataLoaded()) {
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	if ((request->itemslot < 1 || request->itemslot > 29) && (request->itemid < 250 || request->itemslot > 329))
+	{
+		Message(Chat::Red, "You cannot recharge the item in that slot.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	Mob* merchant = entity_list.GetMob(request->npcid);
+	if (merchant == nullptr || !merchant->IsNPC() || merchant->GetClass() != Class::Merchant || DistanceSquared(m_Position, merchant->GetPosition()) > USE_NPC_RANGE2)
+	{
+		Message(Chat::Red, "You cannot recharge at this merchant.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	if (database.ItemQuantityType(request->itemid) != EQ::item::Quantity_Charges)
+	{
+		Message(Chat::Red, "You cannot recharge this item.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	EQ::ItemInstance* inst = GetInv().GetItem(request->itemslot);
+	if (!inst || !inst->GetItem() || !inst->GetItem()->NoDrop || inst->GetItem()->MaxCharges < 1)
+	{
+		Message(Chat::Red, "You cannot recharge this item.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	const EQ::ItemData* item = inst->GetItem();
+	if (inst->GetID() != request->itemid || inst->GetCharges() != request->charges || inst->GetCharges() >= item->MaxCharges) {
+		Message(Chat::Red, "Error: Your item did not match the server inventory state.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+	
+	float price_mod = CalcPriceMod(merchant);
+	uint64 BuyPrice = static_cast<uint64>((item->Price * item->SellRate * price_mod) + 0.5f);
+	uint64 SellPrice = static_cast<uint64>((item->Price / price_mod) + 0.5f);
+	uint64 RechargeBasePrice = BuyPrice > SellPrice ? BuyPrice - SellPrice : 1;
+
+	bool first_recharge = recharged_item_ids.count(request->itemid) == 0;
+	uint64 Price = RechargeBasePrice;
+	if (first_recharge) {
+		Price += RechargeBasePrice;
+	}
+
+	if (Price >= 0x7FFFFFFF || !TakeMoneyFromPP(Price)) {
+		Message(Chat::Red, "You cannot afford to recharge that item.");
+		QueuePacket(returnapp);
+		safe_delete(returnapp);
+		return;
+	}
+
+	// success
+	recharged_item_ids[request->itemid] = true;
+	response->price = Price;
+	response->itemslot = request->itemslot;
+	response->charges = item->MaxCharges;
+
+	inst->SetCharges(item->MaxCharges);
+	database.SaveCharacterCurrency(character_id, &m_pp);
+	database.SaveInventory(account_id, character_id, inst, request->itemslot);
+
+	QueuePacket(returnapp);
+	safe_delete(returnapp);
 }
 
 void Client::Handle_OP_Sneak(const EQApplicationPacket *app)

@@ -1655,6 +1655,7 @@ private:
 
 	uint8 m_shared_bank_bags_count = 0;
 	uint8 m_shared_bank_mode = 0; // 0 = Disabled, 1 = Enabled, 2 = Disabled (Self-Found error msg)
+	std::unordered_map<WORD, bool> recharged_item_ids; // Items recharged while in this zone (eligible for bulk discount)
 };
 
 #endif

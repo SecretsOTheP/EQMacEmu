@@ -1414,6 +1414,15 @@ struct Merchant_Purchase_Struct {
 /*012*/	uint32	price;
 };
 
+struct Merchant_Recharge_Struct {
+/*000*/ uint16 npcid;          // [req/resp] Merchant NPC's entity id
+/*002*/ uint16 playerid;       // [req/resp] Player's entity id (Ignored)
+/*004*/ int16  itemslot;       // [req/resp] Inventory slot to recharge (1-29 or 250-329). Negative value in response indicates error.
+/*006*/ uint16 itemid;         // [req] Item to expect in itemslot        [resp] Item to expect in itemslot
+/*008*/ uint32 price;          // [req] Ignored                           [resp] The recharge cost
+/*012*/ int8   charges;        // [req] Charges to expect in itemslot     [resp] The new charges on success
+};
+
 struct OldMerchant_Purchase_Struct {
 /*000*/	uint16	npcid;			// Merchant NPC's entity id
 /*002*/ uint16  playerid;

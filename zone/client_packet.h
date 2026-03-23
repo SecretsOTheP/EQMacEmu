@@ -143,6 +143,7 @@
 	void Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app);
 	void Handle_OP_ShopPlayerSell(const EQApplicationPacket *app);
 	void Handle_OP_ShopRequest(const EQApplicationPacket *app);
+	void Handle_OP_ShopPlayerRecharge(const EQApplicationPacket* app);
 	void Handle_OP_Sneak(const EQApplicationPacket *app);
 	void Handle_OP_SpawnAppearance(const EQApplicationPacket *app);
 	void Handle_OP_Split(const EQApplicationPacket *app);

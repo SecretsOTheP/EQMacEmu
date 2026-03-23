@@ -346,6 +346,7 @@ luabind::scope lua_register_packet_opcodes() {
 			luabind::value("TradeSkillCombine", static_cast<int>(OP_TradeSkillCombine)),
 			luabind::value("ShopPlayerBuy", static_cast<int>(OP_ShopPlayerBuy)),
 			luabind::value("ShopPlayerSell", static_cast<int>(OP_ShopPlayerSell)),
+			luabind::value("ShopPlayerRecharge", static_cast<int>(OP_ShopPlayerRecharge)),
 			luabind::value("ShopDelItem", static_cast<int>(OP_ShopDelItem)),
 			luabind::value("ShopRequest", static_cast<int>(OP_ShopRequest)),
 			luabind::value("ShopEnd", static_cast<int>(OP_ShopEnd)),
