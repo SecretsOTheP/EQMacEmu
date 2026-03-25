@@ -918,8 +918,8 @@ bool Client::CheckFizzle(uint16 spell_id)
 		{
 			spellFizzleAdjustment = 0;
 		}
-		// for PAL/RNG/SHD class the fizzle adjustment is overriden for spells 41+ instead
-		if ((GetClass() == Class::Paladin || GetClass() == Class::Ranger || GetClass() == Class::ShadowKnight) && spellLevel > 40)
+		// for PAL/RNG/SHD/BST class the fizzle adjustment is overriden for spells 41+ instead
+		if ((GetClass() == Class::Paladin || GetClass() == Class::Ranger || GetClass() == Class::ShadowKnight || GetClass() == Class::Beastlord) && spellLevel > 40)
 		{
 			spellFizzleAdjustment = 0;
 		}
