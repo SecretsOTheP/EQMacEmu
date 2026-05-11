@@ -233,92 +233,12 @@ void set_exception_handler() {
 #include <sys/stat.h>
 #endif
 
-void print_trace()
-{
-	bool does_gdb_exist = Strings::Contains(Process::execute("gdb -v"), "GNU");
-	if (!does_gdb_exist) {
-		LogCrash(
-			"[Error] GDB is not installed, if you want crash dumps on Linux to work properly you will need GDB installed"
-		);
-		std::exit(1);
-	}
-
-	auto        uid = geteuid();
-	std::string temp_output_file = fmt::format("/tmp/dump-output-{}", Strings::Random(10));
-
-	// check for passwordless sudo if not root
-	if (uid != 0) {
-		bool sudo_password_required = Strings::Contains(Process::execute("sudo -n true"), "a password is required");
-		if (sudo_password_required) {
-			LogCrash(
-				"[Error] Current user does not have passwordless sudo installed. It is required to automatically process crash dumps with GDB as non-root."
-			);
-			std::exit(1);
-		}
-	}
-
-	char pid_buf[30];
-	sprintf(pid_buf, "%d", getpid());
-	char name_buf[512];
-	name_buf[readlink("/proc/self/exe", name_buf, 511)] = 0;
-	int child_pid = fork();
-	if (!child_pid) {
-		int fd = open(temp_output_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-		dup2(fd, 1); // redirect output to stderr
-		fprintf(stdout, "stack trace for %s pid=%s\n", name_buf, pid_buf);
-		char gcore[512] = "";
-		if (RuleB(Analytics, GenerateCore)) {
-			char hostname[64];
-			gethostname(hostname, 64);
-			hostname[63] = 0;
-			snprintf(gcore, 512, "gcore core.%s.%s.%s.%lu", basename(name_buf), pid_buf, hostname, (unsigned long)time(NULL));
-		}
-		if (uid == 0) {
-			if (strlen(gcore)) {
-				execlp("gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", "-ex", gcore, name_buf, pid_buf, NULL);
-			}
-			else {
-				execlp("gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", name_buf, pid_buf, NULL);
-			}
-		}
-		else {
-			if (strlen(gcore)) {
-				execlp("sudo", "gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", "-ex", gcore, name_buf, pid_buf, NULL);
-			}
-			else {
-				execlp("sudo", "gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", name_buf, pid_buf, NULL);
-			}
-		}
-
-		close(fd);
-
-		abort(); /* If gdb failed to start */
-	}
-
-	std::ifstream    input(temp_output_file);
-	std::string      crash_report;
-	for (std::string line; getline(input, line);) {
-		LogCrash("{}", line);
-		crash_report += fmt::format("{}\n", line);
-	}
-
-	std::remove(temp_output_file.c_str());
-
-	if (RuleB(Analytics, CrashReporting)) {
-		SendCrashReport(crash_report);
-	}
-
-	LogSys.CloseFileLogs();
-
-	exit(1);
-}
-
 // crash is off or an unhandled platform
 void set_exception_handler()
 {
-	signal(SIGABRT, reinterpret_cast<void (*)(int)>(print_trace));
-	signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
-	signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
-	signal(SIGSEGV, reinterpret_cast<void (*)(int)>(print_trace));
+	//signal(SIGABRT, reinterpret_cast<void (*)(int)>(print_trace));
+	//signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
+	//signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
+	//signal(SIGSEGV, reinterpret_cast<void (*)(int)>(print_trace));
 }
 #endif
