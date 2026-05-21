@@ -1962,48 +1962,64 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 				break;
 			}
 
-			case SE_SummonPC:
-			{
-				if (IsClient())
-				{
-					if (GetPet())
-					{
-						if (!GetPet()->IsCharmedPet())
-						{
-							if (spell_id == SPELL_CALL_OF_THE_HERO)
-							{
-								DepopPet();
-							}
-						}
-						else
-						{
-							FadePetCharmBuff();
-						}
-					}
+case SE_SummonPC:
+            {
+                if (IsClient())
+                {
+                    if (GetPet())
+                    {
+                        if (GetPet()->IsCharmedPet())
+                        {
+                            FadePetCharmBuff();
+                        }
+                    }
 
-					glm::vec3 caster_pos(caster->GetX(), caster->GetY(), caster->GetZ());
-					glm::vec3 pos(GetX(), GetY(), GetZ());
-					auto diff = pos - caster_pos;
-					float curdist = diff.x * diff.x + diff.y * diff.y;
+                    glm::vec3 caster_pos(caster->GetX(), caster->GetY(), caster->GetZ());
+                    glm::vec3 pos(GetX(), GetY(), GetZ());
+                    auto diff = pos - caster_pos;
+                    float curdist = diff.x * diff.x + diff.y * diff.y;
 
-					if (curdist > 10000)
-					{
-						entity_list.ClearAggro(this);
-						if (IsClient())
-							CastToClient()->m_client_npc_aggro_scan_timer.Reset(); // prevent mobs from immediately reaggroing before player is actually moved
-					}
-					else if (caster != this)
-					{
-						entity_list.AddHealAggro(this, caster, CheckHealAggroAmount(spell_id, this, (GetMaxHP() - GetHP())));
-					}
+                    Mob* mypet = GetPet();
+                    if (curdist > 10000)
+                    {                
+                        if (spell_id == SPELL_CALL_OF_THE_HERO)
+                        {
+                            if(mypet && mypet->IsNPC() && !GetPet()->IsCharmedPet())
+                            {
+                                mypet->InterruptSpell();
+                                mypet->WipeHateList();
+                                mypet->SetTarget(nullptr);
+                                entity_list.ClearAggro(mypet);
+                            }
+                        }
+                        
+                        entity_list.ClearAggro(this);
+                        
+                        if (IsClient())
+                            CastToClient()->m_client_npc_aggro_scan_timer.Reset(); // prevent mobs from immediately reaggroing before player is actually moved
+                            
+                    }
+                    else if (caster != this)
+                    {
+                        entity_list.AddHealAggro(this, caster, CheckHealAggroAmount(spell_id, this, (GetMaxHP() - GetHP())));
+                    }
 
-					CastToClient()->MovePCGuildID(zone->GetZoneID(), zone->GetGuildID(), caster->GetX(), caster->GetY(), caster->GetZ(), caster->GetHeading(), 2, SummonPC);
-				}
-				else
-					caster->Message(Chat::Red, "This spell can only be cast on players.");
+                    CastToClient()->MovePCGuildID(zone->GetZoneID(), zone->GetGuildID(), caster->GetX(), caster->GetY(), caster->GetZ(), caster->GetHeading(), 2, SummonPC);
+                    
+                    if (spell_id == SPELL_CALL_OF_THE_HERO)
+                    {
+                        if(mypet && mypet->IsNPC() && !GetPet()->IsCharmedPet())
+                        {
+                            mypet->CastToNPC()->GMMove(GetX(), GetY(), GetZ(), GetHeading());
+                        }
+                    }
+                    
+                }
+                else
+                    caster->Message(Chat::Red, "This spell can only be cast on players.");
 
-				break;
-			}
+                break;
+            }
 
 			case SE_Silence:
 			{
