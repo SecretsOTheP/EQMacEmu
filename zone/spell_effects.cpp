@@ -1968,14 +1968,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 				{
 					if (GetPet())
 					{
-						if (!GetPet()->IsCharmedPet())
-						{
-							if (spell_id == SPELL_CALL_OF_THE_HERO)
-							{
-								DepopPet();
-							}
-						}
-						else
+						if (GetPet()->IsCharmedPet())
 						{
 							FadePetCharmBuff();
 						}
@@ -1986,18 +1979,46 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 					auto diff = pos - caster_pos;
 					float curdist = diff.x * diff.x + diff.y * diff.y;
 
+					Mob* mypet = GetPet();
 					if (curdist > 10000)
-					{
+					{				
+						if (spell_id == SPELL_CALL_OF_THE_HERO)
+						{
+							if(mypet && mypet->IsNPC() && !GetPet()->IsCharmedPet())
+							{
+								mypet->InterruptSpell();
+								mypet->WipeHateList();
+								mypet->SetTarget(nullptr);
+								entity_list.ClearAggro(mypet);
+							}
+						}
+						
 						entity_list.ClearAggro(this);
+						
 						if (IsClient())
 							CastToClient()->m_client_npc_aggro_scan_timer.Reset(); // prevent mobs from immediately reaggroing before player is actually moved
+							
 					}
 					else if (caster != this)
 					{
 						entity_list.AddHealAggro(this, caster, CheckHealAggroAmount(spell_id, this, (GetMaxHP() - GetHP())));
 					}
-
+					
+					if (mypet)
+					{
+						mypet->SetPetOrder(SPO_Follow); //must be set before player or pet teleports
+					}
+					
 					CastToClient()->MovePCGuildID(zone->GetZoneID(), zone->GetGuildID(), caster->GetX(), caster->GetY(), caster->GetZ(), caster->GetHeading(), 2, SummonPC);
+					
+					if (spell_id == SPELL_CALL_OF_THE_HERO)
+					{
+						if(mypet && mypet->IsNPC() && !GetPet()->IsCharmedPet())
+						{
+							mypet->CastToNPC()->GMMove(caster->GetX()+1, caster->GetY()+1, caster->GetZ(), caster->GetHeading());
+						}
+					}
+					
 				}
 				else
 					caster->Message(Chat::Red, "This spell can only be cast on players.");
