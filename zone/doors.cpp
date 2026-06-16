@@ -568,41 +568,7 @@ bool Doors::DoorKeyCheck(Client* sender, uint32& key)
 
 				return true;
 			}
-		} else if (lock_pick_item != nullptr) {
-			if (sender->GetSkill(EQ::skills::SkillPickLock)) {
-				if (lock_pick_item->GetItem()->ItemType == EQ::item::ItemTypeLockPick) {
-					float modskill = sender->GetSkill(EQ::skills::SkillPickLock);
-
-					// Lockpicks will be on the cursor and not equipped, so we need to manually get any skillmod they may have.
-					if (lock_pick_item->GetItem()->SkillModType == EQ::skills::SkillPickLock) {
-						modskill += modskill * (static_cast<float>(lock_pick_item->GetItem()->SkillModValue) / 100.0);
-						if (modskill > HARD_SKILL_CAP) {
-							modskill = HARD_SKILL_CAP;
-						}
-					}
-
-					Log(Logs::General, Logs::Skills, "Client has lockpicks: skill=%f", modskill);
-
-					if (GetLockpick() <= modskill) {
-						if (!IsDoorOpen()) {
-							sender->CheckIncreaseSkill(EQ::skills::SkillPickLock, nullptr, zone->skill_difficulty[EQ::skills::SkillPickLock].difficulty[sender->GetClass()]);
-						}
-						sender->Message_StringID(Chat::LightBlue, StringID::DOORS_SUCCESSFUL_PICK);
-						return true;
-					} else {
-						sender->Message_StringID(Chat::LightBlue, StringID::DOORS_INSUFFICIENT_SKILL);
-						return false;
-					}
-				} else {
-					sender->Message_StringID(Chat::LightBlue, StringID::DOORS_NO_PICK);
-					return false;
-				}
-			} else {
-				sender->Message_StringID(Chat::LightBlue, StringID::DOORS_CANT_PICK);
-				return false;
-			}
-		} else {	// locked door and nothing to open it with
-			// search for key on keyring
+		} else {
 			uint32 key_ring = 0;
 			if (sender->KeyRingCheck(required_key_item)) {
 				key_ring = required_key_item;
@@ -613,6 +579,39 @@ bool Doors::DoorKeyCheck(Client* sender, uint32& key)
 			if (key_ring > 0) {
 				key = key_ring;
 				return true;
+			} else if (lock_pick_item != nullptr) {
+				if (sender->GetSkill(EQ::skills::SkillPickLock)) {
+					if (lock_pick_item->GetItem()->ItemType == EQ::item::ItemTypeLockPick) {
+						float modskill = sender->GetSkill(EQ::skills::SkillPickLock);
+
+						// Lockpicks will be on the cursor and not equipped, so we need to manually get any skillmod they may have.
+						if (lock_pick_item->GetItem()->SkillModType == EQ::skills::SkillPickLock) {
+							modskill += modskill * (static_cast<float>(lock_pick_item->GetItem()->SkillModValue) / 100.0);
+							if (modskill > HARD_SKILL_CAP) {
+								modskill = HARD_SKILL_CAP;
+							}
+						}
+
+						Log(Logs::General, Logs::Skills, "Client has lockpicks: skill=%f", modskill);
+
+						if (GetLockpick() <= modskill) {
+							if (!IsDoorOpen()) {
+								sender->CheckIncreaseSkill(EQ::skills::SkillPickLock, nullptr, zone->skill_difficulty[EQ::skills::SkillPickLock].difficulty[sender->GetClass()]);
+							}
+							sender->Message_StringID(Chat::LightBlue, StringID::DOORS_SUCCESSFUL_PICK);
+							return true;
+						} else {
+							sender->Message_StringID(Chat::LightBlue, StringID::DOORS_INSUFFICIENT_SKILL);
+							return false;
+						}
+					} else {
+						sender->Message_StringID(Chat::LightBlue, StringID::DOORS_NO_PICK);
+						return false;
+					}
+				} else {
+					sender->Message_StringID(Chat::LightBlue, StringID::DOORS_CANT_PICK);
+					return false;
+				}
 			} else {
 				sender->Message_StringID(Chat::LightBlue, StringID::DOORS_LOCKED);
 				return false;
