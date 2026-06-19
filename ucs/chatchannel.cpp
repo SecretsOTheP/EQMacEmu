@@ -765,7 +765,7 @@ int32	EncodeDiscordChatItemLinkMsg(char *Parms, char *Msg, char **Ret) {
 			if (in_link) {
 				// we finished an item link
 				// "](https://www.pqdi.cc/item/"
-				New.append("(https://www.pqdi.cc/item/");
+				New.append("](https://www.pqdi.cc/item/");
 				New.append(itemid);
 				New.append(")");
 				finished_link = true;
