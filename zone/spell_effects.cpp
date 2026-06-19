@@ -1335,6 +1335,8 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, int buffslot, int caster_lev
 #endif
 				if (buffslot < 0)
 					break;
+				if (current_buff_refresh && caster == this && IsPlayerIllusionSpell(spell_id))
+					break;
 				ApplyIllusion(spell, i, caster);
 
 				for (int x = EQ::textures::textureBegin; x <= EQ::textures::LastTintableTexture; x++)

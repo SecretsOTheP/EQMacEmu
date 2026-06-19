@@ -3445,7 +3445,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 		CastToClient()->ApplyDurationFocus(spell_id, buffslot, spelltar, isrecourse ? recourse_spell_level : caster_spell_level);
 	}
 
-	if (IsClient() && IsSpecialDurationSpell(spell_id))
+	if (IsClient() && (IsSpecialDurationSpell(spell_id) || (current_buff_refresh && IsPlayerIllusionSpell(spell_id))))
 	{
 		int buff_count = GetMaxTotalSlots();
 		for (int i = 0; i < buff_count; ++i)

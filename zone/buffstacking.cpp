@@ -1263,6 +1263,18 @@ bool Mob::AssignBuffSlot(Mob *caster, uint16 spell_id, int &buffslot, int &caste
 			return false;
 		}
 
+		// Self player illusion refresh: update duration only, avoid OP_Action and buff field reset
+		if (caster == this && IsPlayerIllusionSpell(spell_id)
+		    && buffs[slot].spellid == spell_id && buffs[slot].casterid == caster->GetID())
+		{
+			buffslot = slot;
+			buffs[slot].casterlevel = caster_level;
+			buffs[slot].realcasterlevel = caster->GetLevel();
+			buffs[slot].ticsremaining = duration + 1;
+			CalcBonuses();
+			return true;
+		}
+
 		// FindAffectSlot removes the buff it's overwriting in the buffs[] array but doesn't send a packet to the client.
 		// The expectation is that our FindAffectSlot behaves identically to the client so that the slot number we just computed
 		// is where the client will put the buff when we send the action packet to it.
