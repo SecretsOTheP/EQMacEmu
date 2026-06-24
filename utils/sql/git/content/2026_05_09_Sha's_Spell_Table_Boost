@@ -7,6 +7,8 @@ Increased probability from Cursed Cycle, Arch Lich, Creator, High Priest, and Sh
 Feel free to adjust values as you see fit.
 
 Also sneaking in an update to the Everlasting Breath spell to make it drop the same rate as it's same level counterpart Levitation. Update from 1% drop to 75% drop.
+
+Also sneaking in an update to the Dementing Visions spell to make it drop 100% up from 10% from King Tormax/Aaryonare.
 /*
 
 UPDATE 'loottable_entries' SET 'probability'=100 WHERE  'loottable_id'=96588 AND 'lootdrop_id'=114676;
@@ -19,3 +21,4 @@ UPDATE 'loottable_entries' SET 'probability'=50 WHERE  'loottable_id'=96684 AND 
 UPDATE 'loottable_entries' SET 'probability'=50 WHERE  'loottable_id'=96682 AND 'lootdrop_id'=114676;
 UPDATE 'loottable_entries' SET 'probability'=100 WHERE  'loottable_id'=91472 AND 'lootdrop_id'=114676;
 UPDATE `lootdrop_entries` SET `chance`='75' WHERE  `lootdrop_id`=113979 AND `item_id`=19523;
+UPDATE `lootdrop_entries` SET `chance`='100' WHERE  `lootdrop_id`=12026 AND `item_id`=19481;
