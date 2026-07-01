@@ -12,6 +12,7 @@ Also wanting to update some other Velious spells with very low drop chance. Deme
 Conglacion of Bone to make it drop 75% up from 10% from Vindi/Jorlleag. 
 Primal Avatar to make it drop 25% from ST bosses instead of 5%.
 Dead Men Floating to make it 100% from Arch Inspector instead of 5%.
+Garrison's Superior Sundering to make it 100% from Emperor instead of 50%.
 /*
 
 UPDATE 'loottable_entries' SET 'probability'=100 WHERE  'loottable_id'=96588 AND 'lootdrop_id'=114676;
@@ -28,3 +29,4 @@ UPDATE `lootdrop_entries` SET `chance`='100' WHERE  `lootdrop_id`=12026 AND `ite
 UPDATE `lootdrop_entries` SET `chance`='100' WHERE  `lootdrop_id`=112800 AND `item_id`=19480;
 UPDATE `lootdrop_entries` SET `chance`='25' WHERE  `lootdrop_id`=112819 AND `item_id`=19491;
 UPDATE `lootdrop_entries` SET `chance`='100' WHERE  `lootdrop_id`=109187 AND `item_id`=19495;
+UPDATE `lootdrop_entries` SET `chance`='100' WHERE  `lootdrop_id`=115,083 AND `item_id`=19526;
