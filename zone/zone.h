@@ -206,6 +206,11 @@ public:
 
 	uint32 GetZoneKickTimer() { return zone_kick_timer; }
 
+	void ReloadZoneKickTimer()
+	{
+		LoadZoneKickTimer(GetShortName());
+	}
+
 	bool	Process();
 	void	Despawn(uint32 spawngroupID);
 	bool	ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db = false);

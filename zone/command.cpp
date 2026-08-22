@@ -242,6 +242,7 @@ int command_init(void)
 
 		command_add("keyring", "Displays target's keyring items.", AccountStatus::EQSupport, command_keyring) ||
 		command_add("kick", "[charname] - Disconnect charname.", AccountStatus::EQSupport, command_kick) ||
+		command_add("kicktimer", "[zone_short_name] [minutes] - Set a zone time limit. Use 0 to disable.", AccountStatus::EQSupport, command_kicktimer) ||
 		command_add("kill", "Kill your target.", AccountStatus::GMLeadAdmin, command_kill) ||
 
 		command_add("leaderboard", "[SFHC|SSFHC|SFHCOnly|HC] - List hardcore leaderboard.", AccountStatus::Player, command_leaderboard) ||
@@ -988,6 +989,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/iteminfo.cpp"
 #include "gm_commands/keyring.cpp"
 #include "gm_commands/kick.cpp"
+#include "gm_commands/kicktimer.cpp"
 #include "gm_commands/kill.cpp"
 #include "gm_commands/leaderboard.cpp"
 #include "gm_commands/list.cpp"

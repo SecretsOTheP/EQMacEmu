@@ -223,6 +223,7 @@
 #define ServerOP_ReloadKeyRings 0x4123
 #define ServerOP_ReloadFactions 0x4124
 #define ServerOP_ReloadSkillCaps 0x4125
+#define ServerOP_ReloadZoneKickTimer 0x4126
 
 /* Query Server OP Codes */
 #define ServerOP_QSPlayerLogItemDeletes				0x5013
@@ -1290,6 +1291,10 @@ struct CZSetEntVarByNPCTypeID_Struct {
 
 struct ReloadWorld_Struct{
 	uint8 global_repop;
+};
+
+struct ReloadZoneKickTimer_Struct {
+        char zone_short_name[64];
 };
 
 struct HotReloadQuestsStruct {

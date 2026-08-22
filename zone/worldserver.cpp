@@ -2801,6 +2801,31 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			}
 			break;
 		}
+            case ServerOP_ReloadZoneKickTimer: {
+                    auto* reload = (ReloadZoneKickTimer_Struct*)pack->pBuffer;
+
+                    if (
+                            zone &&
+                            zone->IsLoaded() &&
+                            !strcasecmp(
+                                    zone->GetShortName(),
+                                    reload->zone_short_name
+                            )
+                    ) {
+                            zone->ReloadZoneKickTimer();
+
+                            for (auto &entry : entity_list.GetClientList()) {
+                                    Client *client = entry.second;
+
+                                    if (client) {
+                                            client->OnAFKTimerChanged();
+                                    }
+                            }
+                    }
+
+                    break;
+            }
+
 		case ServerOP_ReloadZoneData: {
 			zone_store.LoadZones(database);
 			database.LoadZoneNames();
