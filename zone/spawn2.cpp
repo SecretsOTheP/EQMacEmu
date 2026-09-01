@@ -87,7 +87,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 
 		//no timeleft at all, reset to
 		if (cur == 0)
-			cur = resetTimer();
+			cur = resetTimer(true);
 
 		timer.Start(cur);
 		timer.Trigger();
@@ -98,8 +98,16 @@ Spawn2::~Spawn2()
 {
 }
 
-uint32 Spawn2::resetTimer()
+uint32 Spawn2::resetTimer(bool quake_repop)
 {
+	// Guild 1 raid targets are repopped by the quake system. Keep defeated
+	// targets dormant between quakes while preserving normal guild-instance
+	// overrides for Guild 2 and above.
+	if (!quake_repop && zone && zone->GetGuildID() == 1 && raid_target_spawnpoint)
+	{
+		return UINT_MAX;
+	}
+
 	uint32 rspawn = respawn_ * 1000;
 
 	if (variance_ != 0) {
@@ -549,7 +557,7 @@ void Spawn2::DeathReset(bool realdeath)
 void Spawn2::QuakeReset()
 {
 	//get our reset based on variance etc and store it locally
-	uint32 cur = resetTimer();
+	uint32 cur = resetTimer(true);
 	//set our timer to our reset local
 	timer.Start(cur);
 
