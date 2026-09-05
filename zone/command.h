@@ -179,6 +179,7 @@ void command_profanity(Client* c, const Seperator* sep);
 void command_push(Client* c, const Seperator* sep);
 void command_qtest(Client* c, const Seperator* sep);
 void command_quaketrigger(Client* c, const Seperator* sep);
+void command_pvpzone(Client* c, const Seperator* sep);
 void command_raidaccept(Client* c, const Seperator* sep);
 void command_raidinvite(Client* c, const Seperator* sep);
 void command_raidloot(Client* c, const Seperator* sep);

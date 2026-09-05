@@ -190,6 +190,21 @@ uint32 Spawn2::despawnTimer(uint32 despawn_timer)
 bool Spawn2::Process() {
 	IsDespawned = false;
 
+	if (raid_target_spawnpoint && zone && !zone->GuildOneRaidWindowOpen()) {
+		if (npcthis) {
+			npcthis->Depop(false);
+		}
+		return true;
+	}
+
+	// Raid targets suppressed outside their Guild 1 window have no active
+	// timer. Wake only those dormant spawnpoints when timed raid spawns are
+	// later enabled; normal death/respawn timers remain untouched.
+	if (raid_target_spawnpoint && zone && zone->GetGuildID() == 1 &&
+		zone->GuildOneTimedRaidSpawnsEnabled() && !NPCPointerValid() && !timer.Enabled()) {
+		timer.Start(1);
+	}
+
 	if(!Enabled())
 		return true;
 

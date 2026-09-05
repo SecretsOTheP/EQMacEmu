@@ -296,6 +296,7 @@ int command_init(void)
 
 		command_add("qtest", "QueryServ testing command.", AccountStatus::GMTester, command_qtest) ||
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
+		command_add("pvpzone", "Manage PVP zone access, loot, and experience bonuses.", AccountStatus::GMAdmin, command_pvpzone) ||
 
 		command_add("ra", "[playername] - Alias for #raidaccept.", AccountStatus::Player, command_raidaccept) ||
 		command_add("raidaccept", "- Accept a pending cross-zone raid invite", AccountStatus::Player, command_raidaccept) ||

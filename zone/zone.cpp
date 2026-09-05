@@ -1626,16 +1626,19 @@ bool Zone::Process() {
 
 	if (EndQuake_Timer->Check())
 	{
-		uint32 cur_time = Timer::GetTimeSeconds();
-		bool should_broadcast_notif = zone->IsPVPZone();
-		if (should_broadcast_notif)
-		{
-			entity_list.Message(Chat::Default, Chat::Yellow, "The earthquake has concluded.");
-		}
+		const bool clear_guild_one_raids =
+			zone->IsPVPZone() &&
+			zone->GetGuildID() == 1 &&
+			!zone->GuildOneTimedRaidSpawnsEnabled();
 		//entity_list.TogglePVPForQuake();
 		EndQuake_Timer->Disable();
 		memset(&last_quake_struct, 0, sizeof(ServerEarthquakeImminent_Struct));
 
+		if (clear_guild_one_raids) {
+			entity_list.Message(Chat::Default, Chat::Yellow, "Druzzil Ro's magic begins to fade. Time and space are once again whole. Creatures in PVP have despawned.");
+			Repop();
+			ZoneReload::HotReloadQuests();
+		}
 	}
 
 	if(qGlobals)
@@ -1957,21 +1960,41 @@ bool Zone::GuildOneTimedRaidSpawnsEnabled()
 
 	const uint32 now = Timer::GetTimeSeconds();
 	if (guild_one_raid_tier_refresh == 0 || now >= guild_one_raid_tier_refresh) {
-		const auto tier = Strings::ToLower(DataBucket::GetData("pvpzone_raid_spawn_tier"));
-		if (tier == "pop") {
-			guild_one_raid_tier = static_cast<int>(Expansion::ExpansionNumber::ThePlanesOfPower);
-		} else if (tier == "luclin") {
-			guild_one_raid_tier = static_cast<int>(Expansion::ExpansionNumber::TheShadowsOfLuclin);
-		} else {
-			guild_one_raid_tier = -1;
-		}
+		const auto active = "," + Strings::ToLower(DataBucket::GetData("pvpzone_active_shortnames")) + ",";
+		const auto timed = "," + Strings::ToLower(DataBucket::GetData("pvpzone_timed_raid_shortnames")) + ",";
+		const auto needle = "," + Strings::ToLower(GetShortName()) + ",";
+		guild_one_raid_tier = active.find(needle) != std::string::npos && timed.find(needle) != std::string::npos ? 1 : -1;
 		guild_one_raid_tier_refresh = now + 5;
 	}
 
-	const int zone_expansion = static_cast<int>(GetZoneExpansion());
-	return guild_one_raid_tier >= 0
-		&& zone_expansion >= static_cast<int>(Expansion::ExpansionNumber::Classic)
-		&& zone_expansion <= guild_one_raid_tier;
+	return guild_one_raid_tier >= 0;
+}
+
+bool Zone::GuildOneRaidWindowOpen()
+{
+	if (GetGuildID() != 1) {
+		return true;
+	}
+	if (GuildOneTimedRaidSpawnsEnabled()) {
+		return true;
+	}
+	if (!RuleB(Quarm, EnableQuakes)) {
+		return false;
+	}
+	const uint32 now = Timer::GetTimeSeconds();
+	if (guild_one_quake_refresh == 0 || now >= guild_one_quake_refresh) {
+		ServerEarthquakeImminent_Struct quake = {};
+		database.LoadQuakeData(quake);
+		// Keep a previously valid deadline if the database read fails.
+		if (quake.start_timestamp != 0) {
+			guild_one_quake_start = quake.start_timestamp;
+		}
+		guild_one_quake_refresh = now + 30;
+	}
+	// Absolute deadline: zoning, combat, damage and scripted phase changes
+	// must not extend a quake's eight-hour raid window.
+	return guild_one_quake_start != 0 && now >= guild_one_quake_start
+		&& (now - guild_one_quake_start) < static_cast<uint32>(RuleI(Quarm, QuakeEndTimeDuration));
 }
 
 bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db)

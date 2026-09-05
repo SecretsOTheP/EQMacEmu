@@ -313,9 +313,6 @@ public:
 	bool	IsWaterZone(float z);
 	bool	ZoneWillNotIdle() { return newzone_data.never_idle; };
 	bool	IsIdling() { return (idle || (numclients <= 0 && ZoneWillNotIdle())); };
-	bool	GuildOneTimedRaidSpawnsEnabled();
-	int guild_one_raid_tier = -1;
-	uint32 guild_one_raid_tier_refresh = 0;
 	inline	bool BuffTimersSuspended() const { return newzone_data.SuspendBuffs != 0; };
 
 	std::vector<GridRepository::Grid> grids;
@@ -332,6 +329,12 @@ public:
 	ServerEarthquakeImminent_Struct last_quake_struct;
 	ServerEarthquakeImminent_Struct cached_quake_struct;
 	Timer*	EndQuake_Timer;
+	bool GuildOneTimedRaidSpawnsEnabled();
+	bool GuildOneRaidWindowOpen();
+	uint32 guild_one_quake_start = 0;
+	uint32 guild_one_quake_refresh = 0;
+	int guild_one_raid_tier = -1;
+	uint32 guild_one_raid_tier_refresh = 0;
 
 	uint8 loglevelvar;
 	uint8 merchantvar;
