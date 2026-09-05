@@ -2821,6 +2821,12 @@ bool Mob::AddRampage(Mob *mob)
 	if (!GetSpecialAbility(SpecialAbility::Rampage))
 		return false;
 
+	if (RampageArray.size() < 256)
+	{
+		RampageArray.push_back(mob->GetID());
+		return true;
+	}
+
 	int firsthole = -1;
 	for (int i = 0; i < RampageArray.size(); i++) {
 		// in case entity isn't removed from list when it should be
