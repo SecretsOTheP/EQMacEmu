@@ -103,7 +103,7 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	// Guild 1 raid targets are repopped by the quake system. Keep defeated
 	// targets dormant between quakes while preserving normal guild-instance
 	// overrides for Guild 2 and above.
-	if (!quake_repop && zone && zone->GetGuildID() == 1 && raid_target_spawnpoint)
+	if (!quake_repop && zone && zone->GetGuildID() == 1 && raid_target_spawnpoint && !zone->GuildOneTimedRaidSpawnsEnabled())
 	{
 		return UINT_MAX;
 	}
@@ -197,7 +197,7 @@ bool Spawn2::Process() {
 		return true;
 	}
 
-	if (!RuleB(Quarm, EnableQuakes) && raid_target_spawnpoint && zone->GetGuildID() == 1) {
+	if (!RuleB(Quarm, EnableQuakes) && raid_target_spawnpoint && zone->GetGuildID() == 1 && !zone->GuildOneTimedRaidSpawnsEnabled()) {
 		return true;
 	}
 
@@ -270,7 +270,7 @@ bool Spawn2::Process() {
 			return true;
 		}
 
-		if (!RuleB(Quarm, EnableQuakes) && raid_target_spawnpoint && zone->GetGuildID() == 1) {
+		if (!RuleB(Quarm, EnableQuakes) && raid_target_spawnpoint && zone->GetGuildID() == 1 && !zone->GuildOneTimedRaidSpawnsEnabled()) {
 			timer.Start(60000);	//don't yield quake mobs when they're disabled.
 			return true;
 		}
