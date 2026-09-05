@@ -217,6 +217,7 @@ public:
     const char *GetZoneLongName(const char *zone);
 	void CrossZoneSignalPlayerByCharID(int charid, uint32 data);
 	void CrossZoneSignalNPCByNPCTypeID(uint32 npctype_id, int num, const char* data = nullptr);
+	void CrossZoneSignalNPCByNPCTypeID(uint32 npctype_id, uint32 guild_id, int num, const char* data);
 	void CrossZoneSignalPlayerByName(const char *CharName, uint32 data);
 	void CrossZoneSetEntityVariableByNPCTypeID(uint32 npctype_id, const char *id, const char *m_var);
 	void CrossZoneMessagePlayerByName(uint32 Type, const char *CharName, const char *Message);

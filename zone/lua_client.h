@@ -104,6 +104,7 @@ public:
 	uint32 GetBindZoneID(int index);
 	uint32 GetTimesRebirthed();
 	void MovePC(int zone, float x, float y, float z, float heading);
+	void MovePCGuildID(int zone, uint32 guild_id, float x, float y, float z, float heading);
 	void ChangeLastName(const char *in);
 	int GetFactionLevel(uint32 char_id, uint32 race, uint32 class_, uint32 deity, uint32 faction, Lua_NPC npc);
 	int GetFactionValue(Lua_NPC npc);

@@ -752,6 +752,10 @@ void lua_cross_zone_signal_client_by_char_id(uint32 player_id, int signal) {
 	quest_manager.CrossZoneSignalPlayerByCharID(player_id, signal);
 }
 
+void lua_cross_zone_signal_npc_by_npc_type_id(uint32 npc_id, uint32 guild_id, int signal, const char *data) {
+	quest_manager.CrossZoneSignalNPCByNPCTypeID(npc_id, guild_id, signal, data);
+}
+
 void lua_cross_zone_signal_client_by_name(const char *player, int signal) {
 	quest_manager.CrossZoneSignalPlayerByName(player, signal);
 }
@@ -1568,6 +1572,7 @@ luabind::scope lua_register_general() {
 		luabind::def("remove_title", &lua_remove_title),
 		luabind::def("wear_change", &lua_wear_change),
 		luabind::def("cross_zone_signal_client_by_char_id", &lua_cross_zone_signal_client_by_char_id),
+		luabind::def("cross_zone_signal_npc_by_npc_type_id", &lua_cross_zone_signal_npc_by_npc_type_id),
 		luabind::def("cross_zone_signal_client_by_name", &lua_cross_zone_signal_client_by_name),
 		luabind::def("cross_zone_message_player_by_name", &lua_cross_zone_message_player_by_name),
 		luabind::def("get_qglobals", (luabind::adl::object(*)(lua_State*,Lua_NPC,Lua_Client))&lua_get_qglobals),
