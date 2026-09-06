@@ -8665,7 +8665,14 @@ void Client::OnAFKTimerChanged()
 
 		if (zone_kick_timer > 0)
 		{
-			Message(Chat::Red, "[AFK Kick] This zone has anti-AFK enforcement enabled. You will be kicked in %s.", Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str());
+			Message(
+                    Chat::Red,
+                    "[Zone Kick Timer] You will be kicked from this zone if you remain here longer than %s. "
+                    "This is your only warning. When the timer expires, you will be kicked to SERVER SELECT. "
+                    "There is no countdown timer. Your kick timer will expire in %s.",
+                    Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str(),
+                    Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str()
+            );
 			kick_timer.Start(zone_kick_timer * 1000);
 		}
 		else
