@@ -1545,6 +1545,7 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	case ServerOP_ReloadTraps:
 	case ServerOP_ReloadWorld:
 	case ServerOP_ReloadZonePoints:
+    case ServerOP_ReloadZoneKickTimer:
 	case ServerOP_ReloadZoneData:
 	case ServerOP_SpawnStatusChange:
 	case ServerOP_UpdateSpawn:

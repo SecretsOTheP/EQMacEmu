@@ -242,6 +242,7 @@ int command_init(void)
 
 		command_add("keyring", "Displays target's keyring items.", AccountStatus::EQSupport, command_keyring) ||
 		command_add("kick", "[charname] - Disconnect charname.", AccountStatus::EQSupport, command_kick) ||
+		command_add("kicktimer", "[zone_short_name] [minutes] - Set a zone time limit. Use 0 to disable.", AccountStatus::EQSupport, command_kicktimer) ||
 		command_add("kill", "Kill your target.", AccountStatus::GMLeadAdmin, command_kill) ||
 
 		command_add("leaderboard", "[SFHC|SSFHC|SFHCOnly|HC] - List hardcore leaderboard.", AccountStatus::Player, command_leaderboard) ||
@@ -328,6 +329,7 @@ int command_init(void)
 		command_add("revoke", "[charname] [1/0] - Makes charname unable to talk on OOC.", AccountStatus::GMStaff, command_revoke) ||
 		command_add("rewind", "Rewind to the previous location", AccountStatus::Player, command_rewind) ||
 		command_add("rules", "(subcommand) - Manage server rules.", AccountStatus::GMImpossible, command_rules) ||
+		command_add("bardlimit", "Manage per-zone bard kite summon limits.", AccountStatus::GMAdmin, command_bardlimit) ||
 
 		command_add("save", "Force your player or player corpse target to be saved to the database.", AccountStatus::GMLeadAdmin, command_save) ||
 		command_add("scribespell", "[spellid] - Scribe specified spell in your target's spell book.", AccountStatus::GMAreas, command_scribespell) ||
@@ -364,7 +366,7 @@ int command_init(void)
 		command_add("testcommand", "Template for temporary commands as needed. Don't delete.", AccountStatus::GMImpossible, command_testcommand) ||
 		command_add("testspawn", "[memloc] [value] - spawns a NPC for you only, with the specified values set in the spawn struct.", AccountStatus::GMCoder, command_testspawn) ||
 		command_add("togglepvp", "Toggles PVP for a client.", AccountStatus::Player, command_togglepvp) ||
-		command_add("undeletechar", "Undelete a character that was previously deleted.", AccountStatus::Max, command_undeletechar) ||
+		command_add("undeletechar", "Undelete a character that was previously deleted.", AccountStatus::GMAdmin, command_undeletechar) ||
 		command_add("underworld", "[z] - Reports NPCs that are below the given Z or if not given, below the lowest spawn2/grid coord. If red, the NPC is below the underworld coord.", AccountStatus::QuestTroupe, command_underworld) ||
 		command_add("unmemspell", "[spellid] - Unmem specified spell from your target's spell bar.", AccountStatus::GMAreas, command_unmemspell) ||
 		command_add("unmemspells", "Clear out your or your player target's spell gems.", AccountStatus::GMAreas, command_unmemspells) ||
@@ -925,6 +927,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/allowexport.cpp"
 #include "gm_commands/altactivate.cpp"
 #include "gm_commands/appearance.cpp"
+#include "gm_commands/bardlimit.cpp"
 #include "gm_commands/attack.cpp"
 #include "gm_commands/attackentity.cpp"
 #include "gm_commands/ban.cpp"
@@ -989,6 +992,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/iteminfo.cpp"
 #include "gm_commands/keyring.cpp"
 #include "gm_commands/kick.cpp"
+#include "gm_commands/kicktimer.cpp"
 #include "gm_commands/kill.cpp"
 #include "gm_commands/leaderboard.cpp"
 #include "gm_commands/list.cpp"
