@@ -313,6 +313,11 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 	iterator.Reset();
 	while(iterator.MoreElements()) {
 		ClientListEntry* cle = iterator.GetData();
+                if (cle->Online() == CLE_Status::OfflineBazaar && namestrlen == 0) {
+                        iterator.Advance();
+                        x++;
+                        continue;
+                }
 		if (admin >= cle->Admin() && (iName == 0 || namestrlen == 0 || strncasecmp(cle->name(), iName, namestrlen) == 0 || strncasecmp(cle->AccountName(), iName, namestrlen) == 0 || strncasecmp(cle->LSName(), iName, namestrlen) == 0)) {
 			struct in_addr in;
 			in.s_addr = cle->GetIP();
@@ -1511,7 +1516,10 @@ bool ClientList::WhoAllFilter(ClientListEntry* client, Who_All_Struct* whom, int
 	const char* tmpZone = ZoneName(client->zone());
 	bool not_anon = client->Anon() == 0 || (admin >= client->Admin() && admin >= gmwholist);
 	bool guild_not_anon = client->Anon() != 1 || (admin >= client->Admin() && admin >= gmwholist);
+	bool show_offline_bazaar = client->Online() != CLE_Status::OfflineBazaar ||
+		(whom != 0 && whomlen > 0 && tmpZone != 0 && strncasecmp(tmpZone, whom->whom, whomlen) == 0);
 	if (
+		show_offline_bazaar &&
 		(client->Online() >= CLE_Status::Zoning) && // Client is zoning or in a zone
 		(client->level() > 0) && // initial zoning in level is not updated yet
 		(!client->GetGM() || client->Anon() != 1 || (admin >= client->Admin() && admin >= gmwholist)) && // Client is not a GM, OR does not have hideme on, 
