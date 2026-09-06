@@ -200,6 +200,7 @@ void command_resetboat(Client* c, const Seperator* sep);
 void command_revoke(Client* c, const Seperator* sep);
 void command_rewind(Client* c, const Seperator* sep);
 void command_rules(Client* c, const Seperator* sep);
+void command_bardlimit(Client* c, const Seperator* sep);
 void command_save(Client* c, const Seperator* sep);
 void command_scribespell(Client* c, const Seperator* sep);
 void command_scribespells(Client* c, const Seperator* sep);

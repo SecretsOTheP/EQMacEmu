@@ -327,6 +327,7 @@ int command_init(void)
 		command_add("revoke", "[charname] [1/0] - Makes charname unable to talk on OOC.", AccountStatus::GMStaff, command_revoke) ||
 		command_add("rewind", "Rewind to the previous location", AccountStatus::Player, command_rewind) ||
 		command_add("rules", "(subcommand) - Manage server rules.", AccountStatus::GMImpossible, command_rules) ||
+		command_add("bardlimit", "Manage per-zone bard kite summon limits.", AccountStatus::GMAdmin, command_bardlimit) ||
 
 		command_add("save", "Force your player or player corpse target to be saved to the database.", AccountStatus::GMLeadAdmin, command_save) ||
 		command_add("scribespell", "[spellid] - Scribe specified spell in your target's spell book.", AccountStatus::GMAreas, command_scribespell) ||
@@ -924,6 +925,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/allowexport.cpp"
 #include "gm_commands/altactivate.cpp"
 #include "gm_commands/appearance.cpp"
+#include "gm_commands/bardlimit.cpp"
 #include "gm_commands/attack.cpp"
 #include "gm_commands/attackentity.cpp"
 #include "gm_commands/ban.cpp"
