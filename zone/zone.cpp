@@ -53,6 +53,7 @@
 #include "water_map.h"
 #include "worldserver.h"
 #include "zone.h"
+#include "data_bucket.h"
 #include "zone_config.h"
 #include "zone_reload.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
@@ -1946,6 +1947,31 @@ void Zone::RepopClose(const glm::vec4& client_position, uint32 repop_distance)
 		Log(Logs::General, Logs::None, "Error in Zone::Repop: database.PopulateZoneSpawnList failed");
 
 	entity_list.UpdateAllTraps(true, true);
+}
+
+bool Zone::GuildOneTimedRaidSpawnsEnabled()
+{
+	if (GetGuildID() != 1) {
+		return false;
+	}
+
+	const uint32 now = Timer::GetTimeSeconds();
+	if (guild_one_raid_tier_refresh == 0 || now >= guild_one_raid_tier_refresh) {
+		const auto tier = Strings::ToLower(DataBucket::GetData("pvpzone_raid_spawn_tier"));
+		if (tier == "pop") {
+			guild_one_raid_tier = static_cast<int>(Expansion::ExpansionNumber::ThePlanesOfPower);
+		} else if (tier == "luclin") {
+			guild_one_raid_tier = static_cast<int>(Expansion::ExpansionNumber::TheShadowsOfLuclin);
+		} else {
+			guild_one_raid_tier = -1;
+		}
+		guild_one_raid_tier_refresh = now + 5;
+	}
+
+	const int zone_expansion = static_cast<int>(GetZoneExpansion());
+	return guild_one_raid_tier >= 0
+		&& zone_expansion >= static_cast<int>(Expansion::ExpansionNumber::Classic)
+		&& zone_expansion <= guild_one_raid_tier;
 }
 
 bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db)
