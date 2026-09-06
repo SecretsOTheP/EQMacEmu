@@ -2391,20 +2391,37 @@ void Zone::SpawnStatus(Mob* client, char filter, uint32 spawnid)
 			continue;
 		}
 
+		std::string display_name = npc ? npc->GetCleanName() : "(unspawned - name unavailable)";
+		if (!npc && iterator.GetData()->CurrentNPCID() != 0) {
+			const auto npc_type = npctable.find(iterator.GetData()->CurrentNPCID());
+			if (npc_type != npctable.end() && npc_type->second) {
+				char clean_name[sizeof(npc_type->second->name)] = {};
+				CleanMobName(npc_type->second->name, clean_name);
+				display_name = clean_name;
+			}
+		}
+
 		remaining = iterator.GetData()->timer.GetRemainingTime();
 		if (remaining == 0xFFFFFFFF)
 		{
-			remaining = 0;
-			sec = -1;
+			client->Message(Chat::White, "  %d: %s%s - NPC Type ID: %u - X:%1.1f, Y:%1.1f, Z:%1.1f - No active respawn timer",
+				iterator.GetData()->GetID(),
+				!iterator.GetData()->Enabled() ? "(disabled) " : "", display_name.c_str(),
+				iterator.GetData()->CurrentNPCID(),
+				iterator.GetData()->GetX(), iterator.GetData()->GetY(), iterator.GetData()->GetZ());
+
+			x++;
+			iterator.Advance();
+			continue;
 		}
-		else
-			sec = (remaining / 1000) % 60;
+
+		sec = (remaining / 1000) % 60;
 
 		remaining /= 1000;
 
 		client->Message(Chat::White, "  %d: %s%s - NPC Type ID: %u - X:%1.1f, Y:%1.1f, Z:%1.1f - Spawn Timer: %u hrs %u mins %i sec",
 			iterator.GetData()->GetID(),
-			!iterator.GetData()->Enabled() ? "(disabled) " : "", npc ? npc->GetCleanName() : "(unspawned)",
+			!iterator.GetData()->Enabled() ? "(disabled) " : "", display_name.c_str(),
 			iterator.GetData()->CurrentNPCID(),
 			iterator.GetData()->GetX(), iterator.GetData()->GetY(), iterator.GetData()->GetZ(), 
 			remaining / (60 * 60), (remaining / 60) % 60, sec);
