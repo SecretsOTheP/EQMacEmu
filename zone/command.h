@@ -132,6 +132,7 @@ void command_ipexemption(Client* c, const Seperator* sep);
 void command_iteminfo(Client* c, const Seperator* sep);
 void command_keyring(Client* c, const Seperator* sep);
 void command_kick(Client* c, const Seperator* sep);
+void command_popflags(Client* c, const Seperator* sep);
 void command_kicktimer(Client* c, const Seperator* sep);
 void command_kill(Client* c, const Seperator* sep);
 void command_leaderboard(Client* c, const Seperator* sep);
