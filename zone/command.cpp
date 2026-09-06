@@ -212,6 +212,7 @@ int command_init(void)
 
 		command_add("giveitem", "[itemid] [charges] - Summon an item onto your target's cursor. Charges are optional.", AccountStatus::GMLeadAdmin, command_giveitem) ||
 		command_add("givemoney", "[pp] [gp] [sp] [cp] - Gives specified amount of money to the target player.", AccountStatus::GMLeadAdmin, command_givemoney) ||
+		command_add("glory", "Shows your current Rallosian Glory rank and Guild 1 experience bonus.", AccountStatus::Player, command_glory) ||
 		command_add("giveplayerfaction", "[factionid] [factionvalue] - Gives the target player faction with the given faction. (Acts as a hit).", AccountStatus::GMMgmt, command_giveplayerfaction) ||
 		command_add("gmdamage", "[amount] [skipaggro] - Damage your target. Skips most combat checks, including invul.", AccountStatus::QuestMaster, command_gmdamage) ||
 		command_add("goto", "[x] [y] [z] - Teleport to the provided coordinates or to your target.", AccountStatus::ApprenticeGuide, command_goto) ||
@@ -967,6 +968,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/forage.cpp"
 #include "gm_commands/giveitem.cpp"
 #include "gm_commands/givemoney.cpp"
+#include "gm_commands/glory.cpp"
 #include "gm_commands/giveplayerfaction.cpp"
 #include "gm_commands/gmdamage.cpp"
 #include "gm_commands/goto.cpp"
