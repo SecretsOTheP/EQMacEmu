@@ -1112,6 +1112,7 @@ struct CZClientSignal_Struct {
 
 struct CZNPCSignal_Struct {
 	uint32 npctype_id;
+	uint32 guild_id;
 	int num;
 	char data[0];
 };
