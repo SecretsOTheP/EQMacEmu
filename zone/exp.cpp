@@ -34,8 +34,36 @@
 #include "string_ids.h"
 #include "../common/events/player_event_logs.h"
 
+#include <chrono>
+#include <sstream>
+
 extern QueryServ* QServ;
 extern WorldServer worldserver;
+
+namespace {
+int PVPZoneZEM()
+{
+	if (!zone || zone->GetGuildID() != 1) return 0;
+	static std::string values;
+	static auto refresh_at = std::chrono::steady_clock::time_point{};
+	const auto now = std::chrono::steady_clock::now();
+	if (now >= refresh_at) {
+		values = DataBucket::GetData("pvpzone_xp_zem");
+		refresh_at = now + std::chrono::seconds(5);
+	}
+	std::stringstream entries(values);
+	std::string entry;
+	const auto current_zone = Strings::ToLower(zone->GetShortName());
+	while (std::getline(entries, entry, ',')) {
+		const auto separator = entry.find('=');
+		if (separator == std::string::npos || Strings::ToLower(entry.substr(0, separator)) != current_zone) continue;
+		const auto zem_value = entry.substr(separator + 1);
+		const int zem = Strings::IsNumber(zem_value) ? Strings::ToInt(zem_value) : 0;
+		return zem >= 110 && zem <= 150 ? zem : 0;
+	}
+	return 0;
+}
+}
 
 float Mob::GetBaseEXP()
 {
@@ -172,9 +200,10 @@ float Mob::GetBaseEXP()
 	
 	if (zone && zone->GetGuildID() == 1)
 	{
-		zemmod += RuleR(Quarm, PVPInstanceZEMOverride);
-		if (zone->IsHotzone())
-			zemmod -= RuleR(Zone, HotZoneBonus) * 100.0;
+		const int pvp_zem = PVPZoneZEM();
+		if (pvp_zem > 0) {
+			zemmod = static_cast<float>(pvp_zem);
+		}
 	}
 
 	if (zone && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)

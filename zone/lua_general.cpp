@@ -855,6 +855,10 @@ int lua_get_zone_guild_id() {
 	return (int)zone->GetGuildID();
 }
 
+bool lua_guild_one_raid_window_open() {
+	return zone && zone->GuildOneRaidWindowOpen();
+}
+
 const char *lua_get_zone_long_name() {
 	if(!zone)
 		return "";
@@ -1578,6 +1582,7 @@ luabind::scope lua_register_general() {
 		luabind::def("get_entity_list", &lua_get_entity_list),
 		luabind::def("get_zone_id", &lua_get_zone_id),
 		luabind::def("get_zone_guild_id", &lua_get_zone_guild_id),
+		luabind::def("guild_one_raid_window_open", &lua_guild_one_raid_window_open),
 		luabind::def("get_zone_long_name", &lua_get_zone_long_name),
 		luabind::def("get_zone_short_name", &lua_get_zone_short_name),
 		luabind::def("get_zone_weather", &lua_get_zone_weather),

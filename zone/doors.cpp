@@ -18,10 +18,12 @@
 
 #include "../common/global_define.h"
 #include "../common/eqemu_logsys.h"
+#include "../common/eq_constants.h"
 #include "../common/strings.h"
 #include "../common/zone_store.h"
 
 #include "client.h"
+#include "data_bucket.h"
 #include "doors.h"
 #include "raids.h"
 #include "entity.h"
@@ -44,6 +46,17 @@
 
 extern EntityList entity_list;
 extern WorldServer worldserver;
+
+namespace {
+constexpr const char *PVP_ZONE_BUCKET = "pvpzone_active_shortnames";
+
+bool IsPVPZoneEnabled(const std::string &short_name)
+{
+	auto active = Strings::ToLower(DataBucket::GetData(PVP_ZONE_BUCKET));
+	auto requested = Strings::ToLower(short_name);
+	return ("," + active + ",").find("," + requested + ",") != std::string::npos;
+}
+}
 
 Doors::Doors(const DoorsRepository::Doors &door) :
         close_timer(5000),
@@ -95,7 +108,7 @@ Doors::Doors(const DoorsRepository::Doors &door) :
 
 	if (HasDestinationZone()) {
 		teleport = true;
-	} 
+	}
 	else {
 		teleport = false;
 	}
@@ -216,7 +229,7 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 	auto *move_door_packet = (MoveDoor_Struct*)outapp->pBuffer;
 	move_door_packet->doorid = door_id;
 
-	// Traps. 120 is ceiling spears. 125 is wall spears. 130 is swinging axe. 140 is falling block trap. 
+	// Traps. 120 is ceiling spears. 125 is wall spears. 130 is swinging axe. 140 is falling block trap.
 	if (open_type == 120 || open_type == 125 || open_type == 130 || open_type == 140) {
 		Log(Logs::General, Logs::Doors, "Clicking a door that is a trap!");
 		if(sender->HasSkill(EQ::skills::SkillDisarmTraps)) {
@@ -395,17 +408,12 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 				return;
 			}
 
-			if (RuleI(Quarm, CurrentPVPExpansion) != expansion)
+			if (!IsPVPZoneEnabled(destination_zone_name))
 			{
-				sender->Message(Chat::Red, "You are unable to enter a PVP Instance that isn't part of the current expansion.");
+				sender->Message(Chat::Red, "This PVP zone is not currently enabled.");
 				return;
 			}
 
-			if (!RuleB(Quarm, EnablePVPInstances))
-			{
-				sender->Message(Chat::Red, "You are unable to enter a PVP Instance at this time.");
-				return;
-			}
 		}
 
 		if (RuleB(Quarm, EnforceLatestDllToEnterSpecialInstances) && zone->GetZoneID() >= RuleI(Quarm, SpecialExpansionZoneIDBegin) && zone->GetZoneID() < RuleI(Quarm, SpecialExpansionZoneIDEnd) && sender->GetClientLibraryVersion() < RuleI(Quarm, WarnDllVersionBelow))
@@ -759,7 +767,7 @@ int32 ZoneDatabase::GetDoorsCount(uint32* oMaxID, const char *zone_name) {
 	}
 
     auto row = results.begin();
-	 
+
 	if (!oMaxID) {
 		return atoi(row[1]);
 	}
