@@ -293,6 +293,21 @@ void NPC::AddLootDrop(
 		return;
 	}
 
+	// Player hand-ins request an immediate wear change. Bows and utility items should
+	// remain in NPC inventory without entering equipment or sending a bogus
+	// weapon-slot appearance packet. Native database equipment does not use
+	// this wear-change path and remains unaffected.
+	const bool is_utility_torch =
+		item2->ItemType == EQ::item::ItemTypeLight ||
+		(item2->ItemType == EQ::item::ItemTypeMisc && item2->Damage == 0 &&
+			!strcasecmp(item2->IDFile, "IT36"));
+	if (wearchange && (is_utility_torch ||
+		item2->ItemType == EQ::item::ItemTypeFishingPole ||
+		item2->ItemType == EQ::item::ItemTypeBow)) {
+		equipit = false;
+		wearchange = false;
+	}
+
 	auto item = new LootItem;
 
 	if (LogSys.log_settings[Logs::Loot].is_category_enabled == 1) {

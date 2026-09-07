@@ -531,7 +531,7 @@ bool Client::Process() {
 
 			if (kick_timer.Enabled() && kick_timer.Check())
 			{
-				Kick();
+				WorldKick();
 				kick_timer.Disable();
 			}
 		}

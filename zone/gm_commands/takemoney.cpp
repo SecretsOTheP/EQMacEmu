@@ -26,8 +26,26 @@ void command_takemoney(Client *c, const Seperator *sep){
 		c->Message(Chat::Red, "You can only take money from players with this command.");
 	}
 	else {
+		auto target = c->GetTarget()->CastToClient();
+		const auto platinum = atoi(sep->arg[1]);
+		const auto gold = atoi(sep->arg[2]);
+		const auto silver = atoi(sep->arg[3]);
+		const auto copper = atoi(sep->arg[4]);
+		const auto reason = sep->argplus[5];
+
 		//TODO: update this to the client, otherwise the client doesn't show any weight change until you zone, move an item, etc
-		c->GetTarget()->CastToClient()->TakeMoneyFromPP(atoi(sep->arg[4]), atoi(sep->arg[3]), atoi(sep->arg[2]), atoi(sep->arg[1]), true);
+		target->TakeMoneyFromPP(copper, silver, gold, platinum, true);
+
+		c->Message(
+			Chat::White,
+			"Removed %i pp, %i gp, %i sp, and %i cp from %s. Reason: %s",
+			platinum, gold, silver, copper, target->GetCleanName(), reason
+		);
+		target->Message(
+			Chat::Yellow,
+			"%s removed %i pp, %i gp, %i sp, and %i cp from you. Reason: %s",
+			c->GetCleanName(), platinum, gold, silver, copper, reason
+		);
 	}
 }
 

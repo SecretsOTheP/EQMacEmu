@@ -206,6 +206,11 @@ public:
 
 	uint32 GetZoneKickTimer() { return zone_kick_timer; }
 
+	void ReloadZoneKickTimer()
+	{
+		LoadZoneKickTimer(GetShortName());
+	}
+
 	bool	Process();
 	void	Despawn(uint32 spawngroupID);
 	bool	ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db = false);
@@ -313,6 +318,9 @@ public:
 	bool	IsWaterZone(float z);
 	bool	ZoneWillNotIdle() { return newzone_data.never_idle; };
 	bool	IsIdling() { return (idle || (numclients <= 0 && ZoneWillNotIdle())); };
+	bool	GuildOneTimedRaidSpawnsEnabled();
+	int guild_one_raid_tier = -1;
+	uint32 guild_one_raid_tier_refresh = 0;
 	inline	bool BuffTimersSuspended() const { return newzone_data.SuspendBuffs != 0; };
 
 	std::vector<GridRepository::Grid> grids;
