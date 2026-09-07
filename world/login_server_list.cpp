@@ -106,6 +106,16 @@ bool LoginServerList::Connected() {
 	return false;
 }
 
+bool LoginServerList::QueueCapable() {
+	for (auto & iter : m_list) {
+		if ((*iter).Connected() && (*iter).QueueCapable()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool LoginServerList::AllConnected() {
 	for (auto& iter : m_list) {
 		if (!(*iter).Connected()) {

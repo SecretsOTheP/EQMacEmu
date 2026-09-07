@@ -1226,6 +1226,15 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		}
 		break;
 	}
+	case ServerOP_QueueStatus: {
+		if (pack->size != sizeof(ServerQueueStatus_Struct)) {
+			LogInfo("Wrong size on ServerOP_QueueStatus. Got: [{}], Expected: [{}]", pack->size, sizeof(ServerQueueStatus_Struct));
+			break;
+		}
+		auto s = (ServerQueueStatus_Struct*)pack->pBuffer;
+		client_list.SendQueueStatus(s->adminname, this);
+		break;
+	}
 	case ServerOP_Petition: {
 		zoneserver_list.SendPacket(pack);
 		QSLink.SendPacket(pack);

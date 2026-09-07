@@ -553,6 +553,16 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 		return false;
 	}
 
+	if (client_list.QueueActive() && GetAdmin() == 0 && !client_list.QueueClaimSlot(cle ? cle->LSID() : 0, GetAccountID(), GetIP())) {
+		// Only reachable if the world filled between a reconnect and this click. The account is already queued;
+		// dropping the session sends the player back to server select, where the queue display takes over.
+		LogInfo("[Queue] account [{}] enter world refused, world full and no slot held; queued, closing session", GetAccountID());
+		if (eqs) {
+			eqs->Close();
+		}
+		return true;
+	}
+
 	EnterWorld_Struct *ew = (EnterWorld_Struct *)app->pBuffer;
 	strn0cpy(char_name, ew->name, 64);
 

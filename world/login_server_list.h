@@ -25,6 +25,7 @@ public:
 	bool	SendAccountUpdate(ServerPacket* pack);
 	bool	Connected();
 	bool	AllConnected();
+	bool	QueueCapable(); // any connected login server announced queue support
 	bool	CanUpdate();
 	size_t GetServerCount() const { return m_list.size(); }
 

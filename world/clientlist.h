@@ -9,6 +9,7 @@
 #include "../common/servertalk.h"
 #include "../common/event/timer.h"
 #include "../common/net/console_server_connection.h"
+#include "world_queue.h"
 #include <vector>
 #include <string>
 
@@ -64,7 +65,7 @@ public:
 	bool	CheckAccountActive(uint32 iAccID, ClientListEntry* cle = nullptr);
 	void	CLCheckStale();
 	void	CLEKeepAlive(uint32 numupdates, uint32* wid);
-	void	CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin = 0, uint32 ip = 0, uint8 local=0, uint8 version=0, int16 exemptioncount = 1);
+	void	CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin = 0, uint32 ip = 0, uint8 local=0, uint8 version=0, int16 exemptioncount = 1, bool queue_active = false);
 	void	UpdateClientGuild(uint32 char_id, uint32 guild_id);
 	bool ActiveConnectionIncludingStale(uint32 account_id);
 	bool ActiveConnectionKickStale(uint32 account_id);
@@ -79,8 +80,27 @@ public:
 	void GetClientList(Json::Value &response);
 
 	std::string AppendChallengeModeFlagsToName(ClientListEntry* cle);
-	
+
+	// Login queue (Quarm:EnableLoginQueue). Population is counted per account: in a zone, holding a
+	// reservation, or in grace. Status > 0 and offline traders never count, as with GetClientCount().
+	WorldQueue&		Queue() { return m_queue; }
+	bool			QueueActive(); // rule is on and at least one login server can display queue info
+	QueuePopulation	Population();  // accounts in zone and accounts at character select, from the entry list
+	uint32			EffectivePopulation(); // Queue().EffectivePopulation() against the current population
+	QueueDecision	QueueDecide(uint32 iLSID, uint32 iAccID, uint32 ip); // answer a Play request from the login server
+	bool			QueueHoldsSlot(uint32 iAccID);                      // used by CLEAdd when the world is full
+	bool			QueueClaimSlot(uint32 iLSID, uint32 iAccID, uint32 ip); // Enter World: take a slot or queue the account
+	void			QueueTick(); // expire and consume; every 5 s from OnTick
+	void			OnLeftZone(ClientListEntry* cle);   // entry dropped below Zoning: start grace if it was the account's last
+	void			OnZoneUpdate(ClientListEntry* cle); // zone reported the entry: track the linkdead flag
+	void			SendQueueStatus(const char* to, WorldTCPConnection* connection); // console "queue" and #show queue
+
 private:
+	void RefreshQueueConfig(); // copy the current rule values into the queue
+	static uint32 QueueNow();  // unix seconds, the queue's clock
+
+	WorldQueue m_queue;
+
 	void OnTick(EQ::Timer* t);
 	inline uint32 GetNextCLEID() { return NextCLEID++; }
 
