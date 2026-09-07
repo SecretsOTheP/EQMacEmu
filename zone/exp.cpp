@@ -415,6 +415,13 @@ void Client::AddEXP(uint32 in_add_exp, uint8 conlevel, Mob* killed_mob, int16 av
 
 	add_exp = static_cast<uint32>(add_exp * lb_mult * mlm * con_mult * totalmod * buffmod); // multipliers that apply to level and aa exp
 
+	if (zone && zone->GetGuildID() == 1) {
+		const float pvp_bonus = 1.0f +
+			(static_cast<float>(RallosianGloryZoneXPBonus) / 100.0f) +
+			(static_cast<float>(GetRallosianGlory() * RallosianGloryRankXPBonus) / 100.0f);
+		add_exp = static_cast<uint32>(static_cast<float>(add_exp) * pvp_bonus);
+	}
+
 	// if NPC is killed by PBAoE damage, then reduce experience gained if NPC is in a certain level range. (42-55)  this is AK behavior although specifics are still not known
 	if (killed_mob->IsNPC() && RuleB(AlKabor, ReduceAEExp) && killed_mob->pbaoe_damage > (killed_mob->GetMaxHP() / 2))
 	{

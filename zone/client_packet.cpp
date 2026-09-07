@@ -1302,6 +1302,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	auto a = AccountRepository::FindOne(database, AccountID());
 	if (a.id > 0) {
 		strn0cpy(account_name, a.name.c_str(), sizeof(account_name));
+		forum_id = a.forum_id;
 
 		admin = a.status;
 		lsaccountid = a.lsaccount_id;
