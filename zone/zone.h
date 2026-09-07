@@ -318,9 +318,6 @@ public:
 	bool	IsWaterZone(float z);
 	bool	ZoneWillNotIdle() { return newzone_data.never_idle; };
 	bool	IsIdling() { return (idle || (numclients <= 0 && ZoneWillNotIdle())); };
-	bool	GuildOneTimedRaidSpawnsEnabled();
-	int guild_one_raid_tier = -1;
-	uint32 guild_one_raid_tier_refresh = 0;
 	inline	bool BuffTimersSuspended() const { return newzone_data.SuspendBuffs != 0; };
 
 	std::vector<GridRepository::Grid> grids;
