@@ -216,7 +216,7 @@ public:
 	bool ApplyNextBardPulse(uint16 spell_id, Mob *spell_target, EQ::spells::CastingSlot slot);
 
 	//Spell
-	bool IsBeneficialAllowed(Mob *target);
+	bool IsBeneficialAllowed(Mob *target, uint16 spell_id = 0);
 	virtual int GetCasterLevel(uint16 spell_id);
 	void ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* newbon, uint16 casterID = 0,
 		bool item_bonus = false, int16 instrumentmod = 10, uint32 ticsremaining = 0, int buffslot = -1,
