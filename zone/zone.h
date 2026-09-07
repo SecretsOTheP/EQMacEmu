@@ -206,6 +206,11 @@ public:
 
 	uint32 GetZoneKickTimer() { return zone_kick_timer; }
 
+	void ReloadZoneKickTimer()
+	{
+		LoadZoneKickTimer(GetShortName());
+	}
+
 	bool	Process();
 	void	Despawn(uint32 spawngroupID);
 	bool	ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db = false);
@@ -329,6 +334,12 @@ public:
 	ServerEarthquakeImminent_Struct last_quake_struct;
 	ServerEarthquakeImminent_Struct cached_quake_struct;
 	Timer*	EndQuake_Timer;
+	bool GuildOneTimedRaidSpawnsEnabled();
+	bool GuildOneRaidWindowOpen();
+	uint32 guild_one_quake_start = 0;
+	uint32 guild_one_quake_refresh = 0;
+	int guild_one_raid_tier = -1;
+	uint32 guild_one_raid_tier_refresh = 0;
 
 	uint8 loglevelvar;
 	uint8 merchantvar;

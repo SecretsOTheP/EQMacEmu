@@ -2346,10 +2346,15 @@ const char* QuestManager::GetZoneLongName(const char *zone) {
 }
 
 void QuestManager::CrossZoneSignalNPCByNPCTypeID(uint32 npctype_id, int num, const char* data){
+	CrossZoneSignalNPCByNPCTypeID(npctype_id, GUILD_NONE, num, data);
+}
+
+void QuestManager::CrossZoneSignalNPCByNPCTypeID(uint32 npctype_id, uint32 guild_id, int num, const char* data){
 	uint32 data_len = data ? strlen(data) + 1 : 1;
 	auto pack = new ServerPacket(ServerOP_CZSignalNPC, sizeof(CZNPCSignal_Struct) + data_len);
 	CZNPCSignal_Struct* CZSN = (CZNPCSignal_Struct*)pack->pBuffer;
 	CZSN->npctype_id = npctype_id;
+	CZSN->guild_id = guild_id;
 	CZSN->num = num;
 	strcpy(CZSN->data, data ? data : "");
 	worldserver.SendPacket(pack);

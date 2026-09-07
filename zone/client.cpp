@@ -178,6 +178,8 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	client_data_loaded = false;
 	feigned = false;
 	memset(forum_name, 0, sizeof(forum_name));
+	forum_id = 0;
+	rallosian_glory = 0;
 	berserk = false;
 	dead = false;
 	initial_z_position = 0;
@@ -392,7 +394,26 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	mule_initiated = false;
 }
 
+void Client::ForfeitRallosianGlory(const char *action)
+{
+	if (!zone || zone->GetGuildID() != 1 || rallosian_glory == 0)
+		return;
+
+	const uint8 lost_glory = rallosian_glory;
+	rallosian_glory = 0;
+	const auto message = fmt::format(
+		"Rallos Zek looks down in disgust as {} {} like a cowardly dog, surrendering {} measure{} of Rallosian Glory.",
+		GetCleanName(), action, lost_glory, lost_glory == 1 ? "" : "s");
+	Message(Chat::Yellow, "[PVP] %s", message.c_str());
+
+	const auto sender = fmt::format("Rallosian_Glory:{}", CharacterID());
+	worldserver.SendChannelMessage(sender.c_str(), ChatChannel_Broadcast, 0, 0, 100, message.c_str());
+}
+
 Client::~Client() {
+	if (!zoning)
+		ForfeitRallosianGlory("abandons the battlefield");
+
 	SendAllPackets();
 	mMovementManager->RemoveClient(this);
 
@@ -8665,7 +8686,14 @@ void Client::OnAFKTimerChanged()
 
 		if (zone_kick_timer > 0)
 		{
-			Message(Chat::Red, "[AFK Kick] This zone has anti-AFK enforcement enabled. You will be kicked in %s.", Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str());
+			Message(
+                    Chat::Red,
+                    "[Zone Kick Timer] You will be kicked from this zone if you remain here longer than %s. "
+                    "This is your only warning. When the timer expires, you will be kicked to SERVER SELECT. "
+                    "There is no countdown timer. Your kick timer will expire in %s.",
+                    Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str(),
+                    Strings::SecondsToTime(zone->GetZoneKickTimer()).c_str()
+            );
 			kick_timer.Start(zone_kick_timer * 1000);
 		}
 		else

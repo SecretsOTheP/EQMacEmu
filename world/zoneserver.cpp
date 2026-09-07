@@ -1545,6 +1545,7 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	case ServerOP_ReloadTraps:
 	case ServerOP_ReloadWorld:
 	case ServerOP_ReloadZonePoints:
+    case ServerOP_ReloadZoneKickTimer:
 	case ServerOP_ReloadZoneData:
 	case ServerOP_SpawnStatusChange:
 	case ServerOP_UpdateSpawn:
@@ -1578,9 +1579,12 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	case ServerOP_CZSignalNPC: {
 		auto s = (CZNPCSignal_Struct*)pack->pBuffer;
 		uint32 zone_id = s->npctype_id / 1000u;						// NPC IDs have the zone IDs in them.  who cares about pets
-		ZoneServer* zs = zoneserver_list.FindByZoneID(zone_id, GUILD_NONE);
-		if (zs)
+		ZoneServer* zs = zoneserver_list.FindByZoneID(zone_id, s->guild_id);
+		if (zs) {
 			zs->SendPacket(pack);
+		} else {
+			zoneserver_list.TriggerBootup(zone_id, s->guild_id);
+		}
 		break;
 	}
 		case ServerOP_CZSetEntityVariableByNPCTypeID: {

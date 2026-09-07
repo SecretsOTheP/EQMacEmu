@@ -2083,10 +2083,24 @@ void EntityList::ChannelMessageFromWorld(const char *from, const char *to,
 		uint8 chan_num, uint32 guild_id, uint8 language, uint8 lang_skill, const char *message)
 {
 	bool bIsPvP = false;
+	bool is_rallosian_glory = false;
+	uint32 excluded_character_id = 0;
 	if (from && from[0] != 0)
 	{
 		if (strncasecmp(from, "PVP_Druzzil_Ro", 63) == 0)
 			bIsPvP = true;
+		else {
+			constexpr char glory_sender[] = "Rallosian_Glory";
+			constexpr size_t glory_sender_length = sizeof(glory_sender) - 1;
+			if (strncasecmp(from, glory_sender, glory_sender_length) == 0 &&
+				(from[glory_sender_length] == '\0' || from[glory_sender_length] == ':'))
+			{
+				bIsPvP = true;
+				is_rallosian_glory = true;
+				if (from[glory_sender_length] == ':')
+					excluded_character_id = static_cast<uint32>(strtoul(from + glory_sender_length + 1, nullptr, 10));
+			}
+		}
 	}
 
 	for (auto it = client_list.begin(); it != client_list.end(); ++it) {
@@ -2108,7 +2122,10 @@ void EntityList::ChannelMessageFromWorld(const char *from, const char *to,
 		}
 		if(chan_num == ChatChannel_Guild && guild_id > 0 && client->GetGM() && client->IsGMInGuild(guild_id) && !client->IsInGuild(guild_id))
 			client->Message(Chat::Yellow,"[GM Monitor] %s tells the guild, '%s'", from, message);
-		else if (bIsPvP && client->GetPVP() != 0)
+		else if (bIsPvP &&
+			(is_rallosian_glory ?
+				(client->GetPVP() == 1 && client->CharacterID() != excluded_character_id) :
+				client->GetPVP() != 0))
 			client->Message(Chat::Yellow, "[PVP] %s", message);
 		else if(!bIsPvP)
 			client->ChannelMessageSend(from, to, chan_num, language, lang_skill, message);

@@ -212,6 +212,7 @@ int command_init(void)
 
 		command_add("giveitem", "[itemid] [charges] - Summon an item onto your target's cursor. Charges are optional.", AccountStatus::GMLeadAdmin, command_giveitem) ||
 		command_add("givemoney", "[pp] [gp] [sp] [cp] - Gives specified amount of money to the target player.", AccountStatus::GMLeadAdmin, command_givemoney) ||
+		command_add("glory", "Shows your current Rallosian Glory rank and Guild 1 experience bonus.", AccountStatus::Player, command_glory) ||
 		command_add("giveplayerfaction", "[factionid] [factionvalue] - Gives the target player faction with the given faction. (Acts as a hit).", AccountStatus::GMMgmt, command_giveplayerfaction) ||
 		command_add("gmdamage", "[amount] [skipaggro] - Damage your target. Skips most combat checks, including invul.", AccountStatus::QuestMaster, command_gmdamage) ||
 		command_add("goto", "[x] [y] [z] - Teleport to the provided coordinates or to your target.", AccountStatus::ApprenticeGuide, command_goto) ||
@@ -242,6 +243,7 @@ int command_init(void)
 
 		command_add("keyring", "Displays target's keyring items.", AccountStatus::EQSupport, command_keyring) ||
 		command_add("kick", "[charname] - Disconnect charname.", AccountStatus::EQSupport, command_kick) ||
+		command_add("kicktimer", "[zone_short_name] [minutes] - Set a zone time limit. Use 0 to disable.", AccountStatus::EQSupport, command_kicktimer) ||
 		command_add("kill", "Kill your target.", AccountStatus::GMLeadAdmin, command_kill) ||
 
 		command_add("leaderboard", "[SFHC|SSFHC|SFHCOnly|HC] - List hardcore leaderboard.", AccountStatus::Player, command_leaderboard) ||
@@ -291,11 +293,13 @@ int command_init(void)
 		command_add("petition", "Handles everything petition related. Use with no args or with 'help' for how to use.", AccountStatus::ApprenticeGuide, command_petition) ||
 		command_add("pf", "Display additional mob coordinate and wandering data.", AccountStatus::GMStaff, command_pf) ||
 		command_add("playsound", "[number] - Plays a sound in the client.  Valid range 0-3999", AccountStatus::ApprenticeGuide, command_playsound) ||
+		command_add("popflags", "Displays your Planes of Power progression flags.", AccountStatus::Player, command_popflags) ||
 		command_add("profanity", "Manage censored language.", AccountStatus::GMLeadAdmin, command_profanity) ||
 		command_add("push", "[pushback] [pushup] - Pushes the target the specified amount.", AccountStatus::GMImpossible, command_push) ||
 
 		command_add("qtest", "QueryServ testing command.", AccountStatus::GMTester, command_qtest) ||
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
+		command_add("pvpzone", "Manage PVP zone access, loot, and experience bonuses.", AccountStatus::GMAdmin, command_pvpzone) ||
 
 		command_add("ra", "[playername] - Alias for #raidaccept.", AccountStatus::Player, command_raidaccept) ||
 		command_add("raidaccept", "- Accept a pending cross-zone raid invite", AccountStatus::Player, command_raidaccept) ||
@@ -327,6 +331,7 @@ int command_init(void)
 		command_add("revoke", "[charname] [1/0] - Makes charname unable to talk on OOC.", AccountStatus::GMStaff, command_revoke) ||
 		command_add("rewind", "Rewind to the previous location", AccountStatus::Player, command_rewind) ||
 		command_add("rules", "(subcommand) - Manage server rules.", AccountStatus::GMImpossible, command_rules) ||
+		command_add("bardlimit", "Manage per-zone bard kite summon limits.", AccountStatus::GMAdmin, command_bardlimit) ||
 
 		command_add("save", "Force your player or player corpse target to be saved to the database.", AccountStatus::GMLeadAdmin, command_save) ||
 		command_add("scribespell", "[spellid] - Scribe specified spell in your target's spell book.", AccountStatus::GMAreas, command_scribespell) ||
@@ -363,7 +368,7 @@ int command_init(void)
 		command_add("testcommand", "Template for temporary commands as needed. Don't delete.", AccountStatus::GMImpossible, command_testcommand) ||
 		command_add("testspawn", "[memloc] [value] - spawns a NPC for you only, with the specified values set in the spawn struct.", AccountStatus::GMCoder, command_testspawn) ||
 		command_add("togglepvp", "Toggles PVP for a client.", AccountStatus::Player, command_togglepvp) ||
-		command_add("undeletechar", "Undelete a character that was previously deleted.", AccountStatus::Max, command_undeletechar) ||
+		command_add("undeletechar", "Undelete a character that was previously deleted.", AccountStatus::GMAdmin, command_undeletechar) ||
 		command_add("underworld", "[z] - Reports NPCs that are below the given Z or if not given, below the lowest spawn2/grid coord. If red, the NPC is below the underworld coord.", AccountStatus::QuestTroupe, command_underworld) ||
 		command_add("unmemspell", "[spellid] - Unmem specified spell from your target's spell bar.", AccountStatus::GMAreas, command_unmemspell) ||
 		command_add("unmemspells", "Clear out your or your player target's spell gems.", AccountStatus::GMAreas, command_unmemspells) ||
@@ -924,6 +929,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/allowexport.cpp"
 #include "gm_commands/altactivate.cpp"
 #include "gm_commands/appearance.cpp"
+#include "gm_commands/bardlimit.cpp"
 #include "gm_commands/attack.cpp"
 #include "gm_commands/attackentity.cpp"
 #include "gm_commands/ban.cpp"
@@ -966,6 +972,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/forage.cpp"
 #include "gm_commands/giveitem.cpp"
 #include "gm_commands/givemoney.cpp"
+#include "gm_commands/glory.cpp"
 #include "gm_commands/giveplayerfaction.cpp"
 #include "gm_commands/gmdamage.cpp"
 #include "gm_commands/goto.cpp"
@@ -988,6 +995,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/iteminfo.cpp"
 #include "gm_commands/keyring.cpp"
 #include "gm_commands/kick.cpp"
+#include "gm_commands/kicktimer.cpp"
 #include "gm_commands/kill.cpp"
 #include "gm_commands/leaderboard.cpp"
 #include "gm_commands/list.cpp"
@@ -1027,6 +1035,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/petition.cpp"
 #include "gm_commands/pf.cpp"
 #include "gm_commands/playsound.cpp"
+#include "gm_commands/popflags.cpp"
 #include "gm_commands/profanity.cpp"
 #include "gm_commands/push.cpp"
 #include "gm_commands/qtest.cpp"

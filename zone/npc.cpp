@@ -500,6 +500,15 @@ void NPC::SetTarget(Mob* mob) {
 
 bool NPC::Process()
 {
+	// Cover scripted raid bosses as well as database raid spawnpoints.
+	// No combat exception: kiting cannot keep a quake boss alive indefinitely.
+	if (!p_depop && zone && zone->GetGuildID() == 1
+		&& (IsRaidTarget() || HasEngageNotice() || (!respawn2 && loot_lockout_timer > 0)
+			|| (respawn2 && respawn2->IsRaidTargetSpawnpoint()))
+		&& !zone->GuildOneRaidWindowOpen()) {
+		Depop(false);
+	}
+
 	if (IsStunned() && stunned_timer.Check())
 	{
 		this->stunned = false;

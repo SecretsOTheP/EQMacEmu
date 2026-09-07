@@ -53,6 +53,7 @@
 #include "water_map.h"
 #include "worldserver.h"
 #include "zone.h"
+#include "data_bucket.h"
 #include "zone_config.h"
 #include "zone_reload.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
@@ -1625,16 +1626,19 @@ bool Zone::Process() {
 
 	if (EndQuake_Timer->Check())
 	{
-		uint32 cur_time = Timer::GetTimeSeconds();
-		bool should_broadcast_notif = zone->IsPVPZone();
-		if (should_broadcast_notif)
-		{
-			entity_list.Message(Chat::Default, Chat::Yellow, "The earthquake has concluded.");
-		}
+		const bool clear_guild_one_raids =
+			zone->IsPVPZone() &&
+			zone->GetGuildID() == 1 &&
+			!zone->GuildOneTimedRaidSpawnsEnabled();
 		//entity_list.TogglePVPForQuake();
 		EndQuake_Timer->Disable();
 		memset(&last_quake_struct, 0, sizeof(ServerEarthquakeImminent_Struct));
 
+		if (clear_guild_one_raids) {
+			entity_list.Message(Chat::Default, Chat::Yellow, "Druzzil Ro's magic begins to fade. Time and space are once again whole. Creatures in PVP have despawned.");
+			Repop();
+			ZoneReload::HotReloadQuests();
+		}
 	}
 
 	if(qGlobals)
@@ -1946,6 +1950,51 @@ void Zone::RepopClose(const glm::vec4& client_position, uint32 repop_distance)
 		Log(Logs::General, Logs::None, "Error in Zone::Repop: database.PopulateZoneSpawnList failed");
 
 	entity_list.UpdateAllTraps(true, true);
+}
+
+bool Zone::GuildOneTimedRaidSpawnsEnabled()
+{
+	if (GetGuildID() != 1) {
+		return false;
+	}
+
+	const uint32 now = Timer::GetTimeSeconds();
+	if (guild_one_raid_tier_refresh == 0 || now >= guild_one_raid_tier_refresh) {
+		const auto active = "," + Strings::ToLower(DataBucket::GetData("pvpzone_active_shortnames")) + ",";
+		const auto timed = "," + Strings::ToLower(DataBucket::GetData("pvpzone_timed_raid_shortnames")) + ",";
+		const auto needle = "," + Strings::ToLower(GetShortName()) + ",";
+		guild_one_raid_tier = active.find(needle) != std::string::npos && timed.find(needle) != std::string::npos ? 1 : -1;
+		guild_one_raid_tier_refresh = now + 5;
+	}
+
+	return guild_one_raid_tier >= 0;
+}
+
+bool Zone::GuildOneRaidWindowOpen()
+{
+	if (GetGuildID() != 1) {
+		return true;
+	}
+	if (GuildOneTimedRaidSpawnsEnabled()) {
+		return true;
+	}
+	if (!RuleB(Quarm, EnableQuakes)) {
+		return false;
+	}
+	const uint32 now = Timer::GetTimeSeconds();
+	if (guild_one_quake_refresh == 0 || now >= guild_one_quake_refresh) {
+		ServerEarthquakeImminent_Struct quake = {};
+		database.LoadQuakeData(quake);
+		// Keep a previously valid deadline if the database read fails.
+		if (quake.start_timestamp != 0) {
+			guild_one_quake_start = quake.start_timestamp;
+		}
+		guild_one_quake_refresh = now + 30;
+	}
+	// Absolute deadline: zoning, combat, damage and scripted phase changes
+	// must not extend a quake's eight-hour raid window.
+	return guild_one_quake_start != 0 && now >= guild_one_quake_start
+		&& (now - guild_one_quake_start) < static_cast<uint32>(RuleI(Quarm, QuakeEndTimeDuration));
 }
 
 bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db)
@@ -2365,20 +2414,37 @@ void Zone::SpawnStatus(Mob* client, char filter, uint32 spawnid)
 			continue;
 		}
 
+		std::string display_name = npc ? npc->GetCleanName() : "(unspawned - name unavailable)";
+		if (!npc && iterator.GetData()->CurrentNPCID() != 0) {
+			const auto npc_type = npctable.find(iterator.GetData()->CurrentNPCID());
+			if (npc_type != npctable.end() && npc_type->second) {
+				char clean_name[sizeof(npc_type->second->name)] = {};
+				CleanMobName(npc_type->second->name, clean_name);
+				display_name = clean_name;
+			}
+		}
+
 		remaining = iterator.GetData()->timer.GetRemainingTime();
 		if (remaining == 0xFFFFFFFF)
 		{
-			remaining = 0;
-			sec = -1;
+			client->Message(Chat::White, "  %d: %s%s - NPC Type ID: %u - X:%1.1f, Y:%1.1f, Z:%1.1f - No active respawn timer",
+				iterator.GetData()->GetID(),
+				!iterator.GetData()->Enabled() ? "(disabled) " : "", display_name.c_str(),
+				iterator.GetData()->CurrentNPCID(),
+				iterator.GetData()->GetX(), iterator.GetData()->GetY(), iterator.GetData()->GetZ());
+
+			x++;
+			iterator.Advance();
+			continue;
 		}
-		else
-			sec = (remaining / 1000) % 60;
+
+		sec = (remaining / 1000) % 60;
 
 		remaining /= 1000;
 
 		client->Message(Chat::White, "  %d: %s%s - NPC Type ID: %u - X:%1.1f, Y:%1.1f, Z:%1.1f - Spawn Timer: %u hrs %u mins %i sec",
 			iterator.GetData()->GetID(),
-			!iterator.GetData()->Enabled() ? "(disabled) " : "", npc ? npc->GetCleanName() : "(unspawned)",
+			!iterator.GetData()->Enabled() ? "(disabled) " : "", display_name.c_str(),
 			iterator.GetData()->CurrentNPCID(),
 			iterator.GetData()->GetX(), iterator.GetData()->GetY(), iterator.GetData()->GetZ(), 
 			remaining / (60 * 60), (remaining / 60) % 60, sec);

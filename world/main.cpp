@@ -130,13 +130,44 @@ inline void UpdateWindowTitle(std::string new_title)
 Timer NextQuakeTimer(900000);
 Timer DisableQuakeTimer(900000);
 
+// Missing setting means automatic quakes are OFF, including a fresh launch.
+// Store only the next deadline here; never fabricate a quake_data start time.
+static uint32 automatic_quake_deadline = 0;
+static uint32 automatic_quake_poll = 0;
+static uint32 consumed_quake_deadline = 0;
+static void RefreshAutomaticQuakeTimer()
+{
+	const uint32 now = Timer::GetTimeSeconds();
+	if (now < automatic_quake_poll) return;
+	automatic_quake_poll = now + 1;
+	auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' AND (expires = 0 OR expires > UNIX_TIMESTAMP()) LIMIT 1");
+	if (!result.Success()) {
+		NextQuakeTimer.Disable();
+		automatic_quake_deadline = 0;
+		return;
+	}
+	uint32 deadline = 0;
+	if (result.RowCount() > 0) {
+		auto row = result.begin();
+		if (row[0]) deadline = static_cast<uint32>(strtoul(row[0], nullptr, 10));
+	}
+	if (!RuleB(Quarm, EnableQuakes) || deadline == 0 || deadline == consumed_quake_deadline) {
+		NextQuakeTimer.Disable();
+		automatic_quake_deadline = 0;
+		return;
+	}
+	if (deadline != automatic_quake_deadline) {
+		automatic_quake_deadline = deadline;
+		NextQuakeTimer.Start(deadline > now ? (deadline - now) * 1000 : 1);
+	}
+}
+
 void TriggerManualQuake(QuakeType in_quake_type)
 {
 	uint32 cur_time = Timer::GetTimeSeconds();
 	database.SaveNextQuakeTime(next_quake, in_quake_type);
 
-	NextQuakeTimer.Enable();
-	NextQuakeTimer.Start((next_quake.next_start_timestamp - cur_time) * 1000);
+	// A manual quake does not enable or reset the automatic scheduler.
 
 	std::string motd_str = "Welcome to Project Quarm! ";
 	motd_str += "An earthquake ruleset is currently in effect in raid zones.";
@@ -235,24 +266,13 @@ int main(int argc, char** argv) {
 
 	if (RuleB(Quarm, EnableQuakes))
 	{
-		//This will return false if we have bad quake data, or the quake happened within 24 hours of a downtime.
-		bool bQuakeReset = database.LoadNextQuakeTime(next_quake);
-		if (bQuakeReset)
-		{
-			//We're outside of the 24 hour window. Players will wait normal "next_start_timestamp" amount.
-			next_quake.quake_type = QuakeType::QuakeDisabled;
-			NextQuakeTimer.Enable();
-			NextQuakeTimer.Start((next_quake.next_start_timestamp - Timer::GetTimeSeconds()) * 1000);
-			Log(Logs::Detail, Logs::WorldServer, "Using next_start_timestamp to calculate next trigger time.. %i", (next_quake.next_start_timestamp - Timer::GetTimeSeconds()));
-		}
-		else
-		{
-			//Start the timer in 15 minutes. (magic value is set in fail condition)
-			//Process normal quake logic after.
-			Log(Logs::Detail, Logs::WorldServer, "Using start_timestamp to calculate next trigger time.. %i", (next_quake.start_timestamp - Timer::GetTimeSeconds()));
-			next_quake.quake_type = QuakeType::QuakeDisabled;
-			NextQuakeTimer.Enable();
-			NextQuakeTimer.Start((next_quake.start_timestamp - Timer::GetTimeSeconds()) * 1000);
+		// Recover only an existing quake's end timer. Do not create a recovery
+		// quake or start automatic quakes without an explicit quakeon setting.
+		database.LoadQuakeData(next_quake);
+		const uint32 now = Timer::GetTimeSeconds();
+		const uint32 end = next_quake.start_timestamp + RuleI(Quarm, QuakeEndTimeDuration);
+		if (next_quake.start_timestamp != 0 && end > now) {
+			DisableQuakeTimer.Start((end - now) * 1000);
 		}
 	}
 
@@ -528,16 +548,22 @@ int main(int argc, char** argv) {
 			}
 		}
 
+		RefreshAutomaticQuakeTimer();
 		if (RuleB(Quarm, EnableQuakes))
 		{
-			if (NextQuakeTimer.Check())
+			if (automatic_quake_deadline != 0 && NextQuakeTimer.Check())
 			{
+				// A failed schedule write must not repeatedly fire the old deadline.
+				consumed_quake_deadline = automatic_quake_deadline;
 				Log(Logs::Detail, Logs::WorldServer, "Triggered quake! %i", (next_quake.start_timestamp - Timer::GetTimeSeconds()));
 				uint32 cur_time = Timer::GetTimeSeconds();
 				database.SaveNextQuakeTime(next_quake);
 
 				NextQuakeTimer.Enable();
 				NextQuakeTimer.Start((next_quake.next_start_timestamp - cur_time) * 1000);
+				// UPDATE, not INSERT: a concurrent quakeoff must stay off.
+				database.QueryDatabase(StringFormat("UPDATE data_buckets SET value = '%u' WHERE `key` = 'pvpzone_quake_next'", next_quake.next_start_timestamp));
+				automatic_quake_deadline = next_quake.next_start_timestamp;
 
 				std::string motd_str = "Welcome to Project Quarm! ";
 				motd_str += "The '";
@@ -600,7 +626,7 @@ int main(int argc, char** argv) {
 
 				//MOTD has been set. Roleplay flavor text, go!
 				zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Red, "Druzzil Ro's voice echoes in your mind, 'It seems as though the mortals have had enough of my games...'");
-				zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow, "Druzzil Ro's grasp no longer archors this land... for now. The Earthquake has ended.");
+				zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow, "Druzzil Ro's magic begins to fade. Time and space are once again whole. Creatures in PVP have despawned.");
 
 				//We're no longer using the timer; we've done our job. The next quake will enable it again.
 				DisableQuakeTimer.Disable();

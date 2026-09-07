@@ -752,6 +752,10 @@ void lua_cross_zone_signal_client_by_char_id(uint32 player_id, int signal) {
 	quest_manager.CrossZoneSignalPlayerByCharID(player_id, signal);
 }
 
+void lua_cross_zone_signal_npc_by_npc_type_id(uint32 npc_id, uint32 guild_id, int signal, const char *data) {
+	quest_manager.CrossZoneSignalNPCByNPCTypeID(npc_id, guild_id, signal, data);
+}
+
 void lua_cross_zone_signal_client_by_name(const char *player, int signal) {
 	quest_manager.CrossZoneSignalPlayerByName(player, signal);
 }
@@ -853,6 +857,10 @@ int lua_get_zone_guild_id() {
 		return 0;
 
 	return (int)zone->GetGuildID();
+}
+
+bool lua_guild_one_raid_window_open() {
+	return zone && zone->GuildOneRaidWindowOpen();
 }
 
 const char *lua_get_zone_long_name() {
@@ -1568,6 +1576,7 @@ luabind::scope lua_register_general() {
 		luabind::def("remove_title", &lua_remove_title),
 		luabind::def("wear_change", &lua_wear_change),
 		luabind::def("cross_zone_signal_client_by_char_id", &lua_cross_zone_signal_client_by_char_id),
+		luabind::def("cross_zone_signal_npc_by_npc_type_id", &lua_cross_zone_signal_npc_by_npc_type_id),
 		luabind::def("cross_zone_signal_client_by_name", &lua_cross_zone_signal_client_by_name),
 		luabind::def("cross_zone_message_player_by_name", &lua_cross_zone_message_player_by_name),
 		luabind::def("get_qglobals", (luabind::adl::object(*)(lua_State*,Lua_NPC,Lua_Client))&lua_get_qglobals),
@@ -1578,6 +1587,7 @@ luabind::scope lua_register_general() {
 		luabind::def("get_entity_list", &lua_get_entity_list),
 		luabind::def("get_zone_id", &lua_get_zone_id),
 		luabind::def("get_zone_guild_id", &lua_get_zone_guild_id),
+		luabind::def("guild_one_raid_window_open", &lua_guild_one_raid_window_open),
 		luabind::def("get_zone_long_name", &lua_get_zone_long_name),
 		luabind::def("get_zone_short_name", &lua_get_zone_short_name),
 		luabind::def("get_zone_weather", &lua_get_zone_weather),

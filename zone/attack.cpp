@@ -33,6 +33,9 @@
 #include "queryserv.h"
 #include "worldserver.h"
 #include "zone.h"
+#include "data_bucket.h"
+#include "groups.h"
+#include "raids.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -1263,6 +1266,108 @@ void Mob::AggroPet(Mob* attacker)
 	}
 }
 
+void Client::HandleRallosianGloryDeath(Mob *killer_mob)
+{
+	if (!zone || zone->GetGuildID() != 1)
+		return;
+
+	Client *killer = nullptr;
+	if (killer_mob && killer_mob->IsClient()) {
+		killer = killer_mob->CastToClient();
+	} else if (killer_mob && killer_mob->IsPet()) {
+		Mob *owner = killer_mob->GetOwner();
+		if (owner && owner->IsClient())
+			killer = owner->CastToClient();
+	}
+
+	const uint8 victim_glory = rallosian_glory;
+	rallosian_glory = 0;
+	bool qualifying_kill = killer && killer != this && killer->GetPVP() != 0 && GetPVP() != 0;
+
+	if (qualifying_kill) {
+		const int level_difference = static_cast<int>(killer->GetLevel()) - static_cast<int>(GetLevel());
+		qualifying_kill = level_difference >= -RallosianGloryLevelRange &&
+			level_difference <= RallosianGloryLevelRange;
+	}
+
+	if (qualifying_kill &&
+		((IsDueling() && GetDuelTarget() == killer->GetID()) ||
+		 (killer->IsDueling() && killer->GetDuelTarget() == GetID()))) {
+		qualifying_kill = false;
+	}
+
+	if (qualifying_kill) {
+		Group *victim_group = GetGroup();
+		qualifying_kill = !victim_group || victim_group != killer->GetGroup();
+	}
+
+	if (qualifying_kill) {
+		Raid *victim_raid = GetRaid();
+		qualifying_kill = !victim_raid || victim_raid != killer->GetRaid();
+	}
+
+	if (qualifying_kill && IsInAGuild() && killer->IsInAGuild() && GuildID() == killer->GuildID())
+		qualifying_kill = false;
+
+	const int32 killer_forum_id = killer ? killer->ForumID() : 0;
+	const int32 victim_forum_id = ForumID();
+	if (qualifying_kill && (killer_forum_id <= 0 || victim_forum_id <= 0 || killer_forum_id == victim_forum_id))
+		qualifying_kill = false;
+
+	std::string cooldown_key;
+	if (qualifying_kill) {
+		cooldown_key = fmt::format("rallosian_glory_kill_{}_{}", killer_forum_id, victim_forum_id);
+		if (!DataBucket::GetData(cooldown_key).empty())
+			qualifying_kill = false;
+	}
+
+	std::string message;
+	if (qualifying_kill) {
+		DataBucket::DeleteData(cooldown_key);
+		DataBucket::SetData(cooldown_key, "1", std::to_string(RallosianGloryCooldownSeconds));
+
+		const uint8 gained_glory = victim_glory > 0 ? victim_glory : 1;
+		const uint8 old_killer_glory = killer->GetRallosianGlory();
+		killer->SetRallosianGlory(old_killer_glory + gained_glory);
+		const uint8 new_killer_glory = killer->GetRallosianGlory();
+
+		if (victim_glory > 0) {
+			message = fmt::format(
+				"Rallos Zek exults as {} cuts down {} in {} and claims {} measure{} of hard-won Glory. {} now bears {} of {}.",
+				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), victim_glory,
+				victim_glory == 1 ? "" : "s", killer->GetCleanName(), new_killer_glory,
+				RallosianGloryMaxRank);
+		} else if (new_killer_glory == RallosianGloryMaxRank) {
+			message = fmt::format(
+				"The laughter of Rallos Zek thunders across Norrath as {} spills {}'s blood in {} and reaches {} measures of Rallosian Glory!",
+				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), RallosianGloryMaxRank);
+		} else {
+			message = fmt::format(
+				"Rallos Zek marks {} with his favor for spilling {}'s blood in {}. {} now bears {} of {} measures of Rallosian Glory.",
+				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), killer->GetCleanName(), new_killer_glory, RallosianGloryMaxRank);
+		}
+	} else if (victim_glory > 0) {
+		message = fmt::format(
+			"Rallos Zek turns his gaze from {}. {} measure{} of Rallosian Glory {} lost in an unworthy death in {}.",
+			GetCleanName(), victim_glory, victim_glory == 1 ? "" : "s",
+			victim_glory == 1 ? "is" : "are", zone->GetLongName());
+	} else if (killer && killer != this) {
+		message = fmt::format(
+			"Rallos Zek watches as {} spills {}'s blood in {}, but finds no worthy conquest.",
+			killer->GetCleanName(), GetCleanName(), zone->GetLongName());
+	} else if (killer_mob && killer_mob != this) {
+		message = fmt::format(
+			"Rallos Zek looks on as {} falls to {} in {}, but grants no Glory.",
+			GetCleanName(), killer_mob->GetCleanName(), zone->GetLongName());
+	} else {
+		message = fmt::format(
+			"Rallos Zek looks down in disgust as {} falls in {} without a worthy foe.",
+			GetCleanName(), zone->GetLongName());
+	}
+
+	worldserver.SendChannelMessage("Rallosian_Glory", ChatChannel_Broadcast, 0, 0, 100, message.c_str());
+}
+
 bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::SkillType attack_skill, uint8 killedby, bool bufftic)
 {
 	if(!ClientFinishedLoading())
@@ -1374,35 +1479,14 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		}
 	}
 	bool dueling = IsDueling();
+
+	HandleRallosianGloryDeath(killerMob);
+
 	if (killerMob != nullptr)
 	{
 		if (killerMob->IsNPC()) 
 		{
 			parse->EventNPC(EVENT_SLAY, killerMob->CastToNPC(), this, "", 0);
-
-			if (killerMob && zone->GetGuildID() == 1)
-			{
-				std::string pvpKilledGuildName = GetGuildName();
-				std::string killer_message;
-
-				Mob* petOwner = killerMob->IsPet() ? killerMob->GetOwner() : nullptr;
-				if (petOwner && petOwner->IsClient())
-				{
-					std::string ownerGuildName = petOwner->CastToClient()->GetGuildName();
-					killer_message = fmt::format("{} of <{}> has been killed in combat by {} of <{}> in {}!",
-						GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
-						petOwner->GetCleanName(), ownerGuildName.empty() ? " " : ownerGuildName,
-						zone->GetLongName());
-				}
-				else
-				{
-					killer_message = fmt::format("{} of <{}> has died to {} in combat in {}!",
-						GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
-						killerMob->GetCleanName(), zone->GetLongName());
-				}
-
-				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
-			}
 
 			killedby = Killed_NPC;
 
@@ -1416,22 +1500,10 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			if (killerMob != this)
 			{
 				killedby = Killed_PVP;
-				std::string pvpKilledGuildName = GetGuildName();
-				std::string pvpKillerGuildName = killerMob->CastToClient()->GetGuildName();
-				std::string killer_message = fmt::format("{} of <{}> has been killed in combat by {} of <{}> in {}!",
-					GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
-					killerMob->GetCleanName(), pvpKillerGuildName.empty() ? " " : pvpKillerGuildName,
-					zone->GetLongName());
-				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 			else
 			{
 				killedby = Killed_Self;
-				std::string pvpKilledGuildName = GetGuildName();
-				std::string killer_message = fmt::format("{} of <{}> has unalived themselves in {}!",
-					GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName,
-					zone->GetLongName());
-				worldserver.SendChannelMessage("PVP_Druzzil_Ro", ChatChannel_Broadcast, 0, 0, 100, killer_message.c_str());
 			}
 		}
 		else if (killerMob->IsClient() && (dueling || killerMob->CastToClient()->IsDueling())) 
@@ -1487,11 +1559,6 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		else if(pvparea || zone->GetGuildID() == 1)
 		{
 			killedby = Killed_PVP;
-			if (zone->GetGuildID() == 1)
-			{
-				std::string pvpKilledGuildName = GetGuildName();
-				entity_list.Message(0, 15, "[PVP] %s of <%s> has unalived themselves!", GetCleanName(), pvpKilledGuildName.empty() ? " " : pvpKilledGuildName.c_str());
-			}
 			Log(Logs::General, Logs::Death, "%s is in a PVP situation and killedby is 0. This is likely an error due to pain and suffering, setting killedby to 4.", GetName());
 		}
 		else

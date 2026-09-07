@@ -81,7 +81,7 @@ protected:
 private:
 	uint32	spawn2_id;
 	uint32	respawn_;
-	uint32	resetTimer();
+	uint32	resetTimer(bool quake_repop = false);
 	uint32	despawnTimer(uint32 despawn_timer);
 
 	uint32	spawngroup_id_;

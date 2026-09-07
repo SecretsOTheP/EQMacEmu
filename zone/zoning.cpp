@@ -432,6 +432,8 @@ void Client::DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 zone_gu
 	//this is called once the client is fully allowed to zone here
 	//it takes care of all the activities which occur when a client zones out
 
+	ForfeitRallosianGlory("flees the battlefield");
+
 	SendLogoutPackets();
 
 	if (zonesummon_id != zone_id && zonesummon_id != 0)
@@ -728,6 +730,9 @@ void Client::ZonePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, float z
 
 	if (ReadyToZone)
 	{
+		// Scripted portals reach ZonePC before the client sends its zone-change response.
+		ForfeitRallosianGlory("flees the battlefield");
+
 		//if client is looting, we need to send an end loot
 		if (IsLooting())
 		{

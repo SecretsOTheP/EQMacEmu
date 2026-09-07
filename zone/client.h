@@ -705,6 +705,18 @@ public:
 	void	AddEXP(uint32 in_add_exp, uint8 conlevel = 0xFF, Mob* killed_mob = nullptr, int16 avg_level = 0, bool is_split = false, int16 highest_level = 0);
 	void	SetEXP(uint32 set_exp, uint32 set_aaxp, bool resexp=false, bool is_split = false);
 	void	AddQuestEXP(uint32 in_add_exp, bool bypass_cap = false);
+
+	static constexpr uint8 RallosianGloryMaxRank = 10;
+	static constexpr uint8 RallosianGloryLevelRange = 5;
+	static constexpr uint8 RallosianGloryZoneXPBonus = 15;
+	static constexpr uint8 RallosianGloryRankXPBonus = 10;
+	static constexpr uint32 RallosianGloryCooldownSeconds = 3600;
+	inline int32 ForumID() const { return forum_id; }
+	inline uint8 GetRallosianGlory() const { return rallosian_glory; }
+	inline void SetRallosianGlory(uint8 rank) { rallosian_glory = rank > RallosianGloryMaxRank ? RallosianGloryMaxRank : rank; }
+	void HandleRallosianGloryDeath(Mob *killer_mob);
+	void ForfeitRallosianGlory(const char *action);
+
 	void	AddEXPPercent(uint8 percent, uint8 level = 1);
 	void	AddLevelBasedExp(uint8 exp_percentage, uint8 max_level=0);
 	void	InspectBuffs(Client* Inspector, int Rank);
@@ -1554,6 +1566,8 @@ private:
 	int32 last_reported_mana;
 
 	char forum_name[31];
+	int32 forum_id;
+	uint8 rallosian_glory;
 
 	unsigned int AggroCount; // How many mobs are aggro on us.
 

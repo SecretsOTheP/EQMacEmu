@@ -6,12 +6,15 @@
 #include "entity.h"
 #include "mob.h"
 #include "npc.h"
+#include "spawn2.h"
 #include "zonedb.h"
+#include "data_bucket.h"
 #include "global_loot_manager.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
 #include "../common/repositories/global_loot_repository.h"
 #include "../common/zone_store.h"
 
+#include <chrono>
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
@@ -288,6 +291,21 @@ void NPC::AddLootDrop(
 
 	if (CountQuestItems() >= MAX_NPC_QUEST_INVENTORY) {
 		return;
+	}
+
+	// Player hand-ins request an immediate wear change. Bows and utility items should
+	// remain in NPC inventory without entering equipment or sending a bogus
+	// weapon-slot appearance packet. Native database equipment does not use
+	// this wear-change path and remains unaffected.
+	const bool is_utility_torch =
+		item2->ItemType == EQ::item::ItemTypeLight ||
+		(item2->ItemType == EQ::item::ItemTypeMisc && item2->Damage == 0 &&
+			!strcasecmp(item2->IDFile, "IT36"));
+	if (wearchange && (is_utility_torch ||
+		item2->ItemType == EQ::item::ItemTypeFishingPole ||
+		item2->ItemType == EQ::item::ItemTypeBow)) {
+		equipit = false;
+		wearchange = false;
 	}
 
 	auto item = new LootItem;
@@ -690,19 +708,39 @@ void NPC::AddItem(uint32 itemid, int8 charges, bool equipitem, bool quest, const
 	AddLootDrop(item, l, equipitem, equipitem, quest, false, false, quarm_item_data);
 }
 
+namespace {
+bool PVPZoneDoubleLootEnabled(bool raid)
+{
+	if (!zone || zone->GetGuildID() != 1) return false;
+	static std::string normal_zones;
+	static std::string raid_zones;
+	static auto refresh_at = std::chrono::steady_clock::time_point{};
+	const auto now = std::chrono::steady_clock::now();
+	if (now >= refresh_at) {
+		normal_zones = "," + Strings::ToLower(DataBucket::GetData("pvpzone_normal_loot_shortnames")) + ",";
+		raid_zones = "," + Strings::ToLower(DataBucket::GetData("pvpzone_raid_loot_shortnames")) + ",";
+		refresh_at = now + std::chrono::seconds(5);
+	}
+	const auto needle = "," + Strings::ToLower(zone->GetShortName()) + ",";
+	return (raid ? raid_zones : normal_zones).find(needle) != std::string::npos;
+}
+}
+
 void NPC::AddLootTable(bool is_quest_spawn) {
+	const bool is_raid_loot = engage_notice || IsRaidTarget() || (respawn2 && respawn2->IsRaidTargetSpawnpoint());
 	AddLootTable(m_loottable_id);
-	if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !engage_notice || RuleB(Quarm, EnablePVPDoubleLoot) && zone->GetGuildID() == 1 && !engage_notice || RuleB(Quarm, EnablePVERaidDoubleLoot) && zone->GetGuildID() == 1 && engage_notice) && !is_quest_spawn)
+	if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot)) && !is_quest_spawn)
 		AddLootTable(m_loottable_id);
 }
 
 void NPC::CheckGlobalLootTables()
 {
 	const auto &l = zone->GetGlobalLootTables(this);
+	const bool is_raid_loot = engage_notice || IsRaidTarget() || (respawn2 && respawn2->IsRaidTargetSpawnpoint());
 	for (const auto &e : l) {
 
 		AddLootTable(e, true);
-		if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !engage_notice || RuleB(Quarm, EnablePVPDoubleLoot) && zone->GetGuildID() == 1 && !engage_notice || RuleB(Quarm, EnablePVERaidDoubleLoot) && zone->GetGuildID() == 1 && engage_notice))
+		if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot)))
 		{
 			AddLootTable(e, true);
 		}

@@ -397,6 +397,11 @@ void Lua_Client::MovePC(int zone_id, float x, float y, float z, float heading) {
 	self->MovePCQuest(zone_id, x, y, z, heading);
 }
 
+void Lua_Client::MovePCGuildID(int zone_id, uint32 guild_id, float x, float y, float z, float heading) {
+	Lua_Safe_Call_Void();
+	self->MovePCGuildID(zone_id, guild_id, x, y, z, heading);
+}
+
 void Lua_Client::ChangeLastName(const char *in) {
 	Lua_Safe_Call_Void();
 	self->ChangeLastName(in);
@@ -1538,6 +1543,7 @@ luabind::scope lua_register_client() {
 		.def("GetBindZoneID", (uint32(Lua_Client::*)(int))&Lua_Client::GetBindZoneID)
 		.def("GetTimesRebirthed", (uint32(Lua_Client::*)(void))&Lua_Client::GetTimesRebirthed)
 		.def("MovePC", (void(Lua_Client::*)(int,float,float,float,float))&Lua_Client::MovePC)
+		.def("MovePCGuildID", (void(Lua_Client::*)(int,uint32,float,float,float,float))&Lua_Client::MovePCGuildID)
 		.def("ChangeLastName", (void(Lua_Client::*)(const char *in))&Lua_Client::ChangeLastName)
 		.def("GetFactionLevel", (int(Lua_Client::*)(uint32,uint32,uint32,uint32,uint32,Lua_NPC))&Lua_Client::GetFactionLevel)
 		.def("GetFactionValue", (int(Lua_Client::*)(Lua_NPC))&Lua_Client::GetFactionValue)
