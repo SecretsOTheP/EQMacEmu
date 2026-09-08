@@ -32,14 +32,18 @@
 #include "../common/event_sub.h"
 #include "web_interface.h"
 #include "wguild_mgr.h"
+#include "login_server.h"
+#include "login_server_list.h"
 #include "../zone/string_ids.h"
 #include "../common/zone_store.h"
 #include <set>
 #include <cstring>  // For strlen and strncat
+#include <ctime>
 
 extern WebInterfaceList web_interface;
 
 extern ZSList			zoneserver_list;
+extern LoginServerList	loginserverlist;
 
 ClientList::ClientList()
 : CLStale_timer(RuleI(World, WorldClientLinkdeadMS))
@@ -49,6 +53,7 @@ ClientList::ClientList()
 	cached_trader_count = 0;
 
 	m_tick = std::make_unique<EQ::Timer>(5000, true, std::bind(&ClientList::OnTick, this, std::placeholders::_1));
+	m_queue.SetLog([](const std::string& line) { LogInfo("{}", line); });
 }
 
 ClientList::~ClientList() {
@@ -353,7 +358,7 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 	connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::NPCQuestSay, out.data());
 }
 
-void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version, int16 ipexemptioncount) {
+void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version, int16 ipexemptioncount, bool queue_active) {
 	
 	// Account stuff
 	uint32	paccountid = 0;
@@ -362,12 +367,20 @@ void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForum
 	bool pmule = false;
 	int16 exempt = 1;
 	
-	if (GetClientCount() >= RuleI(Quarm, PlayerPopulationCap))
-	{
-		uint32 paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule, &exempt);
+	bool queue_enabled = queue_active;
+	bool full = queue_enabled
+		? EffectivePopulation() >= (uint32)RuleI(Quarm, PlayerPopulationCap)
+		: GetClientCount() >= RuleI(Quarm, PlayerPopulationCap);
 
-		if(padmin == 0)
+	if (full)
+	{
+		paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule, &exempt);
+
+		// A new account has no world id yet; the queue keyed it by its provisional id, as ProcessUsertoWorldReq does.
+		if (padmin == 0 && !(queue_enabled && QueueHoldsSlot(paccountid ? paccountid : WorldQueue::ProvisionalAccountId(iLSID)))) {
+			LogInfo("[Queue] refusing client auth for LS account [{}]: world full and no slot held", iLSID);
 			return;
+		}
 	}
 
 	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginName, iForumName, iLoginKey, iWorldAdmin, ip, local, version, 0);
@@ -1355,6 +1368,157 @@ int ClientList::GetClientCount() {
 	return(cached_gm_trader_count > clientlist.Count() ? cached_gm_trader_count : clientlist.Count() - cached_gm_trader_count);
 }
 
+uint32 ClientList::QueueNow()
+{
+	return (uint32)time(nullptr);
+}
+
+// Rules load after this object is constructed and can be reloaded, so read them on every use.
+void ClientList::RefreshQueueConfig()
+{
+	WorldQueueConfig c;
+	c.cap                   = RuleI(Quarm, PlayerPopulationCap) > 0 ? (uint32)RuleI(Quarm, PlayerPopulationCap) : 0;
+	c.entry_timeout_s       = (uint32)RuleI(Quarm, QueueEntryTimeoutS);
+	c.slot_hold_s           = (uint32)RuleI(Quarm, QueueSlotHoldS);
+	m_queue.SetConfig(c);
+}
+
+// A character-select entry goes Offline when its world connection closes, so at_char_select reflects
+// live sessions. An account with both kinds of entry (linkdead reconnect) counts as in zone only.
+QueuePopulation ClientList::Population()
+{
+	QueuePopulation pop;
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+	iterator.Reset();
+	while (iterator.MoreElements()) {
+		ClientListEntry* cle = iterator.GetData();
+		CLE_Status status = cle->Online();
+		if (cle->AccountID() != 0 && cle->Admin() == 0) {
+			if (status == CLE_Status::Zoning || status == CLE_Status::InZone) {
+				pop.in_zone.insert(cle->AccountID());
+			}
+			else if (status == CLE_Status::Online || status == CLE_Status::CharSelect) {
+				pop.at_char_select.insert(cle->AccountID());
+			}
+		}
+		iterator.Advance();
+	}
+	for (auto acct : pop.in_zone) {
+		pop.at_char_select.erase(acct);
+	}
+	return pop;
+}
+
+bool ClientList::QueueActive()
+{
+	return RuleB(Quarm, EnableLoginQueue) && loginserverlist.QueueCapable();
+}
+
+uint32 ClientList::EffectivePopulation()
+{
+	RefreshQueueConfig();
+	return m_queue.EffectivePopulation(Population());
+}
+
+QueueDecision ClientList::QueueDecide(uint32 iLSID, uint32 iAccID, uint32 ip)
+{
+	RefreshQueueConfig();
+	return m_queue.Decide(iLSID, iAccID, ip, Population(), QueueNow());
+}
+
+bool ClientList::QueueHoldsSlot(uint32 iAccID)
+{
+	return m_queue.HoldsSlot(iAccID, Population());
+}
+
+bool ClientList::QueueClaimSlot(uint32 iLSID, uint32 iAccID, uint32 ip)
+{
+	RefreshQueueConfig();
+	return m_queue.ClaimSlot(iLSID, iAccID, ip, Population(), QueueNow());
+}
+
+void ClientList::QueueTick()
+{
+	RefreshQueueConfig();
+	m_queue.Tick(Population(), QueueNow());
+}
+
+// An entry dropped below Zoning. Grace starts only when it was the account's last in-zone entry.
+void ClientList::OnLeftZone(ClientListEntry* cle)
+{
+	if (cle->AccountID() == 0 || cle->Admin() != 0) {
+		return;
+	}
+	if (CheckAccountActive(cle->AccountID(), cle)) {
+		return;
+	}
+	RefreshQueueConfig();
+	m_queue.AddGrace(cle->AccountID(), QueueNow());
+}
+
+// A zone reported the entry. The linkdead flag stamps when grace would start for a client the zone still holds.
+void ClientList::OnZoneUpdate(ClientListEntry* cle)
+{
+	if (cle->AccountID() == 0 || cle->Admin() != 0) {
+		return;
+	}
+	if (cle->LD()) {
+		m_queue.NoteLinkdead(cle->AccountID(), QueueNow());
+	}
+	else {
+		m_queue.ClearLinkdead(cle->AccountID());
+	}
+}
+
+void ClientList::SendQueueStatus(const char* to, WorldTCPConnection* connection)
+{
+	RefreshQueueConfig();
+	uint32 now = QueueNow();
+	QueuePopulation pop = Population();
+	const WorldQueueConfig& c = m_queue.Config();
+
+	auto line = [&](const std::string& text) {
+		connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::White, text.c_str());
+	};
+
+	line(fmt::format(
+		"Login queue {}, login server {}: cap {}, effective population {} (in zone {}, at character select {}, reservations {}, grace {}), {} waiting",
+		RuleB(Quarm, EnableLoginQueue) ? "enabled" : "disabled",
+		loginserverlist.QueueCapable() ? "queue-aware" : "not queue-aware (raw count in use)",
+		c.cap,
+		m_queue.EffectivePopulation(pop),
+		pop.in_zone.size(),
+		pop.at_char_select.size(),
+		m_queue.Reservations().size(),
+		m_queue.Grace().size(),
+		m_queue.Entries().size()
+	));
+
+	uint32 position = 0;
+	for (auto& e : m_queue.Entries()) {
+		struct in_addr in;
+		in.s_addr = e.ip;
+		line(fmt::format(
+			"  #{} account {} (ls {}) ip {} waited {}s, last poll {}s ago",
+			++position, e.world_account_id, e.ls_account_id, inet_ntoa(in),
+			now > e.joined_at ? now - e.joined_at : 0,
+			now > e.last_seen ? now - e.last_seen : 0
+		));
+	}
+	for (auto& r : m_queue.Reservations()) {
+		line(fmt::format(
+			"  reservation account {} (ls {}) expires in {}s",
+			r.first, r.second.ls_account_id, r.second.expires_at > now ? r.second.expires_at - now : 0
+		));
+	}
+	for (auto& g : m_queue.Grace()) {
+		line(fmt::format(
+			"  grace account {} expires in {}s",
+			g.first, g.second.expires_at > now ? g.second.expires_at - now : 0
+		));
+	}
+}
+
 void ClientList::GetClients(const char *zone_name, std::vector<ClientListEntry *> &res) {
 	LinkedListIterator<ClientListEntry *> iterator(clientlist);
 	iterator.Reset();
@@ -1627,6 +1791,8 @@ void ClientList::GetClientList(Json::Value &response)
 
 void ClientList::OnTick(EQ::Timer* t)
 {
+	QueueTick();
+
 	if (!EventSubscriptionWatcher::Get()->IsSubscribed("EQW::ClientUpdate")) {
 		return;
 	}

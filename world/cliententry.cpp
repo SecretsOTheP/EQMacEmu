@@ -116,6 +116,7 @@ void ClientListEntry::SetOnline(CLE_Status iOnline)
 		static_cast<int>(iOnline)
 	);
 
+	CLE_Status previous = pOnline;
 	if (iOnline != CLE_Status::Online || pOnline < CLE_Status::Online) {
 		pOnline = iOnline;
 	}
@@ -124,6 +125,9 @@ void ClientListEntry::SetOnline(CLE_Status iOnline)
 	}
 	if (pOnline >= CLE_Status::Online) {
 		stale = 0;
+	}
+	if (RunLoops && previous >= CLE_Status::Zoning && previous != CLE_Status::OfflineBazaar && pOnline < CLE_Status::Zoning) {
+		client_list.OnLeftZone(this);
 	}
 }
 
@@ -215,6 +219,7 @@ void ClientListEntry::Update(ZoneServer* iZS, ServerClientList_Struct* scl, CLE_
 	}
 
 	SetOnline(iOnline);
+	client_list.OnZoneUpdate(this);
 }
 
 void ClientListEntry::LeavingZone(ZoneServer* iZS, CLE_Status iOnline)
@@ -265,7 +270,7 @@ void ClientListEntry::ClearVars(bool iAll)
 	pLFG           = false;
 	gm             = 0;
 	pClientVersion = 0;
-	pLD;
+	pLD            = false;
 	pbaserace = 0;
 	pAFK = false;
 	pTrader = false;
@@ -408,6 +413,8 @@ bool ClientListEntry::CheckAuth(uint32 loginserver_account_id, const char* key_p
 			}
 			strn0cpy(paccountname, loginserver_account_name, sizeof(paccountname));
 			padmin = default_account_status;
+			// The login-server request admitted this account under a provisional id (no world id existed yet).
+			client_list.Queue().Rekey(WorldQueue::ProvisionalAccountId(LSID()), paccountid);
 		}
 		std::string lsworldadmin;
 		if (database.GetVariable("honorlsworldadmin", lsworldadmin)) {
