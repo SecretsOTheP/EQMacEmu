@@ -44,3 +44,26 @@ WHERE id IN (
     367795,
     367796
 );
+
+
+-- Set the four elemental gods to five-day, 18-hour loot lockouts.
+UPDATE npc_types
+SET loot_lockout = 496800
+WHERE id IN (
+    215056, -- Xegony
+    216048, -- Coirnav
+    217440, -- Fennin Ro
+    222040  -- Avatar of Earth
+);
+
+-- Match the database-controlled elemental encounter respawns.
+-- Fennin is started by the Guardian of Doomfire.
+UPDATE spawn2
+SET
+    respawntime = 496800,
+    variance = 0
+WHERE id IN (
+    365346, -- Xegony
+    365647, -- Coirnav
+    367088  -- Guardian of Doomfire
+);
