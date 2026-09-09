@@ -67,3 +67,27 @@ WHERE id IN (
     365647, -- Coirnav
     367088  -- Guardian of Doomfire
 );
+
+-- Set additional PoP raid encounters to 66-hour loot lockouts.
+UPDATE npc_types
+SET loot_lockout = 237600
+WHERE id IN (
+    221041, -- Terris Thule
+    207001, -- Saryrn
+    205091, -- Grummus
+    200226, -- Bertoxxulous
+    214317  -- Vallon Zek
+);
+
+-- Match the database-controlled encounters and scripted triggers to 66 hours.
+UPDATE spawn2
+SET
+    respawntime = 237600,
+    variance = 0
+WHERE id IN (
+    365941, -- Terris Thule
+    346762, -- Saryrn
+    344762, -- Grummus
+    360643, -- Spectre of Corruption, Bertoxxulous trigger
+    369265  -- Vallon Zek trigger
+);
