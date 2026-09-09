@@ -91,3 +91,14 @@ WHERE id IN (
     360643, -- Spectre of Corruption, Bertoxxulous trigger
     369265  -- Vallon Zek trigger
 );
+
+-- Align the Seventh Hammer's loot lockout and respawn to 66 hours.
+UPDATE npc_types
+SET loot_lockout = 237600
+WHERE id = 201074;
+
+UPDATE spawn2
+SET
+    respawntime = 237600,
+    variance = 0
+WHERE id = 345320;
