@@ -38,13 +38,13 @@ void command_glory(Client *c, const Seperator *sep)
 		Chat::White, "Rank: %u of %u - %s",
 		static_cast<unsigned>(rank), static_cast<unsigned>(Client::RallosianGloryMaxRank), RallosianGloryTitle(rank));
 	c->Message(
-		Chat::White, "Experience bonus: +%u%% from Glory",
+		Chat::White, "Experience Bonus: +%u%% from Glory",
 		static_cast<unsigned>(rank * Client::RallosianGloryRankXPBonus));
 	c->Message(
-		Chat::White, "Guild 1 battlefield bonus: +%u%%",
+		Chat::White, "Current Battlefield Bonus: +%u%%",
 		static_cast<unsigned>(Client::RallosianGloryZoneXPBonus));
 	c->Message(
-		Chat::White, "Total Guild 1 bonus: +%u%%",
+		Chat::White, "Total Battlefield Bonus: +%u%%",
 		static_cast<unsigned>(Client::RallosianGloryZoneXPBonus + rank * Client::RallosianGloryRankXPBonus));
 
 	if (rank == 0) {
