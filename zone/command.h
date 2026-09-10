@@ -237,6 +237,7 @@ void command_summonitem(Client* c, const Seperator* sep);
 void command_suspend(Client* c, const Seperator* sep);
 void command_synctod(Client* c, const Seperator* sep);
 void command_takemoney(Client* c, const Seperator* sep);
+void command_timelockout(Client* c, const Seperator* sep);
 void command_testcommand(Client* c, const Seperator* sep);
 void command_testspawn(Client* c, const Seperator* sep);
 void command_togglepvp(Client* c, const Seperator* sep);
