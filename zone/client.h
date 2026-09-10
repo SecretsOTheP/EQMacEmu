@@ -1570,7 +1570,7 @@ private:
 	int32 forum_id;
 	uint8 rallosian_glory;
 	uint32 rallosian_glory_zone_entry_time;
-	
+
 	unsigned int AggroCount; // How many mobs are aggro on us.
 
 	LinkedList<ZoneFlags_Struct*> ZoneFlags;
