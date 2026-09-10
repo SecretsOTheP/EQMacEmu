@@ -180,6 +180,7 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	memset(forum_name, 0, sizeof(forum_name));
 	forum_id = 0;
 	rallosian_glory = 0;
+	rallosian_glory_zone_entry_time = Timer::GetTimeSeconds();
 	berserk = false;
 	dead = false;
 	initial_z_position = 0;
