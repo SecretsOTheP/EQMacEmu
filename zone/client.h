@@ -709,8 +709,8 @@ public:
 	static constexpr uint8 RallosianGloryMaxRank = 10;
 	static constexpr uint8 RallosianGloryLevelRange = 5;
 	static constexpr uint8 RallosianGloryZoneXPBonus = 5;
-	static constexpr uint8 RallosianGloryRankXPBonus = 10;
-	static constexpr uint8 RallosianGloryRankAAXPBonus = 1;
+	static constexpr float RallosianGloryRankXPBonus = 2.5f;
+	static constexpr float RallosianGloryRankAAXPBonus = 0.5f;
 	static constexpr uint32 RallosianGloryCooldownSeconds = 3600;
 	static constexpr uint32 RallosianGloryVictimCooldownSeconds = 3600;
 	static constexpr uint32 RallosianGloryKillerCooldownSeconds = 600;

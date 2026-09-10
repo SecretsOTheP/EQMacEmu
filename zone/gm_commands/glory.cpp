@@ -38,25 +38,22 @@ void command_glory(Client *c, const Seperator *sep)
 		Chat::White, "Rank: %u of %u - %s",
 		static_cast<unsigned>(rank), static_cast<unsigned>(Client::RallosianGloryMaxRank), RallosianGloryTitle(rank));
 	c->Message(
-		Chat::White, "Level Experience Bonus: +%u%% from Glory",
-		static_cast<unsigned>(rank * Client::RallosianGloryRankXPBonus));
+		Chat::White, "Level Experience Bonus: +%.1f%% from Glory",
+		static_cast<double>(rank) * Client::RallosianGloryRankXPBonus);
 	c->Message(
-		Chat::White, "AA Experience Bonus: +%u%% from Glory",
-		static_cast<unsigned>(rank * Client::RallosianGloryRankAAXPBonus));
+		Chat::White, "AA Experience Bonus: +%.1f%% from Glory",
+		static_cast<double>(rank) * Client::RallosianGloryRankAAXPBonus);
 	c->Message(
 		Chat::White, "Base Battlefield Bonus: +%u%% to level and AA experience",
 		static_cast<unsigned>(Client::RallosianGloryZoneXPBonus));
 	c->Message(
-		Chat::White, "Total Level XP Bonus: +%u%%",
-		static_cast<unsigned>(
-			Client::RallosianGloryZoneXPBonus +
-			rank * Client::RallosianGloryRankXPBonus
-		));
+		Chat::White, "Total Level XP Bonus: +%.1f%%",
+		static_cast<double>(Client::RallosianGloryZoneXPBonus) +
+		static_cast<double>(rank) * Client::RallosianGloryRankXPBonus);
 	c->Message(
-		Chat::White, "Total AA XP Bonus: +%u%%",
-		static_cast<unsigned>(
-			Client::RallosianGloryZoneXPBonus +
-			rank * Client::RallosianGloryRankAAXPBonus
+		Chat::White, "Total AA XP Bonus: +%.1f%%",
+		static_cast<double>(Client::RallosianGloryZoneXPBonus) +
+		static_cast<double>(rank) * Client::RallosianGloryRankAAXPBonus);
 		));
 
 	if (rank == 0) {
