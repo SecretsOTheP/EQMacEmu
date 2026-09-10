@@ -1326,7 +1326,7 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 		DataBucket::DeleteData(cooldown_key);
 		DataBucket::SetData(cooldown_key, "1", std::to_string(RallosianGloryCooldownSeconds));
 
-		const uint8 gained_glory = victim_glory > 0 ? victim_glory : 1;
+		const uint8 gained_glory = victim_glory > 0 ? (victim_glory + 1) / 2 : 1;
 		const uint8 old_killer_glory = killer->GetRallosianGlory();
 		killer->SetRallosianGlory(old_killer_glory + gained_glory);
 		const uint8 new_killer_glory = killer->GetRallosianGlory();
