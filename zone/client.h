@@ -711,6 +711,8 @@ public:
 	static constexpr uint8 RallosianGloryZoneXPBonus = 15;
 	static constexpr uint8 RallosianGloryRankXPBonus = 10;
 	static constexpr uint32 RallosianGloryCooldownSeconds = 3600;
+	static constexpr uint32 RallosianGloryVictimCooldownSeconds = 3600;
+	static constexpr uint32 RallosianGloryKillerCooldownSeconds = 600;
 	static constexpr uint32 RallosianGloryMinimumZoneSeconds = 25 * 60;
 	inline int32 ForumID() const { return forum_id; }
 	inline uint8 GetRallosianGlory() const { return rallosian_glory; }
