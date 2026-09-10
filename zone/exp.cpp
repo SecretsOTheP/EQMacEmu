@@ -493,7 +493,6 @@ void Client::AddEXP(uint32 in_add_exp, uint8 conlevel, Mob* killed_mob, int16 av
 
 		if (zone && zone->GetGuildID() == 1) {
 			const float pvp_aa_bonus = 1.0f +
-				(static_cast<float>(RallosianGloryZoneXPBonus) / 100.0f) +
 				(static_cast<float>(GetRallosianGlory() * RallosianGloryRankAAXPBonus) / 100.0f);
 
 			add_aaxp = static_cast<uint32>(
