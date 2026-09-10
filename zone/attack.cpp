@@ -1314,6 +1314,14 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 	if (qualifying_kill && (killer_forum_id <= 0 || victim_forum_id <= 0 || killer_forum_id == victim_forum_id))
 		qualifying_kill = false;
 
+	if (qualifying_kill) {
+		const uint32 victim_zone_seconds =
+			Timer::GetTimeSeconds() - rallosian_glory_zone_entry_time;
+
+		qualifying_kill =
+			victim_zone_seconds >= RallosianGloryMinimumZoneSeconds;
+	}
+
 	std::string cooldown_key;
 	if (qualifying_kill) {
 		cooldown_key = fmt::format("rallosian_glory_kill_{}_{}", killer_forum_id, victim_forum_id);
