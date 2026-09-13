@@ -51,7 +51,7 @@ WHERE id IN (
 -- event respawn aligned with Tylis and remove its raid-window classification.
 UPDATE spawn2
 SET
-    respawntime = 216000,
+    respawntime = 7200,
     variance = 0,
     raid_target_spawnpoint = 0
 WHERE id = 346764;

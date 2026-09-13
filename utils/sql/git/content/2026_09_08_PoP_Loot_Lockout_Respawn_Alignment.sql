@@ -101,4 +101,4 @@ UPDATE spawn2
 SET
     respawntime = 237600,
     variance = 0
-WHERE id = 345320;
+WHERE id = 237600;
