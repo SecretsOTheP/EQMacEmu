@@ -47,7 +47,7 @@ uint64 TimeDeadline(const std::vector<std::string> &timers, uint8 phase, size_t 
 	if (timer_index >= timers.size()) {
 		return 0;
 	}
-	return Strings::ToUnsignedBigInt(timers[timer_index]) * 100;
+	return Strings::ToUnsignedBigInt(timers[timer_index]);
 }
 
 bool TimeBossAvailable(
