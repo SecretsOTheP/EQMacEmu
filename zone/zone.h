@@ -216,6 +216,8 @@ public:
 	bool	ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db = false);
 	bool	Depop(bool StartSpawnTimer = false);
 	void	Repop();
+	bool	InstanceRespawnsEnabled() const { return instance_respawns_enabled; }
+	void	SetGuildInstanceRespawnsEnabled(uint32 guild_id, bool enabled);
 	void	RepopClose(const glm::vec4& client_position, uint32 repop_distance);
 	void	ClearNPCTypeCache(int id);
 	void	SpawnStatus(Mob* client, char filter = 'a', uint32 spawnid = 0);
@@ -492,6 +494,7 @@ private:
 	char*	long_name;
 	char*	map_name;
 	bool pvpzone;
+	bool instance_respawns_enabled = false;
 	glm::vec4 m_safe_point;
 	uint32	m_max_clients;
 	bool	can_bind;

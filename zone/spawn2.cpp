@@ -146,7 +146,7 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 
 	if (zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
 	{
-		if (RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime))
+		if (RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime) && !zone->InstanceRespawnsEnabled())
 		{
 			if (last_instance_spawn_timer_override != 0)
 				return last_instance_spawn_timer_override;

@@ -109,6 +109,7 @@ void command_forage(Client* c, const Seperator* sep);
 void command_giveitem(Client* c, const Seperator* sep);
 void command_givemoney(Client* c, const Seperator* sep);
 void command_glory(Client* c, const Seperator* sep);
+void command_instancespawn(Client* c, const Seperator* sep);
 void command_giveplayerfaction(Client* c, const Seperator* sep);
 void command_gmdamage(Client* c, const Seperator* sep);
 void command_goto(Client* c, const Seperator* sep);
