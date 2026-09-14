@@ -28,7 +28,6 @@ WHERE id IN (
 UPDATE npc_types
 SET loot_lockout = 237600
 WHERE id IN (
-    200232, -- Carprin Deatharn
     201074, -- The Seventh Hammer
     208074, -- Aerin`Dar
     214312, -- Rallos Zek the Warlord
