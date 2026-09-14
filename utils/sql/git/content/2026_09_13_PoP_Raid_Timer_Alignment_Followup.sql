@@ -55,14 +55,8 @@ SET
     raid_target_spawnpoint = 0
 WHERE id = 346764;
 
--- Guardian of Coirnav starts the event but is not its loot boss. Keep it
--- loot-lockout free and match Guardian of Doomfire's post-success respawn.
--- The Coirnav event script still overrides the Coirnav retry to ten minutes
--- after a failed attempt.
 UPDATE npc_types
 SET loot_lockout = 0
 WHERE id = 216053;
 
-UPDATE spawn2
-SET respawntime = 496800, variance = 0
-WHERE id = 366321;
+
