@@ -21,6 +21,7 @@
 #include "../common/zone_store.h"
 #include "../common/misc_functions.h"
 
+#include "data_bucket.h"
 #include "client.h"
 #include "entity.h"
 #include "spawn2.h"
@@ -144,9 +145,25 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 		}
 	}
 
+	if (zone && zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint && last_instance_spawn_timer_override == 0) {
+		const auto configured_timer = DataBucket::GetData(
+			fmt::format("pop_spawn_minutes_{}", Strings::ToLower(zone->GetShortName()))
+		);
+		if (!configured_timer.empty()) {
+			const auto minutes = Strings::ToFloat(configured_timer);
+			if (minutes >= 1.0f && minutes <= 120.0f) {
+				rspawn = static_cast<uint32>(minutes * 60.0f * 1000.0f);
+			}
+		}
+	}
 	if (zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
 	{
-		if (RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime) && !zone->InstanceRespawnsEnabled())
+		const bool use_instance_minimum =
+			RuleB(Quarm, EnableGuildInstanceRespawnControl)
+				? zone->GetZoneExpansion() == PlanesEQ && !zone->InstanceRespawnsEnabled()
+				: RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime);
+
+		if (use_instance_minimum)
 		{
 			if (last_instance_spawn_timer_override != 0)
 				return last_instance_spawn_timer_override;

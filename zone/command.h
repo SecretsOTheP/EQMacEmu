@@ -215,6 +215,7 @@ void command_serversidename(Client* c, const Seperator* sep);
 void command_setgraveyard(Client* c, const Seperator* sep);
 void command_setgreed(Client* c, const Seperator* sep);
 void command_set(Client* c, const Seperator* sep);
+void command_setspawn(Client* c, const Seperator* sep);
 void command_show(Client* c, const Seperator* sep);
 void command_setnpcexpansion(Client* c, const Seperator* sep);
 void command_showbonusstats(Client* c, const Seperator* sep);

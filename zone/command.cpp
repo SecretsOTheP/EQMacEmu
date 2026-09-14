@@ -342,6 +342,7 @@ int command_init(void)
 		command_add("serversidename", "Prints target's server side name.", AccountStatus::GMAdmin, command_serversidename) ||
 		command_add("setgraveyard", "[zone name] - Creates a graveyard for the specified zone based on your target's LOC.", AccountStatus::GMImpossible, command_setgraveyard) ||
 		command_add("setgreed", "[greed] - Sets a merchant greed value.", AccountStatus::GMAdmin, command_setgreed) ||
+		command_add("setspawn", "<PoP shortname> <minutes|status|default> - Set a normal-trash respawn override.", AccountStatus::GMAdmin, command_setspawn) ||
 		command_add("setnpcexpansion", "[min_expansion] [max_expansion] - Restrict an NPC's spawn2 (spawn location) by min, max expansion. These are float values.", AccountStatus::GMAdmin, command_setnpcexpansion) ||
 		command_add("showbonusstats", "[item|spell|all] Shows bonus stats for target from items or spells. Shows both by default.", AccountStatus::Guide, command_showbonusstats) ||
 		command_add("set", "Set command used to set various things", AccountStatus::Guide, command_set) || 
@@ -1073,6 +1074,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/setnpcexpansion.cpp"
 #include "gm_commands/setgraveyard.cpp"
 #include "gm_commands/setgreed.cpp"
+#include "gm_commands/setspawn.cpp"
 #include "gm_commands/showlootlockouts.cpp"
 #include "gm_commands/showbonusstats.cpp"
 #include "gm_commands/showfilters.cpp"
