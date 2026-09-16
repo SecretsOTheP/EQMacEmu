@@ -79,41 +79,6 @@ void WorldQueue::Reserve(uint32 ls_account_id, uint32 world_account_id, uint32 i
 	m_reservations[world_account_id] = QueueReservation{ ls_account_id, ip, now + m_config.slot_hold_s };
 }
 
-void WorldQueue::Rekey(uint32 old_world_account_id, uint32 new_world_account_id)
-{
-	if (old_world_account_id == new_world_account_id || new_world_account_id == 0) {
-		return;
-	}
-
-	auto res = m_reservations.find(old_world_account_id);
-	if (res != m_reservations.end()) {
-		if (!m_reservations.count(new_world_account_id)) {
-			m_reservations[new_world_account_id] = res->second;
-		}
-		m_reservations.erase(res);
-		Emit("[Queue] reservation moved from account " + std::to_string(old_world_account_id) + " to new account "
-			+ std::to_string(new_world_account_id));
-	}
-
-	auto gr = m_grace.find(old_world_account_id);
-	if (gr != m_grace.end()) {
-		if (!m_grace.count(new_world_account_id)) {
-			m_grace[new_world_account_id] = gr->second;
-		}
-		m_grace.erase(gr);
-	}
-
-	size_t idx = FindEntry(old_world_account_id);
-	if (idx != QUEUE_NPOS) {
-		if (FindEntry(new_world_account_id) == QUEUE_NPOS) {
-			m_entries[idx].world_account_id = new_world_account_id;
-		}
-		else {
-			m_entries.erase(m_entries.begin() + idx);
-		}
-	}
-}
-
 void WorldQueue::Clear()
 {
 	m_entries.clear();
@@ -189,8 +154,8 @@ QueueDecision WorldQueue::Decide(uint32 ls_account_id, uint32 world_account_id, 
 	QueueDecision d{};
 
 	if (pop.in_zone.count(world_account_id)) {
-		// The account's own session is still in a zone; it already counts. The login-server handler answers
-		// such requests with -4 before asking the queue, so this is only reached by status-exempt paths.
+		// The account's own session is still in a zone; it already counts. ProcessUsertoWorldReq refuses a second
+		// login on such an account (-4) before it reaches character select, so this is only reached by status-exempt paths.
 		RemoveEntry(world_account_id);
 		d.admit = true;
 		Emit("[Queue] account " + std::to_string(world_account_id) + " admitted, own session still in zone");

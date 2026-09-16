@@ -28,11 +28,11 @@ public:
 	WorldQueueTest() {
 		TEST_ADD(WorldQueueTest::AdmitBelowCap);
 		TEST_ADD(WorldQueueTest::QueueOrderByFirstClick);
-		TEST_ADD(WorldQueueTest::RepeatPlayKeepsPosition);
+		TEST_ADD(WorldQueueTest::RepeatDecideKeepsPosition);
 		TEST_ADD(WorldQueueTest::EntryExpiresWithoutRefresh);
 		TEST_ADD(WorldQueueTest::AdmitWhenEveryoneAheadFits);
 		TEST_ADD(WorldQueueTest::ReservationCountsUntilInZone);
-		TEST_ADD(WorldQueueTest::ReservationRefreshedByRepeatPlay);
+		TEST_ADD(WorldQueueTest::ReservationRefreshedByRepeatDecide);
 		TEST_ADD(WorldQueueTest::ReservationExpiryReleasesSlot);
 		TEST_ADD(WorldQueueTest::ReservationHeldWhileAtCharSelect);
 		TEST_ADD(WorldQueueTest::GraceHoldsSlotAndAdmits);
@@ -42,7 +42,6 @@ public:
 		TEST_ADD(WorldQueueTest::LinkdeadOverlapCountsOnce);
 		TEST_ADD(WorldQueueTest::LinkdeadStampStartsGrace);
 		TEST_ADD(WorldQueueTest::ClaimSlotAtEnterWorld);
-		TEST_ADD(WorldQueueTest::RekeyNewAccount);
 		TEST_ADD(WorldQueueTest::PositionAndSize);
 	}
 
@@ -98,7 +97,7 @@ private:
 		TEST_ASSERT_EQUALS(3u, c.queue_size);
 	}
 
-	void RepeatPlayKeepsPosition() {
+	void RepeatDecideKeepsPosition() {
 		WorldQueue q;
 		q.SetConfig(Cfg(1));
 		QueuePopulation z = Zone({ 9 });
@@ -117,7 +116,7 @@ private:
 		QueuePopulation z = Zone({ 9 });
 		q.Decide(101, 1, 0, z, 1000);
 		q.Decide(102, 2, 0, z, 1001);
-		// 2 keeps polling, 1 stops
+		// 2 keeps refreshing, 1 stops
 		q.Decide(102, 2, 0, z, 1040);
 		q.Tick(z, 1061);
 		TEST_ASSERT_EQUALS(1u, (uint32)q.Entries().size());
@@ -139,7 +138,7 @@ private:
 		auto c = q.Decide(103, 3, 0, z, 1002); // queued 2
 		TEST_ASSERT(!b.admit && !c.admit);
 		q.SetConfig(Cfg(4));                   // two free slots
-		// c is second in line, but both fit, so c does not have to wait for b's poll
+		// c is second in line, but both fit, so c does not have to wait for b's refresh
 		auto c2 = q.Decide(103, 3, 0, z, 1003);
 		TEST_ASSERT(c2.admit);
 		auto b2 = q.Decide(102, 2, 0, z, 1004);
@@ -161,7 +160,7 @@ private:
 		TEST_ASSERT_EQUALS(1u, q.EffectivePopulation(Zone({ 1 })));
 	}
 
-	void ReservationRefreshedByRepeatPlay() {
+	void ReservationRefreshedByRepeatDecide() {
 		WorldQueue q;
 		q.SetConfig(Cfg(1));
 		q.Decide(101, 1, 0, Zone({}), 1000);
@@ -198,7 +197,7 @@ private:
 		TEST_ASSERT(q.HasReservation(1));
 		TEST_ASSERT_EQUALS(1u, q.EffectivePopulation(Pop({}, { 1 })));
 		TEST_ASSERT(!q.Decide(102, 2, 0, Pop({}, { 1 }), 3001).admit);
-		// leaves character select right after that poll at 3001: the 300 s countdown starts there
+		// leaves character select right after that refresh at 3001: the 300 s countdown starts there
 		q.Tick(Zone({}), 3300);
 		TEST_ASSERT(q.HasReservation(1));
 		q.Tick(Zone({}), 3301);
@@ -311,39 +310,6 @@ private:
 		q.AddGrace(3, 1002);
 		TEST_ASSERT(q.ClaimSlot(103, 3, 0, Zone({}), 1003));
 		TEST_ASSERT(q.ClaimSlot(104, 4, 0, Zone({ 4 }), 1004));
-	}
-
-	void RekeyNewAccount() {
-		WorldQueue q;
-		q.SetConfig(Cfg(1));
-		// first-time account: admitted under a provisional id because it has no world id yet
-		uint32 provisional = WorldQueue::ProvisionalAccountId(101);
-		TEST_ASSERT(provisional != 101u);
-		TEST_ASSERT(q.Decide(101, provisional, 0, Zone({}), 1000).admit);
-		TEST_ASSERT(q.HasReservation(provisional));
-		// an existing world account whose id equals the LS id is unaffected
-		TEST_ASSERT(!q.HasReservation(101));
-		// world creates account 57 at auth and moves the slot
-		q.Rekey(provisional, 57);
-		TEST_ASSERT(!q.HasReservation(provisional));
-		TEST_ASSERT(q.HasReservation(57));
-		TEST_ASSERT_EQUALS(101u, q.Reservations().at(57).ls_account_id);
-		// enter world under the real id goes through, and zone-in consumes it
-		TEST_ASSERT(q.ClaimSlot(101, 57, 0, Pop({}, { 57 }), 1010));
-		q.Tick(Zone({ 57 }), 1020);
-		TEST_ASSERT(!q.HasReservation(57));
-		TEST_ASSERT_EQUALS(1u, q.EffectivePopulation(Zone({ 57 })));
-		// queued entries move too
-		q.Clear();
-		uint32 provisional2 = WorldQueue::ProvisionalAccountId(202);
-		q.Decide(202, provisional2, 0, Zone({ 9 }), 2000);
-		q.Rekey(provisional2, 58);
-		TEST_ASSERT_EQUALS(1u, q.Position(58));
-		TEST_ASSERT_EQUALS(0u, q.Position(provisional2));
-		// no-ops
-		q.Rekey(58, 58);
-		q.Rekey(58, 0);
-		TEST_ASSERT_EQUALS(1u, q.Position(58));
 	}
 
 	void PositionAndSize() {

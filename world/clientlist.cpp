@@ -32,8 +32,6 @@
 #include "../common/event_sub.h"
 #include "web_interface.h"
 #include "wguild_mgr.h"
-#include "login_server.h"
-#include "login_server_list.h"
 #include "../zone/string_ids.h"
 #include "../common/zone_store.h"
 #include <set>
@@ -43,7 +41,6 @@
 extern WebInterfaceList web_interface;
 
 extern ZSList			zoneserver_list;
-extern LoginServerList	loginserverlist;
 
 ClientList::ClientList()
 : CLStale_timer(RuleI(World, WorldClientLinkdeadMS))
@@ -358,7 +355,7 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 	connection->SendEmoteMessageRaw(to, 0, AccountStatus::Player, Chat::NPCQuestSay, out.data());
 }
 
-void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version, int16 ipexemptioncount, bool queue_active) {
+void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForumName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local, uint8 version, int16 ipexemptioncount) {
 	
 	// Account stuff
 	uint32	paccountid = 0;
@@ -367,18 +364,21 @@ void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iForum
 	bool pmule = false;
 	int16 exempt = 1;
 	
-	bool queue_enabled = queue_active;
+	// With the queue on, a full world admits every account to character select and holds it there; only the hard
+	// connection cap refuses. With it off, the raw client count decides.
+	bool queue_enabled = QueueActive();
 	bool full = queue_enabled
-		? EffectivePopulation() >= (uint32)RuleI(Quarm, PlayerPopulationCap)
+		? GetClientCount() >= RuleI(Quarm, QueueHardConnectionCap)
 		: GetClientCount() >= RuleI(Quarm, PlayerPopulationCap);
 
 	if (full)
 	{
 		paccountid = database.GetAccountIDFromLSID(iLSID, paccountname, &padmin, 0, &pmule, &exempt);
 
-		// A new account has no world id yet; the queue keyed it by its provisional id, as ProcessUsertoWorldReq does.
-		if (padmin == 0 && !(queue_enabled && QueueHoldsSlot(paccountid ? paccountid : WorldQueue::ProvisionalAccountId(iLSID)))) {
-			LogInfo("[Queue] refusing client auth for LS account [{}]: world full and no slot held", iLSID);
+		if (padmin == 0) {
+			if (queue_enabled) {
+				LogInfo("[Queue] refusing client auth for LS account [{}]: hard connection cap {} reached", iLSID, RuleI(Quarm, QueueHardConnectionCap));
+			}
 			return;
 		}
 	}
@@ -1411,7 +1411,7 @@ QueuePopulation ClientList::Population()
 
 bool ClientList::QueueActive()
 {
-	return RuleB(Quarm, EnableLoginQueue) && loginserverlist.QueueCapable();
+	return RuleB(Quarm, EnableLoginQueue);
 }
 
 uint32 ClientList::EffectivePopulation()
@@ -1424,11 +1424,6 @@ QueueDecision ClientList::QueueDecide(uint32 iLSID, uint32 iAccID, uint32 ip)
 {
 	RefreshQueueConfig();
 	return m_queue.Decide(iLSID, iAccID, ip, Population(), QueueNow());
-}
-
-bool ClientList::QueueHoldsSlot(uint32 iAccID)
-{
-	return m_queue.HoldsSlot(iAccID, Population());
 }
 
 bool ClientList::QueueClaimSlot(uint32 iLSID, uint32 iAccID, uint32 ip)
@@ -1482,9 +1477,8 @@ void ClientList::SendQueueStatus(const char* to, WorldTCPConnection* connection)
 	};
 
 	line(fmt::format(
-		"Login queue {}, login server {}: cap {}, effective population {} (in zone {}, at character select {}, reservations {}, grace {}), {} waiting",
+		"Login queue {} (hold at character select): cap {}, effective population {} (in zone {}, at character select {}, reservations {}, grace {}), {} waiting",
 		RuleB(Quarm, EnableLoginQueue) ? "enabled" : "disabled",
-		loginserverlist.QueueCapable() ? "queue-aware" : "not queue-aware (raw count in use)",
 		c.cap,
 		m_queue.EffectivePopulation(pop),
 		pop.in_zone.size(),
@@ -1499,7 +1493,7 @@ void ClientList::SendQueueStatus(const char* to, WorldTCPConnection* connection)
 		struct in_addr in;
 		in.s_addr = e.ip;
 		line(fmt::format(
-			"  #{} account {} (ls {}) ip {} waited {}s, last poll {}s ago",
+			"  #{} account {} (ls {}) ip {} waited {}s, last refresh {}s ago",
 			++position, e.world_account_id, e.ls_account_id, inet_ntoa(in),
 			now > e.joined_at ? now - e.joined_at : 0,
 			now > e.last_seen ? now - e.last_seen : 0

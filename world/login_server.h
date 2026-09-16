@@ -29,8 +29,6 @@
 #include "../common/event/timer.h"
 #include <memory>
 
-struct QueueDecision;
-
 class LoginServer {
 public:
 	LoginServer(const char*, uint16, const char*, const char*, uint8);
@@ -43,12 +41,6 @@ public:
 
 	void SendPacket(ServerPacket* pack);
 	void SendAccountUpdate(ServerPacket* pack);
-	// ServerOP_UsertoWorldQueueInfo, sent right before a -3 response for an account that was queued.
-	void SendQueueInfo(uint32 lsaccountid, uint32 worldid, const QueueDecision& decision);
-	// The queue is used toward this login server only when the rule is on and it announced support;
-	// otherwise the old raw-count refusal runs, so nobody is queued without seeing it.
-	bool QueueCapable() const { return m_queue_capable; }
-	bool QueueActive() const;
 	bool Connected() 
 	{ 
 		if (m_is_legacy) {
@@ -73,7 +65,6 @@ private:
 	void ProcessSystemwideMessage(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSRemoteAddr(uint16_t opcode, EQ::Net::Packet& p);
 	void ProcessLSAccountUpdate(uint16_t opcode, EQ::Net::Packet& p);
-	void ProcessLSQueueCapable(uint16_t opcode, EQ::Net::Packet& p); // login server announced it displays queue info
 
 	std::unique_ptr<EQ::Net::ServertalkClient>       m_client;
 	std::unique_ptr<EQ::Net::ServertalkLegacyClient> m_legacy_client;
@@ -85,6 +76,5 @@ private:
 	std::string                                      m_login_password;
 	bool	                                         m_can_account_update;
 	bool	                                         m_is_legacy;
-	bool                                             m_queue_capable = false;
 };
 #endif

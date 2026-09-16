@@ -85,8 +85,9 @@ public:
 	// Receives one line per state change ("[Queue] account ... joined at position 3"). Unset in tests.
 	void SetLog(LogFn fn) { m_log = std::move(fn); }
 
-	// Answer a play request. Refreshes or creates the queue entry, admits when the account
-	// already holds a slot or when every entry ahead of it also fits in the free slots.
+	// Answer a session at character select (on arrival, then on every push while held). Refreshes or
+	// creates the queue entry, admits when the account already holds a slot or when every entry ahead
+	// of it also fits in the free slots.
 	QueueDecision Decide(uint32 ls_account_id, uint32 world_account_id, uint32 ip, const QueuePopulation& pop, uint32 now);
 
 	// Expire stale entries, reservations and grace; consume reservations and grace of accounts that
@@ -96,16 +97,8 @@ public:
 
 	// Claim a slot for an account about to enter a zone from character select. True when the account
 	// already holds one or the world has room (a reservation bridges the gap until the zone reports).
-	// False enqueues the account so it keeps its place when it comes back through server select.
+	// False enqueues the account so the session can be held at character select in its place.
 	bool ClaimSlot(uint32 ls_account_id, uint32 world_account_id, uint32 ip, const QueuePopulation& pop, uint32 now);
-
-	// A first-time account has no world id until world creates it at authentication. Until then the
-	// queue keys it by a provisional id derived from the login-server id, in a range no world id uses,
-	// so it can never share an entry or a reservation with an existing account.
-	static uint32 ProvisionalAccountId(uint32 ls_account_id) { return 0x80000000u | ls_account_id; }
-
-	// Move whatever a provisional id holds to the account id world just created.
-	void Rekey(uint32 old_world_account_id, uint32 new_world_account_id);
 
 	// What the cap is compared against: in-zone accounts plus reservations and grace not already in a zone.
 	uint32 EffectivePopulation(const QueuePopulation& pop) const;

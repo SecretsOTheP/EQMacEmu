@@ -413,8 +413,6 @@ bool ClientListEntry::CheckAuth(uint32 loginserver_account_id, const char* key_p
 			}
 			strn0cpy(paccountname, loginserver_account_name, sizeof(paccountname));
 			padmin = default_account_status;
-			// The login-server request admitted this account under a provisional id (no world id existed yet).
-			client_list.Queue().Rekey(WorldQueue::ProvisionalAccountId(LSID()), paccountid);
 		}
 		std::string lsworldadmin;
 		if (database.GetVariable("honorlsworldadmin", lsworldadmin)) {

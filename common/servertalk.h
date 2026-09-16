@@ -179,8 +179,6 @@
 
 #define	ServerOP_UsertoWorldReq		0xAB00
 #define	ServerOP_UsertoWorldResp	0xAB01
-#define	ServerOP_UsertoWorldQueueInfo	0xAB02	// world -> login: queue position, sent right before a -3 UsertoWorldResp
-#define	ServerOP_LSQueueCapable		0xAB03	    // login -> world, once per connection: this login server displays queue info
 
 
 #define ServerOP_LauncherConnectInfo	0x3000
@@ -818,20 +816,6 @@ struct UsertoWorldResponse {
 	int8	response; // -3) World Full, -2) Banned, -1) Suspended, 0) Denied, 1) Allowed
 	uint32	FromID;
 	uint32	ToID;
-};
-
-// Sent by world right before a -3 UsertoWorldResponse when the account is queued rather than refused.
-struct UsertoWorldQueueInfo {
-	uint32	lsaccountid;
-	uint32	worldid;
-	uint32	position;    // 1-based
-	uint32	queue_size;
-};
-
-// Sent by a queue-aware login server after it accepts a world's registration. A world that never
-// receives it keeps refusing with a plain -3 (no queue), so players are not queued invisibly.
-struct LSQueueCapable_Struct {
-	uint32	version;     // 1
 };
 
 struct ServerQueueStatus_Struct {

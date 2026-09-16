@@ -79,15 +79,8 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 	int16 exemption_count = 1;
 	database.GetAccountRestriction(id, forum_name, expansion, mule, force_guild_id, exemption_count);
 
-	// The queue keys a first-time account by a provisional id until world creates the real one.
-	uint32 queue_account_id = id;
-
 	if (id == 0) {
-		queue_account_id = WorldQueue::ProvisionalAccountId(utwr->lsaccountid);
-		// A queued first-time account re-polls every few seconds; say this once per wait.
-		if (client_list.Queue().Position(queue_account_id) == 0) {
-			LogInfo("No world account found for LS account [{}] - will be created during authentication", utwr->lsaccountid);
-		}
+		LogInfo("No world account found for LS account [{}] - will be created during authentication", utwr->lsaccountid);
 
 		id = utwr->lsaccountid;  // Temporary fallback for new accounts
 		status = 0; // Default status for new accounts
@@ -144,18 +137,15 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 		}
 	}
 
-	if (QueueActive())
+	if (client_list.QueueActive())
 	{
-		// Earlier refusals (banned, already online, ip limit) stand. Only a request that would otherwise be
-		// admitted is put to the queue; status > 0 bypasses it and never counts toward the cap.
-		if (utwrs->response == 1 && status == 0)
+		// Earlier refusals (banned, already online, ip limit) stand. A full world admits the account to character
+		// select and holds it there (Client::QueueCharSelectDecide); only the hard connection cap refuses outright.
+		// Status > 0 bypasses the queue and never counts toward the cap.
+		if (utwrs->response == 1 && status == 0 && client_list.GetClientCount() >= RuleI(Quarm, QueueHardConnectionCap))
 		{
-			QueueDecision decision = client_list.QueueDecide(utwr->lsaccountid, queue_account_id, utwr->ip);
-			if (!decision.admit)
-			{
-				SendQueueInfo(utwr->lsaccountid, utwr->worldid, decision);
-				utwrs->response = -3;
-			}
+			LogInfo("[Queue] LS account [{}] refused: hard connection cap {} reached", utwr->lsaccountid, RuleI(Quarm, QueueHardConnectionCap));
+			utwrs->response = -3;
 		}
 	}
 	else if (client_list.GetClientCount() >= RuleI(Quarm, PlayerPopulationCap) && status == 0)
@@ -173,33 +163,6 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 	delete outpack;
 }
 
-bool LoginServer::QueueActive() const
-{
-	return RuleB(Quarm, EnableLoginQueue) && m_queue_capable;
-}
-
-void LoginServer::ProcessLSQueueCapable(uint16_t opcode, EQ::Net::Packet& p)
-{
-	uint32 version = p.Length() >= sizeof(LSQueueCapable_Struct) ? ((LSQueueCapable_Struct*)p.Data())->version : 0;
-	m_queue_capable = true;
-	LogInfo("[Queue] loginserver {}:{} can display queue info (version {}); queue {}", m_loginserver_address, m_loginserver_port, version,
-		RuleB(Quarm, EnableLoginQueue) ? "active toward it" : "disabled by rule");
-}
-
-// Goes out right before the -3 response on the same connection. Only sent to a login server that announced
-// support, so it is never left to be ignored.
-void LoginServer::SendQueueInfo(uint32 lsaccountid, uint32 worldid, const QueueDecision& decision)
-{
-	auto pack = new ServerPacket(ServerOP_UsertoWorldQueueInfo, sizeof(UsertoWorldQueueInfo));
-	auto info = (UsertoWorldQueueInfo*)pack->pBuffer;
-	info->lsaccountid = lsaccountid;
-	info->worldid     = worldid;
-	info->position    = decision.position;
-	info->queue_size  = decision.queue_size;
-	SendPacket(pack);
-	safe_delete(pack);
-}
-
 void LoginServer::ProcessLSClientAuth(uint16_t opcode, EQ::Net::Packet& p) {
 	const WorldConfig* Config = WorldConfig::get();
 	LogNetcode("Received ServerPacket from LS OpCode {:#04x}", opcode);
@@ -208,7 +171,7 @@ void LoginServer::ProcessLSClientAuth(uint16_t opcode, EQ::Net::Packet& p) {
 		auto slsca = p.GetSerialize<ClientAuth>(0);
 
 		slsca.forum_name[30] = '\0'; // Ensure null-termination
-		client_list.CLEAdd(slsca.loginserver_account_id, slsca.account_name, slsca.forum_name, slsca.key, slsca.is_world_admin, slsca.ip_address, slsca.is_client_from_local_network, slsca.version, 1, QueueActive());
+		client_list.CLEAdd(slsca.loginserver_account_id, slsca.account_name, slsca.forum_name, slsca.key, slsca.is_world_admin, slsca.ip_address, slsca.is_client_from_local_network, slsca.version);
 	}
 	catch (std::exception& ex) {
 		LogError("Error parsing LSClientAuth packet from world.\n{0}", ex.what());
@@ -278,7 +241,6 @@ bool LoginServer::Connect() {
 					m_loginserver_port
 				);
 
-				m_queue_capable = false; // re-announced by the login server after each registration
 				SendNewInfo();
 				SendStatus();
 				zoneserver_list.SendLSZones();
@@ -303,14 +265,12 @@ bool LoginServer::Connect() {
 		m_legacy_client->OnMessage(ServerOP_SystemwideMessage, std::bind(&LoginServer::ProcessSystemwideMessage, this, std::placeholders::_1, std::placeholders::_2));
 		m_legacy_client->OnMessage(ServerOP_LSRemoteAddr, std::bind(&LoginServer::ProcessLSRemoteAddr, this, std::placeholders::_1, std::placeholders::_2));
 		m_legacy_client->OnMessage(ServerOP_LSAccountUpdate, std::bind(&LoginServer::ProcessLSAccountUpdate, this, std::placeholders::_1, std::placeholders::_2));
-		m_legacy_client->OnMessage(ServerOP_LSQueueCapable, std::bind(&LoginServer::ProcessLSQueueCapable, this, std::placeholders::_1, std::placeholders::_2));
 	}
 	else {
 		m_client.reset(new EQ::Net::ServertalkClient(m_loginserver_address, m_loginserver_port, false, "World", ""));
 		m_client->OnConnect([this](EQ::Net::ServertalkClient* client) {
 			if (client) {
 				LogInfo("Connected to Loginserver: {}:{}", m_loginserver_address, m_loginserver_port);
-				m_queue_capable = false; // re-announced by the login server after each registration
 				SendNewInfo();
 				SendStatus();
 				zoneserver_list.SendLSZones();
@@ -330,7 +290,6 @@ bool LoginServer::Connect() {
 		m_client->OnMessage(ServerOP_SystemwideMessage, std::bind(&LoginServer::ProcessSystemwideMessage, this, std::placeholders::_1, std::placeholders::_2));
 		m_client->OnMessage(ServerOP_LSRemoteAddr, std::bind(&LoginServer::ProcessLSRemoteAddr, this, std::placeholders::_1, std::placeholders::_2));
 		m_client->OnMessage(ServerOP_LSAccountUpdate, std::bind(&LoginServer::ProcessLSAccountUpdate, this, std::placeholders::_1, std::placeholders::_2));
-		m_client->OnMessage(ServerOP_LSQueueCapable, std::bind(&LoginServer::ProcessLSQueueCapable, this, std::placeholders::_1, std::placeholders::_2));
 	}
 	return true;
 }
@@ -396,7 +355,7 @@ void LoginServer::SendStatus() {
 
 	// With the queue on, report the population the cap sees (in zone, reservations, grace) rather than the
 	// raw entry count, so the server list does not show a full world as nearly empty.
-	int players = QueueActive() ? (int)client_list.EffectivePopulation() : client_list.GetClientCount();
+	int players = client_list.QueueActive() ? (int)client_list.EffectivePopulation() : client_list.GetClientCount();
 
 	if (WorldConfig::get()->Locked)
 		lss->status = -2;
