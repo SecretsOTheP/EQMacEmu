@@ -4292,11 +4292,11 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	if (IsNPC() && IsRainSpell(spell_id)) {
 
 		int resist_chance_percentage = 20;
-		if(caster->GetClass() == Class::Wizard) {
-			resist_chance_percentage = RuleI(Spells, RainWizardResistChance);
+		if(caster->GetClass() == WIZARD || caster->GetClass() == MAGICIAN || caster->GetClass() == DRUID || caster->GetClass() == SHAMAN) {
+    		resist_chance_percentage = RuleI(Spells, RainResistChance);
 		}
 		
-		// 20% innate resist for most classes
+		// 0% innate resist for wizards magicians druids shamans
 		if (zone->random.Roll(resist_chance_percentage)) {
 			return 0;
 		}
