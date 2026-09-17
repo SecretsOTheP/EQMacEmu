@@ -311,11 +311,11 @@ void command_guild(Client* c, const Seperator* sep)
 			c->Message(
 				Chat::White,
 				fmt::format(
-					"{} | Level {} | Rank {} ({})",
+					"{} | {} | {} | Level {}",
 					member->char_name,
-					member->level,
 					rank_name.empty() ? "Nameless" : rank_name,
-					member->rank
+					GetClassIDName(member->class_),
+					member->level
 				).c_str()
 			);
 		}
