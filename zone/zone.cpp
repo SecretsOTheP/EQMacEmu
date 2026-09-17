@@ -2025,6 +2025,11 @@ bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_r
 
 void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled) { if (GetGuildID() == target_guild_id && target_guild_id > 1) instance_respawns_enabled = enabled; }
 
+bool Zone::GuildInstanceKiteLimitEnabled()
+{
+	return RuleB(Quarm, EnableGuildInstanceKiteLimit) && GetGuildID() > 1 && GetZoneExpansion() == PlanesEQ;
+}
+
 void Zone::Repop() {
 
 	if(!Depop())

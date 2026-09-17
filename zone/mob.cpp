@@ -2094,7 +2094,7 @@ bool Mob::CheckBardHateSummon(Mob* summoned) {
 		return false;
 	}
 
-	if (zone->GetGuildID() != GUILD_NONE)
+	if (zone->GetGuildID() != GUILD_NONE && !zone->GuildInstanceKiteLimitEnabled())
 		return false;
 
 	if (summoned->GetClass() != Class::Bard || IsCharmedPet() || !summoned->IsClient() || summoned->PermaRooted() || (summoned->IsNPC() && summoned->GetMaxHP() > 300000)) { // raid bosses may not have been summonable
@@ -2200,7 +2200,7 @@ bool Mob::BardHateSummon(Mob* summoned) {
 	if (IsCharmedPet())
 		return false;
 
-	if (zone->GetGuildID() != GUILD_NONE)
+	if (zone->GetGuildID() != GUILD_NONE && !zone->GuildInstanceKiteLimitEnabled())
 		return false;
 
 	// now validate the timer

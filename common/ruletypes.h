@@ -282,6 +282,7 @@ RULE_BOOL(Quarm, AllowBypassMaxClientsOnWorldEnter, false, "")
 RULE_BOOL(Quarm, InstanceAlwaysHasMinimumSpawnTime, true, "")
 RULE_INT(Quarm, InstanceMinimumSpawnTime, 64800000, "")
 RULE_BOOL(Quarm, EnableGuildInstanceRespawnControl, false, "")
+RULE_BOOL(Quarm, EnableGuildInstanceKiteLimit, false, "Enables existing kite-limit handling in Guild 2+ Plane of Power instances.")
 RULE_BOOL(Quarm, EnableQuestBasedXPLimit, true, "Whether or not to enable the Quest XP killswitch. Use on major content launches to avoid abuse.") // Whether or not to enable the Quest XP killswitch. Use on major content launches to avoid abuse.
 RULE_INT(Quarm, QuestBasedXPLimitLevel, 51, "For Kunark. Adjust for POP Launch.")
 RULE_BOOL(Quarm, BonusGroupEXPOverride, false, "Quarm's custom group EXP bonus override. For server events that directly target group bonuses.")
