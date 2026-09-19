@@ -6,6 +6,8 @@ extern WorldServer worldserver;
 #include "../guild_mgr.h"
 #include "../doors.h"
 
+#include <algorithm>
+
 void command_guild(Client* c, const Seperator* sep)
 {
 	const auto arguments = sep->argnum;
@@ -25,6 +27,7 @@ void command_guild(Client* c, const Seperator* sep)
 	bool is_info = !strcasecmp(sep->arg[1], "info");
 	bool is_list = !strcasecmp(sep->arg[1], "list");
 	bool is_rename = !strcasecmp(sep->arg[1], "rename");
+	bool is_roster = !strcasecmp(sep->arg[1], "roster");
 	bool is_search = !strcasecmp(sep->arg[1], "search");
 	bool is_setraidenabled = !strcasecmp(sep->arg[1], "setraidenabled");
 	bool is_set = !strcasecmp(sep->arg[1], "set");
@@ -38,6 +41,7 @@ void command_guild(Client* c, const Seperator* sep)
 		!is_info &&
 		!is_list &&
 		!is_rename &&
+		!is_roster &&
 		!is_search &&
 		!is_set &&
 		!is_set_leader &&
@@ -260,6 +264,64 @@ void command_guild(Client* c, const Seperator* sep)
 					guild_id
 				).c_str()
 			);
+		}
+	}
+	else if (is_roster) {
+		if (arguments != 2 || !sep->IsNumber(2)) {
+			c->Message(Chat::White, "Usage: #guild roster [Guild ID]");
+			return;
+		}
+
+		if (c->Admin() < minStatusToEditOtherGuilds) {
+			c->Message(Chat::White, "You cannot view other guild rosters.");
+			return;
+		}
+
+		auto guild_id = static_cast<uint32>(std::stoul(sep->arg[2]));
+		if (!guild_mgr.GuildExists(guild_id)) {
+			c->Message(Chat::White, fmt::format("Guild ID {} could not be found.", guild_id).c_str());
+			return;
+		}
+
+		std::vector<CharGuildInfo*> members;
+		if (!guild_mgr.GetEntireGuild(guild_id, members)) {
+			c->Message(Chat::White, fmt::format("Unable to retrieve the roster for guild ID {}.", guild_id).c_str());
+			return;
+		}
+
+		std::sort(
+			members.begin(),
+			members.end(),
+			[](const auto* left, const auto* right) { return left->char_name < right->char_name; }
+		);
+
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"Guild Roster | {} ({}) | {} member{}",
+				guild_mgr.GetGuildNameByID(guild_id),
+				guild_id,
+				members.size(),
+				members.size() == 1 ? "" : "s"
+			).c_str()
+		);
+
+		for (const auto* member : members) {
+			auto rank_name = guild_mgr.GetGuildRankName(guild_id, member->rank);
+			c->Message(
+				Chat::White,
+				fmt::format(
+					"{} | {} | {} | Level {}",
+					member->char_name,
+					rank_name.empty() ? "Nameless" : rank_name,
+					GetClassIDName(member->class_),
+					member->level
+				).c_str()
+			);
+		}
+
+		for (auto* member : members) {
+			delete member;
 		}
 	}
 	else if (is_search) {
@@ -627,6 +689,7 @@ void SendGuildSubCommands(Client* c)
 	c->Message(Chat::White, "#guild info [Guild ID]");
 	c->Message(Chat::White, "#guild list");
 	c->Message(Chat::White, "#guild rename [Guild ID] [New Name]");
+	c->Message(Chat::White, "#guild roster [Guild ID]");
 	c->Message(Chat::White, "#guild search [Search Criteria]");
 	c->Message(Chat::White, "#guild set [Character ID|Character Name] [Guild ID] (Guild ID 0 is Guildless)");
 	c->Message(Chat::White, "#guild setleader [Guild ID] [Character ID|Character Name]");
