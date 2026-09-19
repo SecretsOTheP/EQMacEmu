@@ -242,6 +242,12 @@ public:
 	virtual void UpdateEquipmentLight();
 	uint32	GetEquipment(uint8 material_slot) const;	// returns item id
 	int32	GetEquipmentMaterial(uint8 material_slot) const;
+	inline uint32 GetEquipmentByInvSlot(int16 inv_slot) const
+	{
+		if (inv_slot < EQ::invslot::EQUIPMENT_BEGIN || inv_slot > EQ::invslot::EQUIPMENT_END)
+			return 0;
+		return equipment[inv_slot];
+	}
 
 	virtual int32 CalcMaxMana();
 	void SetGrid(int32 grid_){ grid=grid_; }
