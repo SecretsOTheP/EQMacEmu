@@ -614,6 +614,30 @@ uint32 Raid::GetPresentMembersFromGuildID(uint32 guild_id)
 	return membercount;
 }
 
+bool Raid::MeetsFlagRequirement(uint32 zone_id, uint8 required_percent)
+{
+	const auto query = StringFormat(
+		"SELECT COUNT(*), COUNT(czf.zoneID) "
+		"FROM raid_members AS rm "
+		"LEFT JOIN character_zone_flags AS czf "
+		"ON czf.id = rm.charid AND czf.zoneID = %u "
+		"WHERE rm.raidid = %u",
+		zone_id,
+		GetID()
+	);
+	const auto results = database.QueryDatabase(query);
+	if (!results.Success() || results.RowCount() != 1) {
+		Log(Logs::General, Logs::Error, "Unable to evaluate raid flag requirement for raid %u: %s", GetID(), results.ErrorMessage().c_str());
+		return false;
+	}
+
+	auto row = results.begin();
+	const auto total_members = static_cast<uint32>(atoi(row[0]));
+	const auto flagged_members = static_cast<uint32>(atoi(row[1]));
+
+	return total_members > 0 && flagged_members * 100 >= total_members * required_percent;
+}
+
 uint32 Raid::GetGroup(const char *name)
 {
 	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
