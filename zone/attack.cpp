@@ -759,7 +759,13 @@ bool Mob::IsImmuneToMelee(Mob* attacker, int slot)
 		}
 		else
 		{
-			if (!attacker->GetSpecialAbility(SpecialAbility::BaneAttack)
+			// Client-owned pets have no equipped bane weapon, but should be able to
+			// contribute melee damage against bane-only raid targets.
+			const bool client_owned_pet =
+				attacker->IsPet() && attacker->GetOwner() && attacker->GetOwner()->IsClient();
+
+			if (!client_owned_pet
+				&& !attacker->GetSpecialAbility(SpecialAbility::BaneAttack)
 				&& (!weapon || (weapon->BaneDmgBody != GetBodyType() && weapon->BaneDmgRace != GetRace()))
 			)
 				return true;
