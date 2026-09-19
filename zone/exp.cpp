@@ -206,7 +206,7 @@ float Mob::GetBaseEXP()
 		}
 	}
 
-	if (zone && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
+	if (zone && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1 && !(RuleB(Quarm, EnableGuildInstanceRespawnControl) && zone->GetZoneExpansion() == PlanesEQ))
 	{
 		zemmod = RuleR(Quarm, InstanceZEMOverride);
 	}

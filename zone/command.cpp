@@ -213,6 +213,7 @@ int command_init(void)
 		command_add("giveitem", "[itemid] [charges] - Summon an item onto your target's cursor. Charges are optional.", AccountStatus::GMLeadAdmin, command_giveitem) ||
 		command_add("givemoney", "[pp] [gp] [sp] [cp] - Gives specified amount of money to the target player.", AccountStatus::GMLeadAdmin, command_givemoney) ||
 		command_add("glory", "Shows your current Rallosian Glory rank and Guild 1 experience bonus.", AccountStatus::Player, command_glory) ||
+		command_add("instancespawn", "Enable or disable Timekeeper controls.", AccountStatus::GMAdmin, command_instancespawn) ||
 		command_add("giveplayerfaction", "[factionid] [factionvalue] - Gives the target player faction with the given faction. (Acts as a hit).", AccountStatus::GMMgmt, command_giveplayerfaction) ||
 		command_add("gmdamage", "[amount] [skipaggro] - Damage your target. Skips most combat checks, including invul.", AccountStatus::QuestMaster, command_gmdamage) ||
 		command_add("goto", "[x] [y] [z] - Teleport to the provided coordinates or to your target.", AccountStatus::ApprenticeGuide, command_goto) ||
@@ -341,6 +342,7 @@ int command_init(void)
 		command_add("serversidename", "Prints target's server side name.", AccountStatus::GMAdmin, command_serversidename) ||
 		command_add("setgraveyard", "[zone name] - Creates a graveyard for the specified zone based on your target's LOC.", AccountStatus::GMImpossible, command_setgraveyard) ||
 		command_add("setgreed", "[greed] - Sets a merchant greed value.", AccountStatus::GMAdmin, command_setgreed) ||
+		command_add("setspawn", "<PoP shortname> <minutes|status|default> - Set a normal-trash respawn override.", AccountStatus::GMAdmin, command_setspawn) ||
 		command_add("setnpcexpansion", "[min_expansion] [max_expansion] - Restrict an NPC's spawn2 (spawn location) by min, max expansion. These are float values.", AccountStatus::GMAdmin, command_setnpcexpansion) ||
 		command_add("showbonusstats", "[item|spell|all] Shows bonus stats for target from items or spells. Shows both by default.", AccountStatus::Guide, command_showbonusstats) ||
 		command_add("set", "Set command used to set various things", AccountStatus::Guide, command_set) || 
@@ -974,6 +976,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/giveitem.cpp"
 #include "gm_commands/givemoney.cpp"
 #include "gm_commands/glory.cpp"
+#include "gm_commands/instancespawn.cpp"
 #include "gm_commands/giveplayerfaction.cpp"
 #include "gm_commands/gmdamage.cpp"
 #include "gm_commands/goto.cpp"
@@ -1072,6 +1075,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/setnpcexpansion.cpp"
 #include "gm_commands/setgraveyard.cpp"
 #include "gm_commands/setgreed.cpp"
+#include "gm_commands/setspawn.cpp"
 #include "gm_commands/showlootlockouts.cpp"
 #include "gm_commands/showbonusstats.cpp"
 #include "gm_commands/showfilters.cpp"

@@ -3106,6 +3106,16 @@ void Client::SetPVP(uint8 toggle) {
 	Save();
 }
 
+bool Client::GetGuildInstanceRespawnsEnabled() const { return GuildID() > 1 && Strings::ToBool(DataBucket::GetData(fmt::format("guild_instance_respawns:{}", GuildID()))); }
+bool Client::SetGuildInstanceRespawnsEnabled(bool enabled) {
+	if (GuildID() <= 1) return false;
+	DataBucket::SetData(fmt::format("guild_instance_respawns:{}", GuildID()), enabled ? "1" : "0");
+	auto pack = new ServerPacket(ServerOP_InstanceRespawnToggle, sizeof(ServerInstanceRespawnToggle_Struct));
+	auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);
+	toggle->guild_id = GuildID(); toggle->enabled = enabled;
+	worldserver.SendPacket(pack); safe_delete(pack); return true;
+}
+
 void Client::Kick(const std::string& reason) {
 	client_state = CLIENT_KICKED;
 

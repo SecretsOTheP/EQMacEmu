@@ -117,6 +117,8 @@ public:
 	uint32 CharacterID();
 	int GuildRank();
 	uint32 GuildID();
+	bool GetGuildInstanceRespawnsEnabled();
+	bool SetGuildInstanceRespawnsEnabled(bool enabled);
 	const char *GetGuildName();
 	int GetFace();
 	bool TakeMoneyFromPP(uint64 copper);

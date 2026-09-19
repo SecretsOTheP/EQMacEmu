@@ -423,6 +423,8 @@ public:
 	void	SetAnon(bool toogle);
 
 	inline uint8 GetPVP() const { return m_pp.pvp; }
+	bool GetGuildInstanceRespawnsEnabled() const;
+	bool SetGuildInstanceRespawnsEnabled(bool enabled);
 	inline bool GetGM() const { return m_pp.gm != 0; }
 
 	void SetBaseClass(uint32 i, bool fix_skills = true, bool unscribe_spells = true);
