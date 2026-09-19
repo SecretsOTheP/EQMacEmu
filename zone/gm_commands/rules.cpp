@@ -642,7 +642,8 @@ void ShowPVPZoneUsage(Client *c)
 	c->Message(Chat::White, "#pvpzone <shortname> xp <off|110-150>");
 	c->Message(Chat::White, "#pvpzone <shortname> <1|normal|2|raid|3|both> <on|off>");
 	c->Message(Chat::White, "#pvpzone <shortname> status");
-	c->Message(Chat::White, "#pvpzone status | list | all off");
+	c->Message(Chat::White, "#pvpzone status | list | all <on|off>");
+	c->Message(Chat::White, "#pvpzone all <normal|raid|both> <on|off>");
 	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic timer only; server-wide)");
 	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access and Guild 1 timed raid spawns)");
 }
@@ -765,12 +766,72 @@ void command_pvpzone(Client *c, const Seperator *sep)
 		ShowPVPZoneList(c);
 		return;
 	}
+
 	if (!strcasecmp(sep->arg[1], "all") && sep->argnum >= 2 && !strcasecmp(sep->arg[2], "off")) {
-		SaveActivePVPZones({});
-		DataBucket::DeleteData(PVP_RAID_SPAWN_TIER_BUCKET);
-		DataBucket::DeleteData(PVP_TIMED_RAID_ZONES_BUCKET);
-		c->Message(Chat::Yellow, "All PVP zones and Guild 1 timed raid spawns are now disabled.");
+	SaveActivePVPZones({});
+	SavePVPZoneSet(PVP_NORMAL_LOOT_BUCKET, {});
+	SavePVPZoneSet(PVP_RAID_LOOT_BUCKET, {});
+	DataBucket::DeleteData(PVP_RAID_SPAWN_TIER_BUCKET);
+	DataBucket::DeleteData(PVP_TIMED_RAID_ZONES_BUCKET);
+	c->Message(Chat::Yellow, "All PVP zones, double loot, and Guild 1 timed raid spawns are now disabled.");
+	return;
+	}
+
+
+	if (!strcasecmp(sep->arg[1], "all") && sep->argnum >= 2) {
+	const auto all_zones = AllowedPVPZones();
+	const bool normal_all = !strcasecmp(sep->arg[2], "normal");
+	const bool raid_all = !strcasecmp(sep->arg[2], "raid");
+	const bool both_all = !strcasecmp(sep->arg[2], "both");
+
+	if (normal_all || raid_all || both_all) {
+		bool enabled = false;
+		if (sep->argnum != 3 || !ParsePVPToggle(sep->arg[3], enabled)) {
+			ShowPVPZoneUsage(c);
+			return;
+		}
+
+		if (normal_all || both_all) {
+			SavePVPZoneSet(
+				PVP_NORMAL_LOOT_BUCKET,
+				enabled ? all_zones : std::set<std::string>{}
+			);
+		}
+
+		if (raid_all || both_all) {
+			SavePVPZoneSet(
+				PVP_RAID_LOOT_BUCKET,
+				enabled ? all_zones : std::set<std::string>{}
+			);
+		}
+
+		c->Message(
+			Chat::Yellow,
+			fmt::format(
+				"All PVP zones {} double loot is now {}.",
+				both_all ? "normal and raid" : (raid_all ? "raid" : "normal"),
+				enabled ? "on" : "off"
+			).c_str()
+		);
 		return;
+	}
+
+	bool enabled = false;
+	if (sep->argnum != 2 || !ParsePVPToggle(sep->arg[2], enabled)) {
+		ShowPVPZoneUsage(c);
+		return;
+	}
+
+	SaveActivePVPZones(enabled ? all_zones : std::set<std::string>{});
+	c->Message(
+		Chat::Yellow,
+		fmt::format(
+			"All {} approved PVP zones are now {}.",
+			all_zones.size(),
+			enabled ? "enabled" : "disabled"
+		).c_str()
+	);
+	return;
 	}
 
 	if (!strcasecmp(sep->arg[1], "loot")) {

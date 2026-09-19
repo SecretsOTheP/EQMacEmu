@@ -729,7 +729,7 @@ bool PVPZoneDoubleLootEnabled(bool raid)
 void NPC::AddLootTable(bool is_quest_spawn) {
 	const bool is_raid_loot = engage_notice || IsRaidTarget() || (respawn2 && respawn2->IsRaidTargetSpawnpoint());
 	AddLootTable(m_loottable_id);
-	if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot)) && !is_quest_spawn)
+	if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot) && zone->random.Real(0.0f, 100.0f) < 95.0f) && !is_quest_spawn)
 		AddLootTable(m_loottable_id);
 }
 
@@ -740,7 +740,7 @@ void NPC::CheckGlobalLootTables()
 	for (const auto &e : l) {
 
 		AddLootTable(e, true);
-		if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot)))
+		if (zone && (RuleB(Quarm, EnablePVEDoubleLoot) && zone->IsHotzone() && zone->GetGuildID() == GUILD_NONE && !is_raid_loot || PVPZoneDoubleLootEnabled(is_raid_loot) && zone->random.Real(0.0f, 100.0f) < 95.0f))
 		{
 			AddLootTable(e, true);
 		}
