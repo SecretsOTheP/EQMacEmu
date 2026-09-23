@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <vector>
 #include <algorithm>
+#include <new>
 
 #ifdef _WINDOWS
 	#include <time.h>
@@ -51,6 +52,19 @@
 
 uint16 EQStream::MaxWindowSize=2048;
 
+
+// Local defensive limit. The client protocol carries an unchecked uint32
+// reassembled length and does not define a receive-side maximum.
+static const uint32 MAX_REASSEMBLED_PACKET_SIZE = 1024 * 1024;
+
+void EQStream::ClearOversizeBuffer()
+{
+	delete[] oversize_buffer;
+	oversize_buffer = nullptr;
+	oversize_length = 0;
+	oversize_offset = 0;
+}
+
 void EQStream::init(bool resetSession) {
 	// we only reset these statistics if it is a 'new' connection
 	if (resetSession)
@@ -69,9 +83,7 @@ void EQStream::init(bool resetSession) {
 	MaxSends=5;
 	LastPacket=0;
 	LastSent = 0;
-	oversize_buffer=nullptr;
-	oversize_length=0;
-	oversize_offset=0;
+	ClearOversizeBuffer();
 	RateThreshold=RATEBASE/250;
 	DecayRate=DECAYBASE/250;
 	BytesWritten=0;
@@ -230,12 +242,15 @@ void EQStream::ProcessPacket(EQProtocolPacket *p)
 		break;
 
 		case OP_Fragment: {
-			if(!p->pBuffer || (p->Size() < 4))
+			if(!p->pBuffer || (p->size < sizeof(uint16)))
 			{
 				LogNetcodeDetail(_L "Received OP_Fragment that was of malformed size" __L);
 				break;
 			}
-			uint16 seq=ntohs(*(uint16 *)(p->pBuffer));
+			uint16 network_seq = 0;
+			memcpy(&network_seq, p->pBuffer, sizeof(network_seq));
+			uint16 seq = ntohs(network_seq);
+
 			SeqOrder check=CompareSequence(NextInSeq,seq);
 			if (check == SeqFuture) {
 				LogNetcodeDetail(_L "Future OP_Fragment: Expecting Seq = [{}], but got Seq = [{}]" __L, NextInSeq, seq);
@@ -251,6 +266,93 @@ void EQStream::ProcessPacket(EQProtocolPacket *p)
 				// _raw(NET__DEBUG, seq, p);
 				SendOutOfOrderAck(seq);
 			} else {
+				unsigned char *first_fragment_buffer = nullptr;
+				uint32 first_fragment_total_length = 0;
+				uint32 first_fragment_data_length = 0;
+
+				if (!oversize_buffer) {
+					const uint32 first_fragment_header_length = sizeof(uint16) + sizeof(uint32); // 6
+
+					if (p->size < first_fragment_header_length) {
+						LogNetcode(
+							_L "Received first OP_Fragment with payload length [{}], which is smaller than its [{}] byte header" __L,
+							p->size,
+							first_fragment_header_length
+						);
+						SetState(CLOSED);
+						break;
+					}
+
+					uint32 network_total_length = 0;
+					memcpy(&network_total_length, p->pBuffer + sizeof(uint16), sizeof(network_total_length));
+
+					first_fragment_total_length = ntohl(network_total_length);
+					first_fragment_data_length = p->size - first_fragment_header_length;
+
+					if (!first_fragment_data_length ||
+						first_fragment_total_length <= first_fragment_data_length ||
+						first_fragment_total_length > MAX_REASSEMBLED_PACKET_SIZE)
+					{
+						LogNetcode(
+							_L "Rejected first OP_Fragment with declared length [{}], initial data length [{}], and maximum length [{}]" __L,
+							first_fragment_total_length,
+							first_fragment_data_length,
+							MAX_REASSEMBLED_PACKET_SIZE
+						);
+						SetState(CLOSED);
+						break;
+					}
+
+					first_fragment_buffer = new (std::nothrow) unsigned char[first_fragment_total_length];
+
+					if (!first_fragment_buffer)
+					{
+						LogNetcode(_L "Unable to allocate [{}] bytes for fragmented packet" __L, first_fragment_total_length);
+						SetState(CLOSED);
+						break;
+					}
+
+					memcpy(
+						first_fragment_buffer,
+						p->pBuffer + first_fragment_header_length,
+						first_fragment_data_length
+					);
+				}
+
+				uint32 continuation_data_length = 0;
+
+				if (oversize_buffer)
+				{
+					// A continuation must contain its two-byte sequence number
+					// followed by at least one byte of packet data.
+					if (p->size <= sizeof(uint16))
+					{
+						LogNetcode(_L "Rejected OP_Fragment continuation with no data, seq [{}]" __L, seq);
+
+						ClearOversizeBuffer();
+						SetState(CLOSED);
+						break;
+					}
+
+					continuation_data_length = p->size - sizeof(uint16);
+
+					// Use subtraction so the bounds check cannot itself overflow.
+					if (oversize_offset > oversize_length || continuation_data_length > oversize_length - oversize_offset)
+					{
+						LogNetcode(
+							_L "Rejected OP_Fragment continuation with data length [{}]: reassembly is at [{}]/[{}], seq [{}]" __L,
+							continuation_data_length,
+							oversize_offset,
+							oversize_length,
+							seq
+						);
+
+						ClearOversizeBuffer();
+						SetState(CLOSED);
+						break;
+					}
+				}
+
 				// In case we did queue one before as well.
 				EQProtocolPacket *qp=RemoveQueue(seq);
 				if (qp) {
@@ -259,12 +361,15 @@ void EQStream::ProcessPacket(EQProtocolPacket *p)
 				}
 				SetNextAckToSend(seq);
 				NextInSeq++;
+
 				if (oversize_buffer) {
-					memcpy(oversize_buffer+oversize_offset,p->pBuffer+2,p->size-2);
-					oversize_offset+=p->size-2;
-					LogNetcodeDetail(_L "Fragment of oversized of length [{}], seq [{}]: now at [{}]/[{}]" __L, p->size - 2, seq, oversize_offset, oversize_length);
+					memcpy(oversize_buffer + oversize_offset, p->pBuffer + sizeof(uint16), continuation_data_length);
+					oversize_offset += continuation_data_length;
+					LogNetcodeDetail(_L "Fragment of oversized of length [{}], seq [{}]: now at [{}]/[{}]" __L, continuation_data_length, seq, oversize_offset, oversize_length);
+
 					if (oversize_offset==oversize_length) {
-						if (*(p->pBuffer+2)==0x00 && *(p->pBuffer+3)==0x19) {
+						// Inspect the completed packet rather than the final fragment.
+						if (oversize_length >= sizeof(uint16) && oversize_buffer[0] == 0x00 && oversize_buffer[1] == OP_AppCombined) {
 							EQProtocolPacket *subp=MakeProtocolPacket(oversize_buffer,oversize_offset);
 							LogNetcodeDetail(_L "seq [{}], Extracting combined oversize packet of length [{}]" __L, seq, subp->size);
 							//// _raw(NET__NET_CREATE_HEX, subp);
@@ -279,15 +384,12 @@ void EQStream::ProcessPacket(EQProtocolPacket *p)
 								InboundQueuePush(ap);
 							}
 						}
-						delete[] oversize_buffer;
-						oversize_buffer=nullptr;
-						oversize_offset=0;
+						ClearOversizeBuffer();
 					}
 				} else {
-					oversize_length=ntohl(*(uint32 *)(p->pBuffer+2));
-					oversize_buffer=new unsigned char[oversize_length];
-					memcpy(oversize_buffer,p->pBuffer+6,p->size-6);
-					oversize_offset=p->size-6;
+					oversize_length = first_fragment_total_length;
+					oversize_buffer = first_fragment_buffer;
+					oversize_offset = first_fragment_data_length;
 					LogNetcodeDetail(_L "First fragment of oversized of seq [{}]: now at [{}]/[{}]" __L, seq, oversize_offset, oversize_length);
 				}
 			}
