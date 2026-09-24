@@ -212,8 +212,9 @@ class EQStream : public EQStreamInterface {
 		uint32 remote_ip;
 		uint16 remote_port;
 		uint8 buffer[8192];
-		unsigned char *oversize_buffer;
-		uint32 oversize_offset,oversize_length;
+		unsigned char *oversize_buffer = nullptr;
+		uint32 oversize_offset = 0;
+		uint32 oversize_length = 0;
 		uint8 app_opcode_size;
 		EQStreamType StreamType;
 		bool compressed,encoded;
@@ -314,6 +315,7 @@ class EQStream : public EQStreamInterface {
 
 		void ProcessQueue();
 		EQProtocolPacket *RemoveQueue(uint16 seq);
+		void ClearOversizeBuffer();
 
 		void _SendDisconnect();
 
@@ -332,7 +334,7 @@ class EQStream : public EQStreamInterface {
 		virtual uint32 GetRemoteIP() const { return remote_ip; }
 		virtual uint16 GetRemotePort() const { return remote_port; }
 		virtual void ReleaseFromUse() { std::lock_guard<std::mutex> lock(MInUse); if(active_users > 0) active_users--; }
-		virtual void RemoveData() { InboundQueueClear(); OutboundQueueClear(); PacketQueueClear(); /*if (CombinedAppPacket) delete CombinedAppPacket;*/ }
+		virtual void RemoveData() { ClearOversizeBuffer(); InboundQueueClear(); OutboundQueueClear(); PacketQueueClear(); /*if (CombinedAppPacket) delete CombinedAppPacket;*/ }
 		virtual bool CheckState(EQStreamState state) { return GetState() == state; }
 		virtual std::string Describe() const { return("Direct EQStream"); }
 
