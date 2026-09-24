@@ -638,12 +638,15 @@ void Client::ClearPlayerInfoAndGrantStartingItems(bool goto_death)
 	{
 		FinishTrade(this);
 
-		if (Other->IsClient())
-			Other->CastToClient()->FinishTrade(Other);
+		// Only unwind the other side if it is actually trading with us.
+		if (Other->trade->GetWithID() == GetID()) {
+			if (Other->IsClient())
+				Other->CastToClient()->FinishTrade(Other);
+			Other->trade->Reset();
+		}
 
 		/* Reset both sides of the trade */
 		trade->Reset();
-		Other->trade->Reset();
 	}
 
 	//Delete all items from their inventory.
@@ -1459,6 +1462,14 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 		return true;
 	}
 
+	// Items can't be taken back out of the trade window. Allowing it bypassed the NoDrop and
+	// cursor-only checks on the way in and let items change after the other side accepted.
+	if (move_in->from_slot >= EQ::invslot::TRADE_BEGIN && move_in->from_slot <= EQ::invslot::TRADE_END) {
+		auto message = fmt::format("Player {} ( {} ) sent OP_MoveItem from trade slot {} to {}", GetCleanName(), GetID(), move_in->from_slot, move_in->to_slot);
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+		return false;
+	}
+
 	if (move_in->to_slot == (uint32)INVALID_INDEX) {
 		if (move_in->from_slot == (uint32)EQ::invslot::slotCursor) {
 			Log(Logs::Detail, Logs::Inventory, "Client destroyed item from cursor slot %d", move_in->from_slot);
@@ -1822,7 +1833,17 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 	// Step 3: Check for interaction with World Container (tradeskills)
 	if(m_tradeskill_object != nullptr) {
 		if (src_slot_id >= EQ::invslot::WORLD_BEGIN && src_slot_id <= EQ::invslot::WORLD_END) {
-			// Picking up item from world container
+			// Picking up item from world container. Only the cursor or an empty carried slot is a valid target;
+			// anything else (trade, bank, shared bank, occupied slots) skipped the checks those slots normally get.
+			bool valid_world_dst = dst_slot_id == EQ::invslot::slotCursor ||
+				(((dst_slot_id >= EQ::invslot::GENERAL_BEGIN && dst_slot_id <= EQ::invslot::GENERAL_END) ||
+				(dst_slot_id >= EQ::invbag::GENERAL_BAGS_BEGIN && dst_slot_id <= EQ::invbag::GENERAL_BAGS_END)) && !dst_inst);
+			if (!valid_world_dst) {
+				auto message = fmt::format("Player {} ( {} ) tried to move an item from world container slot {} to invalid slot {}", GetCleanName(), GetID(), src_slot_id, dst_slot_id);
+				RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+				return false;
+			}
+
 			EQ::ItemInstance* inst = m_tradeskill_object->PopItem(EQ::InventoryProfile::CalcBagIdx(src_slot_id));
 			if (inst) {
 				const EQ::ItemData* src_item = inst->GetItem();
@@ -1854,7 +1875,13 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 			return true;
 		}
 		else if (dst_slot_id >= EQ::invslot::WORLD_BEGIN && dst_slot_id <= EQ::invslot::WORLD_END) {
-			// Putting item into world container, which may swap (or pile onto) with existing item
+			// Putting item into world container, which may swap (or pile onto) with existing item.
+			// Only from the cursor: the swap case writes the container item back into src_slot_id unchecked.
+			if (src_slot_id != EQ::invslot::slotCursor) {
+				auto message = fmt::format("Player {} ( {} ) tried to move an item from slot {} into world container slot {}", GetCleanName(), GetID(), src_slot_id, dst_slot_id);
+				RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+				return false;
+			}
 			uint8 world_idx = EQ::InventoryProfile::CalcBagIdx(dst_slot_id);
 			EQ::ItemInstance* world_inst = m_tradeskill_object->PopItem(world_idx);
 
@@ -1933,7 +1960,8 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 			if (RuleB(QueryServ, PlayerLogItemDesyncs)) { QServ->QSItemDesyncs(CharacterID(), error.c_str(), GetZoneID()); }
 			return false;
 		}
-		if (with && trade->state != TradeNone && trade->state != Requesting) 
+		if (with && trade->state != TradeNone && trade->state != Requesting &&
+			(!with->IsClient() || with->trade->GetWithID() == GetID()))
 		{
 			Log(Logs::Detail, Logs::Inventory, "Trade item move from slot %d to slot %d (trade with %s)", src_slot_id, dst_slot_id, with->GetName());
 			// Fill Trade list with items from cursor
@@ -1965,31 +1993,21 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 		} else {
 			if(RuleB(QueryServ, PlayerLogMoves)) { QSSwapItemAuditor(move_in); } // QS Audit
 			
+			// With no open trade the trade slot should be empty. If it isn't, leave the cursor item alone:
+			// merging here used to add charges without checking the two items matched.
+			bool rejected = false;
 			if (src_inst) {
-				int new_charges = 0;
 				if (!dst_inst) {
 					// Move item on cursor to the trade slots
 					PutItemInInventory(dst_slot_id, *src_inst);
+					DeleteItemInInventory(src_slot_id);
 				}
 				else
 				{
-					new_charges = (dst_inst->GetCharges()+src_inst->GetCharges());
-					if (new_charges < dst_inst->GetItem()->StackSize)
-					{
-						dst_inst->SetCharges(new_charges);
-						new_charges = 0;
-					}
-					else
-					{
-						new_charges = src_inst->GetCharges()-(dst_inst->GetItem()->StackSize-dst_inst->GetCharges()); //Leftover charges = charges - difference
-						dst_inst->SetCharges(dst_inst->GetItem()->StackSize);
-					}
-
+					auto message = fmt::format("Player {} ( {} ) moved an item onto occupied trade slot {} with no open trade", GetCleanName(), GetID(), dst_slot_id);
+					RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+					rejected = true;
 				}
-				if (new_charges > 0)
-					GetInv().GetItem(src_slot_id)->SetCharges(new_charges);
-				else
-					DeleteItemInInventory(src_slot_id);
 			}
 
 			// now close out anything else associated with trade
@@ -1998,7 +2016,7 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 			CancelTrade_Struct* ct = (CancelTrade_Struct*) canceltrade->pBuffer;
 			ct->fromid = 0;
 			ct->action = 1;
-			if (with && with->IsClient()) {
+			if (with && with->IsClient() && with->trade->GetWithID() == GetID()) {
 				with->CastToClient()->QueuePacket(canceltrade);
 				with->CastToClient()->FinishTrade(with);
 				with->CastToClient()->trade->Reset();
@@ -2009,7 +2027,8 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 			// SummonItem(src_inst->GetID(), src_inst->GetCharges());
 			// DeleteItemInInventory(SlotCursor);
 
-			return true;
+			// Returning false resyncs the client, which still shows the cursor item in the trade slot.
+			return !rejected;
 		}
 	}
 
