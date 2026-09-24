@@ -132,7 +132,9 @@ void Trade::AddEntity(uint16 trade_slot_id, uint32 stack_size) {
 		uint32 _stack_size = 0;
 
 		if ((stack_size + inst2->GetCharges()) > inst2->GetItem()->StackSize) {
-			_stack_size = (stack_size + inst2->GetCharges()) - inst->GetItem()->StackSize;
+			// Only part of the request fits; the cursor keeps everything that didn't move.
+			uint32 moved = inst2->GetItem()->StackSize - inst2->GetCharges();
+			_stack_size = inst->GetCharges() - moved;
 			inst2->SetCharges(inst2->GetItem()->StackSize);
 		}
 		else {
@@ -210,6 +212,8 @@ Mob *Trade::GetOwner() const
 
 void Client::ResetTrade() {
 	AddMoneyToPP(trade->cp, trade->sp, trade->gp, trade->pp, true);
+	// Clear the buckets so a later cancel or FinishTrade(this) doesn't refund the same coin again.
+	trade->pp = 0; trade->gp = 0; trade->sp = 0; trade->cp = 0;
 
 	// step 1: process bags
 	for (int16 trade_slot = EQ::invslot::TRADE_BEGIN; trade_slot <= EQ::invslot::TRADE_END; ++trade_slot) {
@@ -328,6 +332,19 @@ void Client::ResetTrade() {
 
 			DeleteItemInInventory(trade_slot);
 		}
+	}
+}
+
+// SummonItem creates a fresh, empty container, so returned bags need their contents summoned separately.
+void Client::ReturnBagContents(const EQ::ItemInstance* bag)
+{
+	if (!bag || !bag->IsClassBag())
+		return;
+
+	for (int16 sub_slot = EQ::invbag::SLOT_BEGIN; sub_slot <= EQ::invbag::SLOT_END; ++sub_slot) {
+		const EQ::ItemInstance* bag_inst = bag->GetItem(sub_slot);
+		if (bag_inst)
+			SummonItem(bag_inst->GetID(), bag_inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, bag_inst->GetQuarmItemData());
 	}
 }
 
@@ -680,6 +697,7 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 						npc->Say_StringID(zone->random.Int(StringID::TRADE_BAD_FACTION1, StringID::TRADE_BAD_FACTION4));
 						// Summon the return copy before deleting; DeleteItemInInventory frees inst.
 						SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetQuarmItemData());
+						ReturnBagContents(inst);
 						item_list.back() = static_cast<EQ::ItemInstance*>(nullptr);
 						DeleteItemInInventory(i);
 						inst = nullptr;
@@ -771,6 +789,7 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 				{
 					// Summon the return copy before deleting; DeleteItemInInventory frees inst.
 					SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetQuarmItemData());
+					ReturnBagContents(inst);
 					item_list.back() = static_cast<EQ::ItemInstance*>(nullptr);
 					DeleteItemInInventory(i);
 					inst = nullptr;
