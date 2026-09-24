@@ -67,6 +67,9 @@ void Trade::Reset()
 // initiate_with specifies whether to start trade with other mob as well
 void Trade::Request(uint32 mob_id)
 {
+	// Reset() zeroes the coin buckets, so hand back anything still in an existing trade first.
+	if (state != TradeNone && owner && owner->IsClient())
+		owner->CastToClient()->FinishTrade(owner);
 	Reset();
 	state = Requesting;
 	with_id = mob_id;
@@ -76,6 +79,9 @@ void Trade::Request(uint32 mob_id)
 // initiate_with specifies whether to start trade with other mob as well
 void Trade::Start(uint32 mob_id, bool initiate_with)
 {
+	// Reset() zeroes the coin buckets, so hand back anything still in an existing trade first.
+	if (state != TradeNone && owner && owner->IsClient())
+		owner->CastToClient()->FinishTrade(owner);
 	Reset();
 	state = Trading;
 	with_id = mob_id;
@@ -356,7 +362,8 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 
 						if (free_slot != INVALID_INDEX)
 						{
-							if (other->PutItemInInventory(free_slot, *inst, true))
+							// PutItemInInventory places the item in memory before saving, so a failed save still leaves it there.
+							if (other->PutItemInInventory(free_slot, *inst, true) || other->GetInv().GetItem(free_slot))
 							{
 								Log(Logs::Detail, Logs::Trading, "Container %s (%d) successfully transferred, deleting from trade slot %d.", inst->GetItem()->Name, inst->GetItem()->ID, trade_slot);
 
@@ -373,17 +380,19 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 									++trade_bag_slot)
 								{
 									const EQ::ItemInstance *inst = m_inv[trade_bag_slot];
+									bool drop_bag_item = false;
 
 									if (inst) {
 										Log(Logs::Detail, Logs::Trading, "Giving item in container %s (%d) in slot %d to %s", inst->GetItem()->Name, inst->GetItem()->ID, trade_bag_slot, other->GetName());
 
+										int16 free_bag_slot = other->GetInv().CalcSlotId(free_slot, bagidx);
 										if (inst->GetItem()->NoDrop != 0 || Admin() >= RuleI(Character, MinStatusForNoDropExemptions) || RuleI(World, FVNoDropFlag) == 1 || other == this)
 										{
-											int16 free_bag_slot = other->GetInv().CalcSlotId(free_slot, bagidx);
 											Log(Logs::Detail, Logs::Trading, "Free slot is: %i. Slot bag is in: %i Index is: %i", free_bag_slot, free_slot, bagidx);
 											if (free_bag_slot != INVALID_INDEX)
 											{
-												if (other->PutItemInInventory(free_bag_slot, *inst, true))
+												// The container copy above already carries this item, so a failed save must not also drop it.
+												if (other->PutItemInInventory(free_bag_slot, *inst, true) || other->GetInv().GetItem(free_bag_slot))
 												{
 													Log(Logs::Detail, Logs::Trading, "Container item %s (%d) successfully transferred, deleting from trade slot %d.", inst->GetItem()->Name, inst->GetItem()->ID, trade_bag_slot);
 
@@ -396,24 +405,28 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 
 												else {
 													Log(Logs::Detail, Logs::Trading, "Transfer of container item %s (%d) to %s failed, returning to giver.", inst->GetItem()->Name, inst->GetItem()->ID, other->GetName());
-													dropitem = true;
+													drop_bag_item = true;
 												}
 											}
 											else {
 												Log(Logs::Detail, Logs::Trading, "%s's inventory is full, returning container item %s (%d) to giver.", other->GetName(), inst->GetItem()->Name, inst->GetItem()->ID);
-												dropitem = true;
+												drop_bag_item = true;
 											}
 										}
 										else
 										{
 											Log(Logs::Detail, Logs::Trading, "Container item %s (%d) is NoDrop, returning to giver.", inst->GetItem()->Name, inst->GetItem()->ID);
 											PushItemOnCursor(*inst, true);
+											// The container copy given to the other player still holds this item; take it back out.
+											if (free_bag_slot != INVALID_INDEX && other->GetInv().GetItem(free_bag_slot))
+												other->DeleteItemInInventory(free_bag_slot, 0, true);
+										}
+										// Drop before deleting; inst is freed by DeleteItemInInventory.
+										if (drop_bag_item)
+										{
+											other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
 										}
 										DeleteItemInInventory(trade_bag_slot);
-									}
-									if (dropitem)
-									{
-										other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
 									}
 									bagidx++;
 								}
@@ -433,11 +446,12 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 						PushItemOnCursor(*inst, true);
 					}
 
+					// Drop before deleting; inst is freed by DeleteItemInInventory.
+					if (dropitem)
+					{
+						other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
+					}
 					DeleteItemInInventory(trade_slot);
-				}
-				if (dropitem)
-				{
-					other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
 				}
 			}
 
@@ -555,7 +569,8 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 						int16 free_slot = other->GetInv().FindFreeSlotForTradeItem(inst);
 
 						if (free_slot != INVALID_INDEX) {
-							if (other->PutItemInInventory(free_slot, *inst, true))
+							// PutItemInInventory places the item in memory before saving, so a failed save still leaves it there.
+							if (other->PutItemInInventory(free_slot, *inst, true) || other->GetInv().GetItem(free_slot))
 							{
 								Log(Logs::Detail, Logs::Trading, "Item %s (%d) successfully transferred, deleting from trade slot %d.", inst->GetItem()->Name, inst->GetItem()->ID, trade_slot);
 								if (qs_log)
@@ -579,11 +594,12 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 						PushItemOnCursor(*inst, true);
 					}
 
+					// Drop before deleting; inst is freed by DeleteItemInInventory.
+					if (dropitem)
+					{
+						other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
+					}
 					DeleteItemInInventory(trade_slot);
-				}
-				if (dropitem)
-				{
-					other->CreateGroundObject(inst, glm::vec4(other->GetX(), other->GetY(), other->GetZ(), 0), RuleI(Groundspawns, FullInvDecayTime), true);
 				}
 			}
 
@@ -660,10 +676,13 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 
 					if (RuleB(NPC, ReturnNonQuestItems))
 					{
-						DeleteItemInInventory(i);
 						if (npc->CanTalk())
 						npc->Say_StringID(zone->random.Int(StringID::TRADE_BAD_FACTION1, StringID::TRADE_BAD_FACTION4));
+						// Summon the return copy before deleting; DeleteItemInInventory frees inst.
 						SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetQuarmItemData());
+						item_list.back() = static_cast<EQ::ItemInstance*>(nullptr);
+						DeleteItemInInventory(i);
+						inst = nullptr;
 						Log(Logs::General, Logs::Trading, "Quest NPC %s is returning %s because the faction check has failed.", npc->GetName(), item->Name);
 
 					}
@@ -750,8 +769,11 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 				// Return items being handed into a non-quest NPC if the rule is true
 				else if (RuleB(NPC, ReturnNonQuestItems))
 				{
-					DeleteItemInInventory(i);
+					// Summon the return copy before deleting; DeleteItemInInventory frees inst.
 					SummonItem(inst->GetID(), inst->GetCharges(), EQ::legacy::SLOT_QUEST, true, inst->GetQuarmItemData());
+					item_list.back() = static_cast<EQ::ItemInstance*>(nullptr);
+					DeleteItemInInventory(i);
+					inst = nullptr;
 					if(npc->CanTalk())
 						npc->Say_StringID(StringID::NO_NEED_FOR_ITEM, GetName());
 					Log(Logs::General, Logs::Trading, "Non-Quest NPC %s is returning %s because it does not require it.", npc->GetName(), item->Name);
@@ -771,7 +793,7 @@ void Client::FinishTrade(Mob *tradingWith, bool finalizer, void *event_entry)
 				}
 			}
 
-			if (!badfaction && qs_log)
+			if (!badfaction && qs_log && inst)
 			{
 				QServ->QSTradeItems(this->character_id, npc->GetNPCTypeID(), i, 0, inst->GetID(), inst->GetCharges(), false, false);
 				++item_count;
@@ -1718,7 +1740,8 @@ void Client::BuyTraderItem(TraderBuy_Struct* tbs, Client* Trader, const EQApplic
 			outtbs->Quantity = 1;
 		}
 		// If the purchaser requested more than is in the stack, just sell them how many are actually in the stack.
-		else if(ItemCharges < (int16)tbs->Quantity)
+		// Compare unsigned: an int16 cast let quantities >= 0x8000 skip this cap and CreateItem then truncated them.
+		else if(ItemCharges < static_cast<int>(tbs->Quantity))
 		{
 			outtbs->Price = RealPrice * ItemCharges;
 			outtbs->Quantity = ItemCharges;

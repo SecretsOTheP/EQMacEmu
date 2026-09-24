@@ -709,12 +709,15 @@ void Client::OnDisconnect(bool hard_disconnect) {
 		Log(Logs::Detail, Logs::Trading, "Client disconnected during a trade. Returning their items."); 
 		FinishTrade(this);
 
-		if(Other->IsClient())
-			Other->CastToClient()->FinishTrade(Other);
+		// Only unwind the other side if it is actually trading with us.
+		if (Other->trade->GetWithID() == GetID()) {
+			if(Other->IsClient())
+				Other->CastToClient()->FinishTrade(Other);
+			Other->trade->Reset();
+		}
 
 		/* Reset both sides of the trade */
 		trade->Reset();
-		Other->trade->Reset();
 	}
 
 	database.SetFirstLogon(CharacterID(), 0); //We change firstlogon status regardless of if a player logs out to zone or not, because we only want to trigger it on their first login from world.
@@ -1449,6 +1452,11 @@ void Client::OPMoveCoin(const EQApplicationPacket* app)
 	uint64 value = 0, amount_to_take = 0, amount_to_add = 0;
 	int32 *from_bucket = 0, *to_bucket = 0;
 	Mob* trader = trade->With();
+	// Coin only goes to a trade window that is actually open on both sides. Otherwise it is
+	// refunded by the !trader branch below instead of forcing the other side into Trading.
+	if (trader && (trade->state == TradeNone || trade->state == Requesting ||
+		(trader->IsClient() && trader->trade->GetWithID() != GetID())))
+		trader = nullptr;
 
 	// if amount < 0, client is sending a malicious packet
 	if (mc->amount < 0)

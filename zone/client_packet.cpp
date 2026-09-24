@@ -2872,9 +2872,12 @@ void Client::Handle_OP_CancelTrade(const EQApplicationPacket *app)
 		msg->fromid = GetID();
 		//msg->action = 1;
 
-		with->CastToClient()->FinishTrade(with);
-		with->CastToClient()->trade->Reset();
-		with->CastToClient()->QueuePacket(app);
+		// Only unwind the other side if it is actually trading with us.
+		if (with->trade->GetWithID() == GetID()) {
+			with->CastToClient()->FinishTrade(with);
+			with->CastToClient()->trade->Reset();
+			with->CastToClient()->QueuePacket(app);
+		}
 
 		// Put trade items/cash back into inventory
 		QueuePacket(app);
@@ -3229,6 +3232,12 @@ void Client::Handle_OP_ClickObject(const EQApplicationPacket *app)
 	if (entity && entity->IsObject()) {
 		Object* object = entity->CastToObject();
 		
+		if (DistanceSquared(glm::vec3(m_Position), glm::vec3(object->GetX(), object->GetY(), object->GetZ())) > USE_NPC_RANGE2) {
+			auto message = fmt::format("Player {} ( {} ) sent OP_ClickObject for object {} from out of range", GetCleanName(), GetID(), click_object->drop_id);
+			RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+			return;
+		}
+
 		std::string msg;
 		if (RuleB(Quarm, RestrictIksarsToKunark))
 		{
@@ -3275,8 +3284,10 @@ void Client::Handle_OP_ClickObject(const EQApplicationPacket *app)
 		
 		object->HandleClick(this, click_object);
 
+		// Picking up a dropped item deletes the object, so don't hand the freed pointer to the quest event.
+		auto* still_there = entity_list.GetID(click_object->drop_id);
 		std::vector<std::any> args;
-		args.push_back(object);
+		args.push_back(still_there == entity ? object : static_cast<Object*>(nullptr));
 
 		std::string export_string = fmt::format("{}", click_object->drop_id);
 		parse->EventPlayer(EVENT_CLICK_OBJECT, this, export_string, 0, &args);
@@ -9651,7 +9662,24 @@ void Client::Handle_OP_Track(const EQApplicationPacket *app)
 
 void Client::Handle_OP_TradeAcceptClick(const EQApplicationPacket *app)
 {
+	// Only an open trade window can be accepted; both sides are Trading once OP_TradeRequestAck completes.
+	if (trade->state != Trading && trade->state != TradeAccepted)
+		return;
+
 	Mob* with = trade->With();
+
+	if (with == this) {
+		// Self-trade would credit our own trade coin twice. Refund once and bail.
+		auto message = fmt::format("Player {} ( {} ) sent OP_TradeAcceptClick while trading with themselves", GetCleanName(), GetID());
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+		FinishTrade(this);
+		trade->Reset();
+		return;
+	}
+
+	if (with && with->IsClient() && with->trade->GetWithID() != GetID())
+		return;
+
 	trade->state = TradeAccepted;
 
 	if (with && with->IsClient()) {
@@ -10025,6 +10053,13 @@ void Client::Handle_OP_TradeRequest(const EQApplicationPacket *app)
 		return;
 	}
 
+	if (msg->to_mob_id == GetID()) {
+		// Trading with yourself runs FinishTrade twice on the same Trade and duplicates coin.
+		auto message = fmt::format("Player {} ( {} ) sent OP_TradeRequest targeting themselves", GetCleanName(), GetID());
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+		return;
+	}
+
 	Mob* tradee = entity_list.GetMob(msg->to_mob_id);
 
 	if (tradee && tradee->IsClient()) 
@@ -10147,6 +10182,19 @@ void Client::Handle_OP_TradeRequestAck(const EQApplicationPacket *app)
 	// After this, the trade session has officially started
 	// Send ack on to trade initiator if client
 	TradeRequest_Struct* msg = (TradeRequest_Struct*)app->pBuffer;
+
+	if (msg->from_mob_id != GetID()) {
+		auto message = fmt::format("Player {} ( {} ) sent OP_TradeRequestAck with from_mob_id of: {} ", GetCleanName(), GetID(), msg->from_mob_id);
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+		return;
+	}
+
+	if (msg->to_mob_id == GetID()) {
+		auto message = fmt::format("Player {} ( {} ) sent OP_TradeRequestAck targeting themselves", GetCleanName(), GetID());
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+		return;
+	}
+
 	Mob* tradee = entity_list.GetMob(msg->to_mob_id);
 
 	if (tradee && tradee->IsClient() && tradee->trade->state == Requesting && tradee->trade->GetWithID() == GetID()) {
@@ -10643,6 +10691,10 @@ void Client::Handle_OP_TradeRefused(const EQApplicationPacket *app)
 
 	RefuseTrade_Struct* in = (RefuseTrade_Struct*)app->pBuffer;	
 	Client* client = entity_list.GetClientByID(in->fromid);
+
+	// Only the player a trade request was sent to can refuse it.
+	if (client && (client == this || client->trade->GetWithID() != GetID()))
+		return;
 
 	if(client)
 	{

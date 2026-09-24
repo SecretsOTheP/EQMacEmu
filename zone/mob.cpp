@@ -430,7 +430,7 @@ Mob::~Mob()
 
 	if(trade) {
 		Mob *with = trade->With();
-		if(with && with->IsClient()) {
+		if(with && with->IsClient() && with->trade->GetWithID() == GetID()) {
 			with->CastToClient()->FinishTrade(with);
 			with->trade->Reset();
 		}

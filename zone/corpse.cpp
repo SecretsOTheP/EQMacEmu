@@ -1444,10 +1444,10 @@ void Corpse::MakeLootRequestPackets(Client* client, const EQApplicationPacket* a
 								// SlotGeneral1 is the corpse inventory start offset for Ti(EMu) - CORPSE_END = SlotGeneral1 + SlotCursor
 								client->SendItemPacket(i, inst, ItemPacketLoot);
 								safe_delete(inst);
+								// Only items actually shown in the loot window get a loot slot.
+								item_data->lootslot = i;
 							}
 						}
-
-						item_data->lootslot = i;
 					}
 				}
 
@@ -1537,6 +1537,24 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 	}
 
 	LootingItem_Struct* lootitem = (LootingItem_Struct*)app->pBuffer;
+
+	// 0xFFFF marks items that were never sent to the loot window. RemoveItem(lootslot) ignores it,
+	// so looting it handed out the item while leaving it on the corpse to be looted again.
+	if (lootitem->slot_id == 0xFFFF && GetPlayerKillItem() <= 1) {
+		client->Message(Chat::Red, "Error: Corpse::LootItem: invalid loot slot");
+		SendEndLootErrorPacket(client);
+		return;
+	}
+
+	// Looser than the loot request range so normal movement while the window is open is fine.
+	if (DistanceSquaredNoZ(client->GetPosition(), GetPosition()) > 4400) {
+		client->Message(Chat::Red, "You are too far away to loot that corpse.");
+		SendEndLootErrorPacket(client);
+		if (this->being_looted_by == client->GetID()) {
+			ResetLooter();
+		}
+		return;
+	}
 
 	if (this->being_looted_by != client->GetID() && !contains_legacy_item) {
 		client->Message(Chat::Red, "Error: Corpse::LootItem: BeingLootedBy != client");
@@ -1755,7 +1773,7 @@ void Corpse::LootCorpseItem(Client* client, const EQApplicationPacket* app) {
 			/* Delete needs to be before RemoveItem because its deletes the pointer for item_data/bag_item_data */
 			database.DeleteItemOffCharacterCorpse(this->corpse_db_id, item_data->equip_slot, item_data->item_id);
 			/* Delete Item Instance */
-			RemoveItem(item_data->lootslot);
+			RemoveItem(item_data);
 		}
 
 		/* Remove Bag Contents */
@@ -1845,7 +1863,9 @@ void Corpse::EndLoot(Client* client, const EQApplicationPacket* app)
 	client->QueuePacket(outapp);
 	safe_delete(outapp);
 
-	ResetLooter();
+	// Only the current looter can release the lock; otherwise anyone could break into a loot session.
+	if (this->being_looted_by == client->GetID())
+		ResetLooter();
 	if (this->ContainsLegacyItem()) {
 		RemoveLegacyItemLooter(client->GetName());
 	}

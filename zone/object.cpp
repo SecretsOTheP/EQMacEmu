@@ -533,6 +533,18 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 {
 	if(m_ground_spawn)
 	{
+		// Already picked up and waiting to respawn. The object stays in the entity list with its
+		// item, so without this every further click summoned another copy.
+		if (respawn_timer.Enabled())
+		{
+			auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
+			ClickObject_Struct* reply = (ClickObject_Struct*)outapp->pBuffer;
+			reply->player_id = click_object->player_id;
+			reply->drop_id = 0xFFFFFFFF;
+			sender->QueuePacket(outapp);
+			safe_delete(outapp);
+			return false;
+		}
 		respawn_timer.Start();
 	}
 	if (m_type == OT_DROPPEDITEM) 
