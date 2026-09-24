@@ -1507,6 +1507,32 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	//remove ourself from all proximities
 	ClearAllProximities();
 
+	// Close any open trade before the corpse is made, so trade items and coin go back to inventory
+	// (and onto the corpse) instead of sitting in a trade the other side can still accept.
+	Mob* trade_with = trade->With();
+	if (trade_with) {
+		FinishTrade(this);
+		if (trade_with->trade->GetWithID() == GetID()) {
+			if (trade_with->IsClient()) {
+				auto cancel = new EQApplicationPacket(OP_CancelTrade, sizeof(CancelTrade_Struct));
+				CancelTrade_Struct* ct = (CancelTrade_Struct*)cancel->pBuffer;
+				ct->fromid = GetID();
+				ct->action = 1;
+				trade_with->CastToClient()->QueuePacket(cancel);
+				safe_delete(cancel);
+				trade_with->CastToClient()->FinishTrade(trade_with);
+			}
+			trade_with->trade->Reset();
+		}
+		trade->Reset();
+
+		auto cancel = new EQApplicationPacket(OP_CancelTrade, sizeof(CancelTrade_Struct));
+		CancelTrade_Struct* ct = (CancelTrade_Struct*)cancel->pBuffer;
+		ct->fromid = trade_with->GetID();
+		ct->action = 1;
+		FastQueuePacket(&cancel);
+	}
+
 	/*
 		#3: exp loss and corpse generation
 	*/

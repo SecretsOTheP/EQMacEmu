@@ -3309,7 +3309,9 @@ void Client::Handle_OP_ClickObjectAction(const EQApplicationPacket *app)
 	if (entity && entity->IsObject()) {
 		Object* object = entity->CastToObject();
 		if (oos->open == 0) {
-			object->Close();
+			// Only the player using the container can close it; otherwise anyone could kick a crafter out.
+			if (m_tradeskill_object == object)
+				object->Close();
 		}
 		else {
 			Log(Logs::General, Logs::Error, "Unsupported action %d in OP_ClickObjectAction", oos->open);

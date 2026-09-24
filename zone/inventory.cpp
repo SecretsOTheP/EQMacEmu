@@ -1548,7 +1548,10 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 		Log(Logs::Detail, Logs::Inventory, "Src slot %d has item %s (%d) with %d charges in it.", src_slot_id, src_inst->GetItem()->Name, src_inst->GetItem()->ID, src_inst->GetCharges());
 		srcitemid = src_inst->GetItem()->ID;
 
-		if (src_inst->GetCharges() > 0 && (src_inst->GetCharges() < (int16)move_in->number_in_stack || move_in->number_in_stack > src_inst->GetItem()->StackSize))
+		// Compare without narrowing, and also bound 0-charge stackables, which previously skipped this check
+		// and could fill a partial stack for free.
+		if ((src_inst->GetCharges() > 0 || (src_inst->IsStackable() && move_in->number_in_stack > 0)) &&
+			(static_cast<int64>(src_inst->GetCharges()) < static_cast<int64>(move_in->number_in_stack) || move_in->number_in_stack > src_inst->GetItem()->StackSize))
 		{
 			std::string error = "Insufficent number in stack.";
 			Log(Logs::General, Logs::Inventory, error.c_str());
@@ -2083,7 +2086,8 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 		}
 		else {
 			// Nothing in destination slot: split stack into two
-			if ((int8)move_in->number_in_stack >= src_inst->GetCharges()) {
+			// No int8 cast: it went negative for counts of 128+ and left a 0-charge stack behind.
+			if (static_cast<int64>(move_in->number_in_stack) >= src_inst->GetCharges()) {
 				// Move entire stack
 				if(!m_inv.SwapItem(src_slot_id, dst_slot_id)) { 
 					sprintf(error, "Could not move entire stack from %d to %d with stack size %d. Dest empty.", src_slot_id, dst_slot_id, move_in->number_in_stack);

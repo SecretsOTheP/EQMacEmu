@@ -344,6 +344,7 @@ public:
 		bool finalizer = false,
 		void *event_entry = nullptr
 	);
+	void	ReturnBagContents(const EQ::ItemInstance* bag);
 	void	SendZonePoints();
 
 	void FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho);
