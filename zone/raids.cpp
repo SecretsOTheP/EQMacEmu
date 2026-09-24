@@ -625,7 +625,7 @@ bool Raid::MeetsFlagRequirement(uint32 zone_id, uint8 required_percent)
 		zone_id,
 		GetID()
 	);
-	const auto results = database.QueryDatabase(query);
+	auto results = database.QueryDatabase(query);
 	if (!results.Success() || results.RowCount() != 1) {
 		Log(Logs::General, Logs::Error, "Unable to evaluate raid flag requirement for raid %u: %s", GetID(), results.ErrorMessage().c_str());
 		return false;
