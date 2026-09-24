@@ -4291,9 +4291,12 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	// NPCs use special rules for rain spells in our era.
 	if (IsNPC() && IsRainSpell(spell_id)) {
 
-		int resist_chance_percentage = RuleI(Spells, RainResistChance);
+		int resist_chance_percentage = 20;
+		if(caster->GetClass() == Class::Wizard) {
+			resist_chance_percentage = RuleI(Spells, RainWizardResistChance);
+		}
 		
-		// 0% Innate resist chance for rain spells, applies to all casters
+		// 20% innate resist for most classes
 		if (zone->random.Roll(resist_chance_percentage)) {
 			return 0;
 		}
