@@ -23,7 +23,9 @@
 #include "../common/strings.h"
 
 #include "queryserv.h"
+#include "data_bucket.h"
 #include "quest_parser_collection.h"
+#include "raids.h"
 #include "string_ids.h"
 #include "worldserver.h"
 #include "zone.h"
@@ -36,6 +38,40 @@ extern QueryServ* QServ;
 extern WorldServer worldserver;
 extern Zone* zone;
 
+namespace {
+constexpr const char* PopAlternateAccessBucket = "pop_alt_access_enabled";
+constexpr const char* PopRaidFlagPercentBucket = "pop_raid_flagged_percent";
+
+bool IsPopRaidWillingZone(uint32 zone_id)
+{
+	switch (zone_id) {
+	case 215: // Plane of Air
+	case 216: // Plane of Water
+	case 217: // Plane of Fire
+	case 218: // Plane of Earth
+	case 219: // Plane of Time
+		return true;
+	default:
+		return false;
+	}
+}
+
+uint8 PopRaidFlagRequirement()
+{
+	const auto configured = atoi(DataBucket::GetData(PopRaidFlagPercentBucket).c_str());
+	return configured >= 1 && configured <= 100 ? configured : 85;
+}
+
+bool CanRaidWillIntoPopZone(Client* client, uint32 zone_id)
+{
+	if (DataBucket::GetData(PopAlternateAccessBucket) != "1" || !IsPopRaidWillingZone(zone_id)) {
+		return false;
+	}
+
+	auto* raid = client->GetRaid();
+	return raid && raid->MeetsFlagRequirement(zone_id, PopRaidFlagRequirement());
+}
+}
 
 void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 	zoning = true;
@@ -325,7 +361,7 @@ void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 
 	if(!ignorerestrictions && flag_needed[0] != '\0') {
 		//the flag needed string is not empty, meaning a flag is required.
-		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id)) {
+		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(this, target_zone_id)) {
 			Message(Chat::Red, "You do not have the flag to enter %s.", target_zone_name);
 			zoning_message = ZoningMessage::ZoneNoExperience;
 		}
@@ -1276,7 +1312,7 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 
 	if(flag_needed[0] != '\0') {
 		//the flag needed string is not empty, meaning a flag is required.
-		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id)) {
+		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(this, target_zone_id)) {
 			Log(Logs::Detail, Logs::Character, "[CLIENT] Character does not have the flag to be in this zone (%s)!", flag_needed);
 			return(false);
 		}

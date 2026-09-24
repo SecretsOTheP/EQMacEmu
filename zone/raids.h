@@ -104,6 +104,7 @@ public:
 	uint8	GroupCount(uint32 gid);
 	uint8	RaidCount();
 	uint32	GetPresentMembersFromGuildID(uint32 guild_id);
+	bool	MeetsFlagRequirement(uint32 zone_id, uint8 required_percent);
 	bool	IsGuildOfficerInRaidOfGuild(uint32 guild_id);
 	bool	CanRaidEngageRaidTarget(uint32 guild_id);
 	uint32	GetHighestLevel();

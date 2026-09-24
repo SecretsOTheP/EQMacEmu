@@ -759,7 +759,13 @@ bool Mob::IsImmuneToMelee(Mob* attacker, int slot)
 		}
 		else
 		{
-			if (!attacker->GetSpecialAbility(SpecialAbility::BaneAttack)
+			// Client-owned pets have no equipped bane weapon, but should be able to
+			// contribute melee damage against bane-only raid targets.
+			const bool client_owned_pet =
+				attacker->IsPet() && attacker->GetOwner() && attacker->GetOwner()->IsClient();
+
+			if (!client_owned_pet
+				&& !attacker->GetSpecialAbility(SpecialAbility::BaneAttack)
 				&& (!weapon || (weapon->BaneDmgBody != GetBodyType() && weapon->BaneDmgRace != GetRace()))
 			)
 				return true;
@@ -1314,19 +1320,57 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 	if (qualifying_kill && (killer_forum_id <= 0 || victim_forum_id <= 0 || killer_forum_id == victim_forum_id))
 		qualifying_kill = false;
 
-	std::string cooldown_key;
 	if (qualifying_kill) {
-		cooldown_key = fmt::format("rallosian_glory_kill_{}_{}", killer_forum_id, victim_forum_id);
-		if (!DataBucket::GetData(cooldown_key).empty())
+		const uint32 now = Timer::GetTimeSeconds();
+		const uint32 victim_zone_seconds =
+			now - rallosian_glory_zone_entry_time;
+		const uint32 killer_zone_seconds =
+			now - killer->rallosian_glory_zone_entry_time;
+
+		qualifying_kill =
+			victim_zone_seconds >= RallosianGloryMinimumZoneSeconds &&
+			killer_zone_seconds >= RallosianGloryMinimumZoneSeconds;
+	}
+
+	std::string cooldown_key;
+	std::string victim_cooldown_key;
+	std::string killer_cooldown_key;
+	if (qualifying_kill) {
+		cooldown_key = fmt::format(
+			"rallosian_glory_kill_{}_{}",
+			killer_forum_id,
+			victim_forum_id
+		);
+		victim_cooldown_key =
+			fmt::format("rallosian_glory_victim_{}", victim_forum_id);
+		killer_cooldown_key =
+			fmt::format("rallosian_glory_killer_{}", killer_forum_id);
+
+		if (!DataBucket::GetData(cooldown_key).empty() ||
+				!DataBucket::GetData(victim_cooldown_key).empty() ||
+				!DataBucket::GetData(killer_cooldown_key).empty()) {
 			qualifying_kill = false;
+		}
 	}
 
 	std::string message;
 	if (qualifying_kill) {
 		DataBucket::DeleteData(cooldown_key);
 		DataBucket::SetData(cooldown_key, "1", std::to_string(RallosianGloryCooldownSeconds));
+		DataBucket::DeleteData(victim_cooldown_key);
+		DataBucket::SetData(
+			victim_cooldown_key,
+			"1",
+			std::to_string(RallosianGloryVictimCooldownSeconds)
+		);
 
-		const uint8 gained_glory = victim_glory > 0 ? victim_glory : 1;
+		DataBucket::DeleteData(killer_cooldown_key);
+		DataBucket::SetData(
+			killer_cooldown_key,
+			"1",
+			std::to_string(RallosianGloryKillerCooldownSeconds)
+		);
+		const uint8 gained_glory = victim_glory > 0 ? (victim_glory + 1) / 2 : 1;
 		const uint8 old_killer_glory = killer->GetRallosianGlory();
 		killer->SetRallosianGlory(old_killer_glory + gained_glory);
 		const uint8 new_killer_glory = killer->GetRallosianGlory();

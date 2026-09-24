@@ -1095,6 +1095,10 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		RuleManager::Instance()->LoadRules(&database, "default");
 		break;
 	}
+	case ServerOP_InstanceRespawnToggle: {
+		zoneserver_list.SendPacket(pack);
+		break;
+	}
 	case ServerOP_ReloadSpellModifiers: {
 		zoneserver_list.SendPacket(pack);
 		break;

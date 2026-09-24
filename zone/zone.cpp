@@ -1193,6 +1193,7 @@ Zone::~Zone() {
 //Modified for timezones.
 bool Zone::Init(bool is_static) {
 	SetStaticZone(is_static);
+	if (GetGuildID() > 1) instance_respawns_enabled = Strings::ToBool(DataBucket::GetData(fmt::format("guild_instance_respawns:{}", GetGuildID())));
 
 	//load the zone config file.
 	if (!LoadZoneCFG(GetShortName())) { // try loading the zone name...
@@ -2020,6 +2021,13 @@ bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_r
 		iterator.Advance();
 	}
 	return reset_at_least_one_spawn2;
+}
+
+void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled) { if (GetGuildID() == target_guild_id && target_guild_id > 1) instance_respawns_enabled = enabled; }
+
+bool Zone::GuildInstanceKiteLimitEnabled()
+{
+	return RuleB(Quarm, EnableGuildInstanceKiteLimit) && GetGuildID() > 1 && GetZoneExpansion() == PlanesEQ;
 }
 
 void Zone::Repop() {

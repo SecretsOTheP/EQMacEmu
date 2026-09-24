@@ -213,6 +213,7 @@ int command_init(void)
 		command_add("giveitem", "[itemid] [charges] - Summon an item onto your target's cursor. Charges are optional.", AccountStatus::GMLeadAdmin, command_giveitem) ||
 		command_add("givemoney", "[pp] [gp] [sp] [cp] - Gives specified amount of money to the target player.", AccountStatus::GMLeadAdmin, command_givemoney) ||
 		command_add("glory", "Shows your current Rallosian Glory rank and Guild 1 experience bonus.", AccountStatus::Player, command_glory) ||
+		command_add("instancespawn", "Enable or disable Timekeeper controls.", AccountStatus::GMAdmin, command_instancespawn) ||
 		command_add("giveplayerfaction", "[factionid] [factionvalue] - Gives the target player faction with the given faction. (Acts as a hit).", AccountStatus::GMMgmt, command_giveplayerfaction) ||
 		command_add("gmdamage", "[amount] [skipaggro] - Damage your target. Skips most combat checks, including invul.", AccountStatus::QuestMaster, command_gmdamage) ||
 		command_add("goto", "[x] [y] [z] - Teleport to the provided coordinates or to your target.", AccountStatus::ApprenticeGuide, command_goto) ||
@@ -291,6 +292,7 @@ int command_init(void)
 
 		command_add("path", "view and edit pathing.", AccountStatus::GMImpossible, command_path) ||
 		command_add("petition", "Handles everything petition related. Use with no args or with 'help' for how to use.", AccountStatus::ApprenticeGuide, command_petition) ||
+		command_add("petstats", "Shows your pet's HP, AC, ATK, attack damage/delay, melee DPS, resists, and equipped inventory.", AccountStatus::Player, command_petstats) ||
 		command_add("pf", "Display additional mob coordinate and wandering data.", AccountStatus::GMStaff, command_pf) ||
 		command_add("playsound", "[number] - Plays a sound in the client.  Valid range 0-3999", AccountStatus::ApprenticeGuide, command_playsound) ||
 		command_add("popflags", "Displays your Planes of Power progression flags.", AccountStatus::Player, command_popflags) ||
@@ -300,6 +302,8 @@ int command_init(void)
 		command_add("qtest", "QueryServ testing command.", AccountStatus::GMTester, command_qtest) ||
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
 		command_add("pvpzone", "Manage PVP zone access, loot, and experience bonuses.", AccountStatus::GMAdmin, command_pvpzone) ||
+		command_add("popaltaccess", "Enable or disable Plane of Power alternate-access keys and quests.", AccountStatus::GMAdmin, command_popaltaccess) ||
+		command_add("popflagtest", "Grant or clear Plane of Power zone flags on your target for testing.", AccountStatus::GMAdmin, command_popflagtest) ||
 
 		command_add("ra", "[playername] - Alias for #raidaccept.", AccountStatus::Player, command_raidaccept) ||
 		command_add("raidaccept", "- Accept a pending cross-zone raid invite", AccountStatus::Player, command_raidaccept) ||
@@ -341,6 +345,7 @@ int command_init(void)
 		command_add("serversidename", "Prints target's server side name.", AccountStatus::GMAdmin, command_serversidename) ||
 		command_add("setgraveyard", "[zone name] - Creates a graveyard for the specified zone based on your target's LOC.", AccountStatus::GMImpossible, command_setgraveyard) ||
 		command_add("setgreed", "[greed] - Sets a merchant greed value.", AccountStatus::GMAdmin, command_setgreed) ||
+		command_add("setspawn", "<PoP shortname> <minutes|status|default> - Set a normal-trash respawn override.", AccountStatus::GMAdmin, command_setspawn) ||
 		command_add("setnpcexpansion", "[min_expansion] [max_expansion] - Restrict an NPC's spawn2 (spawn location) by min, max expansion. These are float values.", AccountStatus::GMAdmin, command_setnpcexpansion) ||
 		command_add("showbonusstats", "[item|spell|all] Shows bonus stats for target from items or spells. Shows both by default.", AccountStatus::Guide, command_showbonusstats) ||
 		command_add("set", "Set command used to set various things", AccountStatus::Guide, command_set) || 
@@ -365,6 +370,7 @@ int command_init(void)
 		command_add("showlootlockouts", "Shows your currently active loot lockouts. These do not apply to earthquake creatures.", AccountStatus::Player, command_showlootlockouts) ||
 		command_add("showquake", "Shows current earthquake timer. Requires you to be a guild officer or leader.", AccountStatus::Player, command_showquake) ||
 		command_add("takemoney", "[pp] [gp] [sp] [cp] [reason] - Takes specified amount of money from the target player.", AccountStatus::GMLeadAdmin, command_takemoney) ||
+           command_add("timelockout", "[phase 1-6] - Shows your Plane of Time timeline and encounter availability.", AccountStatus::Player, command_timelockout) ||
 		command_add("testcommand", "Template for temporary commands as needed. Don't delete.", AccountStatus::GMImpossible, command_testcommand) ||
 		command_add("testspawn", "[memloc] [value] - spawns a NPC for you only, with the specified values set in the spawn struct.", AccountStatus::GMCoder, command_testspawn) ||
 		command_add("togglepvp", "Toggles PVP for a client.", AccountStatus::Player, command_togglepvp) ||
@@ -973,6 +979,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/giveitem.cpp"
 #include "gm_commands/givemoney.cpp"
 #include "gm_commands/glory.cpp"
+#include "gm_commands/instancespawn.cpp"
 #include "gm_commands/giveplayerfaction.cpp"
 #include "gm_commands/gmdamage.cpp"
 #include "gm_commands/goto.cpp"
@@ -1036,6 +1043,8 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/pf.cpp"
 #include "gm_commands/playsound.cpp"
 #include "gm_commands/popflags.cpp"
+#include "gm_commands/popaltaccess.cpp"
+#include "gm_commands/popflagtest.cpp"
 #include "gm_commands/profanity.cpp"
 #include "gm_commands/push.cpp"
 #include "gm_commands/qtest.cpp"
@@ -1071,12 +1080,14 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/setnpcexpansion.cpp"
 #include "gm_commands/setgraveyard.cpp"
 #include "gm_commands/setgreed.cpp"
+#include "gm_commands/setspawn.cpp"
 #include "gm_commands/showlootlockouts.cpp"
 #include "gm_commands/showbonusstats.cpp"
 #include "gm_commands/showfilters.cpp"
 #include "gm_commands/show.cpp"
 #include "gm_commands/showhelm.cpp"
 #include "gm_commands/showpetspell.cpp"
+#include "gm_commands/petstats.cpp"
 #include "gm_commands/showquake.cpp"
 #include "gm_commands/showregen.cpp"
 #include "gm_commands/showtraderitems.cpp"
@@ -1093,6 +1104,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/suspend.cpp"
 #include "gm_commands/synctod.cpp"
 #include "gm_commands/takemoney.cpp"
+#include "gm_commands/timelockout.cpp"
 #include "gm_commands/testcommand.cpp"
 #include "gm_commands/testspawn.cpp"
 #include "gm_commands/togglepvp.cpp"

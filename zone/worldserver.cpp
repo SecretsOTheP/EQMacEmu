@@ -2752,6 +2752,14 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
 			break;
 		}
+		case ServerOP_InstanceRespawnToggle: {
+			if (pack->size == sizeof(ServerInstanceRespawnToggle_Struct)) {
+				auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);
+				if (toggle->guild_id == 0) RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
+				else if (zone && zone->IsLoaded()) zone->SetGuildInstanceRespawnsEnabled(toggle->guild_id, toggle->enabled);
+			}
+			break;
+		}
 		case ServerOP_ReloadSkillCaps: {
 			if (zone && zone->IsLoaded()) {
 				zone->SendReloadMessage("Skill Caps");

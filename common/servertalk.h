@@ -100,6 +100,9 @@
 #define	ServerOP_WebInterfaceEvent  0x0068
 #define ServerOP_WebInterfaceSubscribe 0x0069
 #define ServerOP_WebInterfaceUnsubscribe 0x0070
+#define ServerOP_InstanceRespawnToggle 0x0071
+
+struct ServerInstanceRespawnToggle_Struct { uint32 guild_id; uint8 enabled; };
 
 #define ServerOP_RaidAdd			0x0100 //in use
 #define ServerOP_RaidRemove			0x0101 //in use

@@ -462,6 +462,9 @@ uint32 Lua_Client::GuildID() {
 	return self->GuildID();
 }
 
+bool Lua_Client::GetGuildInstanceRespawnsEnabled() { Lua_Safe_Call_Bool(); return self->GetGuildInstanceRespawnsEnabled(); }
+bool Lua_Client::SetGuildInstanceRespawnsEnabled(bool enabled) { Lua_Safe_Call_Bool(); return self->SetGuildInstanceRespawnsEnabled(enabled); }
+
 const char *Lua_Client::GetGuildName() {
 	Lua_Safe_Call_String();
 	return guild_mgr.GetGuildName(self->GuildID());
@@ -1556,6 +1559,8 @@ luabind::scope lua_register_client() {
 		.def("CharacterID", (uint32(Lua_Client::*)(void))&Lua_Client::CharacterID)
 		.def("GuildRank", (int(Lua_Client::*)(void))&Lua_Client::GuildRank)
 		.def("GuildID", (uint32(Lua_Client::*)(void))&Lua_Client::GuildID)
+		.def("GetGuildInstanceRespawnsEnabled", (bool(Lua_Client::*)(void))&Lua_Client::GetGuildInstanceRespawnsEnabled)
+		.def("SetGuildInstanceRespawnsEnabled", (bool(Lua_Client::*)(bool))&Lua_Client::SetGuildInstanceRespawnsEnabled)
 		.def("GetGuildName", &Lua_Client::GetGuildName)
 		.def("GetFace", (int(Lua_Client::*)(void))&Lua_Client::GetFace)
 		.def("TakeMoneyFromPP", (bool(Lua_Client::*)(uint64))&Lua_Client::TakeMoneyFromPP)

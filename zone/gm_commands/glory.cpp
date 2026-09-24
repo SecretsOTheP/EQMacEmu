@@ -11,11 +11,11 @@ const char *RallosianGloryTitle(uint8 rank)
 		"Blooded Champion",
 		"Warbringer",
 		"Conqueror",
-		"Rallosian Ravager",
-		"The Warlord's Chosen",
-		"Herald of Slaughter",
-		"Scourge of Norrath",
-		"Chosen of the Warlord"
+		"Ravager",
+		"Chosen",
+		"Harbinger of Rallos Zek",
+		"Herald of Rallos Zek",
+		"Fury of the Warlord"
 	};
 	static_assert(Client::RallosianGloryMaxRank == 10, "Rallosian Glory titles must match the rank cap");
 	return titles[std::min<uint8>(rank, Client::RallosianGloryMaxRank)];
@@ -38,14 +38,21 @@ void command_glory(Client *c, const Seperator *sep)
 		Chat::White, "Rank: %u of %u - %s",
 		static_cast<unsigned>(rank), static_cast<unsigned>(Client::RallosianGloryMaxRank), RallosianGloryTitle(rank));
 	c->Message(
-		Chat::White, "Experience bonus: +%u%% from Glory",
-		static_cast<unsigned>(rank * Client::RallosianGloryRankXPBonus));
+		Chat::White, "Level Experience Bonus: +%.1f%% from Glory",
+		static_cast<double>(rank) * Client::RallosianGloryRankXPBonus);
 	c->Message(
-		Chat::White, "Guild 1 battlefield bonus: +%u%%",
+		Chat::White, "AA Experience Bonus: +%.1f%% from Glory",
+		static_cast<double>(rank) * Client::RallosianGloryRankAAXPBonus);
+	c->Message(
+		Chat::White, "Base Battlefield Bonus: +%u%% to level experience",
 		static_cast<unsigned>(Client::RallosianGloryZoneXPBonus));
 	c->Message(
-		Chat::White, "Total Guild 1 bonus: +%u%%",
-		static_cast<unsigned>(Client::RallosianGloryZoneXPBonus + rank * Client::RallosianGloryRankXPBonus));
+		Chat::White, "Total Level XP Bonus: +%.1f%%",
+		static_cast<double>(Client::RallosianGloryZoneXPBonus) +
+		static_cast<double>(rank) * Client::RallosianGloryRankXPBonus);
+	c->Message(
+		Chat::White, "Total AA XP Bonus: +%.1f%%",
+		static_cast<double>(rank) * Client::RallosianGloryRankAAXPBonus);
 
 	if (rank == 0) {
 		c->Message(Chat::Yellow, "You bear no Rallosian Glory. Prove your strength against a worthy opponent, and the Warlord may turn his gaze upon you.");

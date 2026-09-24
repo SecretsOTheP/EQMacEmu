@@ -180,6 +180,7 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	memset(forum_name, 0, sizeof(forum_name));
 	forum_id = 0;
 	rallosian_glory = 0;
+	rallosian_glory_zone_entry_time = Timer::GetTimeSeconds();
 	berserk = false;
 	dead = false;
 	initial_z_position = 0;
@@ -3103,6 +3104,16 @@ void Client::SetPVP(uint8 toggle) {
 
 	SendAppearancePacket(AppearanceType::PVP, GetPVP() > 0 ? 1 : 0);
 	Save();
+}
+
+bool Client::GetGuildInstanceRespawnsEnabled() const { return GuildID() > 1 && Strings::ToBool(DataBucket::GetData(fmt::format("guild_instance_respawns:{}", GuildID()))); }
+bool Client::SetGuildInstanceRespawnsEnabled(bool enabled) {
+	if (GuildID() <= 1) return false;
+	DataBucket::SetData(fmt::format("guild_instance_respawns:{}", GuildID()), enabled ? "1" : "0");
+	auto pack = new ServerPacket(ServerOP_InstanceRespawnToggle, sizeof(ServerInstanceRespawnToggle_Struct));
+	auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);
+	toggle->guild_id = GuildID(); toggle->enabled = enabled;
+	worldserver.SendPacket(pack); safe_delete(pack); return true;
 }
 
 void Client::Kick(const std::string& reason) {
