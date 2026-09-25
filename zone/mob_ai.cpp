@@ -1715,7 +1715,7 @@ void Mob::AI_Process() {
 					}
 					else if (ai_think && GetTarget())
 					{
-						if (AIstackedmobs_timer->Check() && zone->random.Roll(33) && entity_list.StackedMobsCount(this) > 4) {
+						if (RuleB(Quarm, EnableTAKPStackedMobAntiKite) && AIstackedmobs_timer->Check() && zone->random.Roll(33) && entity_list.StackedMobsCount(this) > 4) {
 							if (GetHPRatio() < 95.0f && zone->random.Roll(5) && (GetZoneID() == Zones::POSTORMS || GetZoneID() == Zones::POVALOR || GetZoneID() == Zones::HOHONORA || GetZoneID() == Zones::POFIRE || GetZoneID() == Zones::POTACTICS)) {
 								glm::vec3 tar_pos(GetTarget()->GetX(), GetTarget()->GetY(), GetTarget()->GetZ());
 
