@@ -50,6 +50,7 @@
 #include "string_ids.h"
 #include "titles.h"
 #include "worldserver.h"
+#include "data_bucket.h"
 #include "zone.h"
 #include "zone_config.h"
 #include "queryserv.h"
@@ -2442,7 +2443,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 				while (iterator.MoreElements()) {
 					if(iterator.GetData()->GetID() == ust->id) {
 						if(!iterator.GetData()->NPCPointerValid()) {
-							iterator.GetData()->SetTimer(ust->duration);
+							iterator.GetData()->SetScriptTimer(ust->duration);
 						}
 						break;
 					}
@@ -2755,8 +2756,16 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 		case ServerOP_InstanceRespawnToggle: {
 			if (pack->size == sizeof(ServerInstanceRespawnToggle_Struct)) {
 				auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);
-				if (toggle->guild_id == 0) RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
-				else if (zone && zone->IsLoaded()) zone->SetGuildInstanceRespawnsEnabled(toggle->guild_id, toggle->enabled);
+				if (toggle->guild_id == 0) {
+					RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
+					if (zone && zone->IsLoaded() && zone->GetGuildID() > 1) {
+						const bool enabled = Zone::GuildInstanceRespawnsEnabledFor(zone->GetGuildID());
+						zone->SetGuildInstanceRespawnsEnabled(zone->GetGuildID(), enabled);
+					}
+				}
+				else if (zone && zone->IsLoaded()) {
+					zone->SetGuildInstanceRespawnsEnabled(toggle->guild_id, toggle->enabled);
+				}
 			}
 			break;
 		}
