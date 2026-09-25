@@ -1193,7 +1193,6 @@ Zone::~Zone() {
 //Modified for timezones.
 bool Zone::Init(bool is_static) {
 	SetStaticZone(is_static);
-	if (GetGuildID() > 1) instance_respawns_enabled = Strings::ToBool(DataBucket::GetData(fmt::format("guild_instance_respawns:{}", GetGuildID())));
 
 	//load the zone config file.
 	if (!LoadZoneCFG(GetShortName())) { // try loading the zone name...
@@ -1213,6 +1212,9 @@ bool Zone::Init(bool is_static) {
 			RuleManager::Instance()->LoadRules(&database, r_name.c_str());
 		}
 	}
+
+	// Resolve the guild choice after loading this zone's ruleset.
+	instance_respawns_enabled = GuildInstanceRespawnsEnabledFor(GetGuildID());
 
 	if (!map_name) {
 		LogError("No map name found for zone [{}]", GetShortName());
@@ -2023,7 +2025,55 @@ bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_r
 	return reset_at_least_one_spawn2;
 }
 
-void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled) { if (GetGuildID() == target_guild_id && target_guild_id > 1) instance_respawns_enabled = enabled; }
+bool Zone::GuildInstanceRespawnsEnabledFor(uint32 guild_id)
+{
+	if (guild_id <= 1 || guild_id == GUILD_NONE ||
+		!RuleB(Quarm, EnableGuildInstanceRespawnControl))
+		return false;
+
+	const auto choice = DataBucket::GetData(fmt::format("guild_instance_respawns:{}", guild_id));
+	// With controls on, a guild without a saved choice uses database respawns.
+	return choice.empty() || Strings::ToBool(choice);
+}
+
+void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
+{
+	if (GetGuildID() != target_guild_id || target_guild_id <= 1 || target_guild_id == GUILD_NONE) {
+		return;
+	}
+
+	enabled = enabled && RuleB(Quarm, EnableGuildInstanceRespawnControl);
+	instance_respawns_enabled = enabled;
+
+	// Slow Down and global-off extend eligible timers already counting down.
+	// Older expansions retain their minimum regardless of the guild's choice.
+	LinkedListIterator<Spawn2*> spawn_iterator(spawn2_list);
+	spawn_iterator.Reset();
+	while (spawn_iterator.MoreElements()) {
+		auto* spawn = spawn_iterator.GetData();
+		if (spawn)
+			spawn->EnforceInstanceRespawnMinimum();
+		spawn_iterator.Advance();
+	}
+
+	// Restoring normal respawns makes non-Time PoP instances guild-private.
+	if (!enabled || GetZoneExpansion() != PlanesEQ ||
+		GetZoneID() == Zones::POTIMEA || GetZoneID() == Zones::POTIMEB) {
+		return;
+	}
+
+	// Snapshot the occupants before initiating zone moves.
+	std::list<Client*> clients;
+	entity_list.GetClientList(clients);
+	for (auto* client : clients) {
+		if (client && client->GuildID() != target_guild_id &&
+			client->Admin() < RuleI(GM, MinStatusToZoneAnywhere) &&
+			client->Admin() < RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone)) {
+			client->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'Something has changed within this thread of time. Your presence here now threatens its fragile weave--and all of Norrath should it unravel. Forgive me. I must send you to safety.'");
+			client->BootFromGuildInstance(true);
+		}
+	}
+}
 
 bool Zone::GuildInstanceKiteLimitEnabled()
 {

@@ -329,6 +329,17 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 		float temp_y = m_destination.y;
 		uint32 zoneguildid = GUILD_NONE;
 
+		const auto* destination_zone = GetZone(zoneid);
+		const bool is_non_time_pop_instance =
+			destination_zone && destination_zone->expansion == PlanesEQEra &&
+			zoneid != Zones::POTIMEA && zoneid != Zones::POTIMEB;
+
+		// An unguilded player without a raid has no guild instance to enter.
+		if (guild_zone_door && is_non_time_pop_instance &&
+			!sender->IsInAGuild() && !sender->GetRaid()) {
+			return;
+		}
+
 		if (zoneid != zone->GetZoneID() && !sender->CanBeInZone(zoneid)) {
 			return;
 		}
@@ -342,25 +353,47 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			if (sender->GetPVP() == 0 && sender->GuildID() != 1)
 			{
 				Raid* player_raid = sender->GetRaid();
+				// A raid selects its leader's guild; solo members select their own.
+				const uint32 instance_guild_id = player_raid
+					? player_raid->GetLeaderGuildID() : sender->GuildID();
+				const bool use_private_guild_instance =
+					is_non_time_pop_instance &&
+					instance_guild_id > 1 && instance_guild_id != GUILD_NONE &&
+					Zone::GuildInstanceRespawnsEnabledFor(instance_guild_id);
 
-				if (!player_raid)
+				if (use_private_guild_instance)
 				{
-					sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
-						RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
-						RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
-						RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
-					return;
+					// Fast instances admit only their own members, even in a raid.
+					if (sender->GuildID() != instance_guild_id &&
+						sender->Admin() < RuleI(GM, MinStatusToZoneAnywhere) &&
+						sender->Admin() < RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone)) {
+						sender->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'I cannot find you within this thread of time. Should you enter, its fragile weave may fracture beyond repair. I cannot permit you to join your friends here.'");
+						return;
+					}
+					zoneguildid = instance_guild_id;
 				}
+				else
+				{
+					// Slow instances and Plane of Time retain the existing raid requirements.
+					if (!player_raid)
+					{
+						sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
+							RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
+							RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
+							RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
+						return;
+					}
 
-				if (!player_raid->CanRaidEngageRaidTarget(player_raid->GetLeaderGuildID()))
-				{
-					sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
-						RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
-						RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
-						RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
-					return;
+					if (!player_raid->CanRaidEngageRaidTarget(player_raid->GetLeaderGuildID()))
+					{
+						sender->Message(Chat::Red, "You are unable to enter a guild instance because you are not a part of a raid containing at least a guild officer as its leader with %i guild members present, and %i players at or above level %i present total.",
+							RuleI(Quarm, AutomatedRaidRotationRaidGuildMemberCountRequirement),
+							RuleI(Quarm, AutomatedRaidRotationRaidNonMemberCountRequirement),
+							RuleI(Quarm, AutomatedRaidRotationRaidGuildLevelRequirement));
+						return;
+					}
+					zoneguildid = player_raid->GetLeaderGuildID();
 				}
-				zoneguildid = player_raid->GetLeaderGuildID();
 			}
 			else
 			{
