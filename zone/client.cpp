@@ -4733,6 +4733,23 @@ void Client::SendTargetCommand(uint32 EntityID)
 	FastQueuePacket(&outapp);
 }
 
+// Tells the client who its target is targeting (Target of Target / HoTT)
+void Client::SetHoTT(uint16 source_id, uint16 mob_id)
+{
+	auto outapp = new EQApplicationPacket(OP_TargetHoTT, sizeof(TargetHoTT_Struct));
+	TargetHoTT_Struct *hott = (TargetHoTT_Struct*)outapp->pBuffer;
+	hott->source_id = source_id;
+	hott->target_id = mob_id;
+	FastQueuePacket(&outapp);
+
+	Mob *tot = mob_id ? entity_list.GetMob(mob_id) : nullptr;
+	if (tot && tot != this) {
+		EQApplicationPacket hp_app;
+		tot->CreateHPPacket(&hp_app);
+		QueuePacket(&hp_app);
+	}
+}
+
 void Client::LocateCorpse()
 {
 	Corpse *ClosestCorpse = nullptr;

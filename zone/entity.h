@@ -330,6 +330,8 @@ public:
 	void	QueueWearChange(Mob* sender, const EQApplicationPacket* app, bool ignore_sender = false, uint16 slot = 0, bool force_helm_update = false);
 	void	QueueClientsStatus(Mob* sender, const EQApplicationPacket* app, bool ignore_sender = false, uint8 minstatus = 0, uint8 maxstatus = 0);
 	void	QueueClientsGuild(Mob* sender, const EQApplicationPacket* app, bool ignore_sender = false, uint32 guildeqid = 0);
+	void	UpdateHoTT(Mob* target);
+	bool	IsHoTTTargeted(Mob* mob);
 	void	QueueClientsByTarget(Mob* sender, const EQApplicationPacket* app, bool iSendToSender = true, Mob* SkipThisMob = 0, bool ackreq = true,
 						bool HoTT = true, uint32 ClientVersionBits = 0xFFFFFFFF);
 
