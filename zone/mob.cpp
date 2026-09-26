@@ -2106,22 +2106,28 @@ bool Mob::CheckBardHateSummon(Mob* summoned) {
 
 	static std::string cached_zone;
 	static int configured_limit = RuleI(Quarm, BardInstagibPullLimit);
+	static std::string zone_override;
 	static auto refresh_at = std::chrono::steady_clock::time_point{};
 	const auto now = std::chrono::steady_clock::now();
 	const auto zone_name = Strings::ToLower(zone->GetShortName());
 	if (zone_name != cached_zone || now >= refresh_at) {
 		cached_zone = zone_name;
-		const auto value = DataBucket::GetData("bardlimit_" + zone_name);
-		configured_limit = value.empty() ? RuleI(Quarm, BardInstagibPullLimit) : Strings::ToInt(value);
-		if (configured_limit < 0 || configured_limit > 15) {
+		zone_override = DataBucket::GetData("bardlimit_" + zone_name);
+		configured_limit = Strings::IsNumber(zone_override) ? Strings::ToInt(zone_override) : RuleI(Quarm, BardInstagibPullLimit);
+		if (configured_limit < 1 || configured_limit > 100) {
 			configured_limit = RuleI(Quarm, BardInstagibPullLimit);
 		}
 		refresh_at = now + std::chrono::seconds(5);
 	}
+	const bool has_zone_limit = Strings::IsNumber(zone_override) && configured_limit >= 1 && configured_limit <= 100;
+	const bool bard_limit_enabled = zone_override == "on" || has_zone_limit ||
+		(zone_override.empty() && RuleB(Quarm, EnableBardInstagibLimit));
+	if (!bard_limit_enabled) {
+		return false;
+	}
 
-	// Zero disables this summon behavior for the zone. Otherwise, the value
-	// is the number of mobs allowed; summoning starts with limit + 1.
-	if (configured_limit == 0 || entity_list.GetTopHateCount(summoned) <= configured_limit)
+	// The configured value is the number of mobs allowed; summoning starts at limit + 1.
+	if (entity_list.GetTopHateCount(summoned) <= configured_limit)
 		return false;
 
 	// now validate the timer
