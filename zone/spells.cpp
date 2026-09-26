@@ -3057,6 +3057,16 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect, bool use_r
 		}
 	}
 
+	// Player-set buff blocks (#blockbuff / #blockbuffif). GMs bypass.
+	if (IsClient() && !CastToClient()->GetGM() && spelltar != this && spelltar->IsClient() &&
+		IsBeneficialSpell(spell_id) && IsBuffSpell(spell_id) && spelltar->CastToClient()->IsBuffBlocked(spell_id)) {
+		if (spells[spell_id].targettype != ST_AEBard) {
+			Message_StringID(Chat::SpellFailure, StringID::SPELL_NO_HOLD);
+		}
+		safe_delete(action_packet);
+		return true; // We want the spell to finish casting.
+	}
+
 	if(!(IsClient() && CastToClient()->GetGM()) && !IsHarmonySpell(spell_id)) {	// GMs can cast on anything
 		// Beneficial spells check
 		if(IsBeneficialSpell(spell_id)) {

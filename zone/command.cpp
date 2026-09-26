@@ -156,6 +156,7 @@ int command_init(void)
 		command_add("aggrozone", "[aggro] [0/1: Enforce ignore distance. If 0 or not set, all will come] - Aggro every mob in the zone with X aggro. Default is 0. Not recommend if you're not invulnerable.", AccountStatus::GMImpossible, command_aggrozone) ||
 		command_add("ai", "[factionid/spellslist/con/guard/roambox/stop/start] - Modify AI on NPC target.", AccountStatus::GMImpossible, command_ai) || 
 		command_add("allowexport", "[off, worn, inventory, bank] - Authorize export of this character to be included in nightly, open sourced database dumps.", AccountStatus::Player, command_allowexport) ||
+		command_add("allowbuff", "[spell_id] [active_spell_id] - Remove a buff block set by #blockbuff or #blockbuffif.", AccountStatus::Player, command_allowbuff) ||
 		command_add("altactivate", "[argument] - activates alternate advancement abilities, use altactivate help for more information.", AccountStatus::GMAreas, command_altactivate) ||
 		command_add("appearance", "[type] [value] - Send an appearance packet for you or your target.", AccountStatus::GMImpossible, command_appearance) ||
 		command_add("apply_shared_memory", "[shared_memory_name] - Tells every zone and world to apply a specific shared memory segment by name.", AccountStatus::GMImpossible, command_apply_shared_memory) ||
@@ -167,6 +168,8 @@ int command_init(void)
 		command_add("beardcolor", "Change the beard color of your target.", AccountStatus::GMImpossible, command_beardcolor) ||
 		command_add("bestz", "Ask map for a good Z coord for your x,y coords.", AccountStatus::ApprenticeGuide, command_bestz) ||
 		command_add("betabuff", "[level] - Buffs user's player to provided level, giving level * 100 platinum, along with providing a (potentially non era-specific) set of reagents, spells and skills.", AccountStatus::GMImpossible, command_betabuff) ||
+		command_add("blockbuff", "[spell_id] - Prevent other players' buff from landing on you. No argument lists your blocks.", AccountStatus::Player, command_blockbuff) ||
+		command_add("blockbuffif", "[spell_id] [active_spell_id] - Prevent other players' buff from landing on you while active_spell_id is on you.", AccountStatus::Player, command_blockbuffif) ||
 		command_add("boatinfo", "Gets infomation about the boats currently spawned in the zone.", AccountStatus::SeniorGuide, command_boatinfo) ||
 		command_add("bug", "Bug report system. Encase your bug in quotes. Type: #bug <quote>I have a bug</quote>.", AccountStatus::EQSupport, command_bug) ||
 
@@ -943,6 +946,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/beardcolor.cpp"
 #include "gm_commands/bestz.cpp"
 #include "gm_commands/betabuff.cpp"
+#include "gm_commands/blockbuff.cpp"
 #include "gm_commands/boatinfo.cpp"
 #include "gm_commands/bug.cpp"
 #include "gm_commands/castspell.cpp"
