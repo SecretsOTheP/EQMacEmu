@@ -104,7 +104,7 @@ float Lua_Spawn::GetHeading() {
 
 void Lua_Spawn::SetRespawnTimer(uint32 newrespawntime) {
 	Lua_Safe_Call_Void();
-	self->SetRespawnTimer(newrespawntime);
+	self->SetScriptRespawnTimer(newrespawntime);
 }
 
 void Lua_Spawn::SetVariance(uint32 newvariance) {
@@ -154,7 +154,7 @@ void Lua_Spawn::SetNPCPointer(Lua_NPC n) {
 
 void Lua_Spawn::SetTimer(uint32 duration) {
 	Lua_Safe_Call_Void();
-	self->SetTimer(duration);
+	self->SetScriptTimer(duration);
 }
 
 uint32 Lua_Spawn::GetKillCount() {

@@ -101,6 +101,8 @@ Spawn2::~Spawn2()
 
 uint32 Spawn2::resetTimer(bool quake_repop)
 {
+	// The script timer applies only to the current countdown.
+	script_timer_active_ = false;
 	// Guild 1 raid targets are repopped by the quake system. Keep defeated
 	// targets dormant between quakes while preserving normal guild-instance
 	// overrides for Guild 2 and above.
@@ -145,7 +147,10 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 		}
 	}
 
-	if (zone && zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint && last_instance_spawn_timer_override == 0) {
+	const bool guild_instance_uses_timekeeper_mode =
+		zone && zone->GetGuildID() > 1 && RuleB(Quarm, EnableGuildInstanceRespawnControl);
+	if (zone && zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint &&
+		last_instance_spawn_timer_override == 0 && !script_respawn_timer_custom_ && !guild_instance_uses_timekeeper_mode) {
 		const auto configured_timer = DataBucket::GetData(
 			fmt::format("pop_spawn_minutes_{}", Strings::ToLower(zone->GetShortName()))
 		);
@@ -158,18 +163,26 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	}
 	if (zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
 	{
-		const bool use_instance_minimum =
-			RuleB(Quarm, EnableGuildInstanceRespawnControl)
-				? zone->GetZoneExpansion() == PlanesEQ && !zone->InstanceRespawnsEnabled()
-				: RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime);
-
-		if (use_instance_minimum)
+		const uint32 minimum = InstanceRespawnMinimum();
+		const bool use_explicit_pop_instance_override =
+			minimum != 0 &&
+			RuleB(Quarm, EnableGuildInstanceRespawnControl) &&
+			zone->GetZoneExpansion() > LuclinEQ &&
+			last_instance_spawn_timer_override != 0 &&
+			!script_respawn_timer_custom_;
+		if (use_explicit_pop_instance_override) {
+			// Content-authored instance overrides are encounter policy. Keep them
+			// intact in Slow Down; the 18-hour minimum applies to ordinary spawns.
+			return last_instance_spawn_timer_override;
+		}
+		if (minimum != 0)
 		{
-			if (last_instance_spawn_timer_override != 0)
-				return last_instance_spawn_timer_override;
-
-			if (rspawn < RuleI(Quarm, InstanceMinimumSpawnTime))
-				rspawn = RuleI(Quarm, InstanceMinimumSpawnTime);
+			// Preserve longer database/NPC timers; explicit Lua timers are handled
+			// separately and remain script-controlled.
+			if (last_instance_spawn_timer_override > rspawn)
+				rspawn = last_instance_spawn_timer_override;
+			if (rspawn < minimum)
+				rspawn = minimum;
 		}
 	}
 	else if(zone && zone->GetGuildID() == 1)
@@ -185,6 +198,42 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 
 	return (rspawn);
 
+}
+
+uint32 Spawn2::InstanceRespawnMinimum() const
+{
+	if (!zone || zone->GetGuildID() <= 1 || zone->GetGuildID() == GUILD_NONE)
+		return 0;
+
+	// Luclin and earlier always use the Quarm minimum in guild instances.
+	if (zone->GetZoneExpansion() <= LuclinEQ)
+		return RuleI(Quarm, InstanceMinimumSpawnTime);
+
+	// Quest-specific timers remain in control of PoP scripted encounters.
+	if (script_respawn_timer_custom_)
+		return 0;
+
+	const bool use_minimum = RuleB(Quarm, EnableGuildInstanceRespawnControl)
+		? !zone->InstanceRespawnsEnabled()
+		: RuleB(Quarm, InstanceAlwaysHasMinimumSpawnTime);
+	return use_minimum ? RuleI(Quarm, InstanceMinimumSpawnTime) : 0;
+}
+
+void Spawn2::EnforceInstanceRespawnMinimum()
+{
+	const uint32 minimum = InstanceRespawnMinimum();
+	if (!minimum || npcthis || !enabled || !timer.Enabled())
+		return;
+	if (script_timer_active_ && zone->GetZoneExpansion() > LuclinEQ)
+		return;
+
+	// Extend short live countdowns only; leave longer timers and dormant event
+	// spawns alone. Restore never shortens a timer that is already counting down.
+	if (timer.GetRemainingTime() < minimum) {
+		timer.Start(minimum);
+		if (spawn2_id)
+			database.UpdateRespawnTime(spawn2_id, minimum / 1000, zone->GetGuildID());
+	}
 }
 
 uint32 Spawn2::despawnTimer(uint32 despawn_timer)
@@ -241,6 +290,8 @@ bool Spawn2::Process() {
 
 	if (timer.Check()) {
 		timer.Disable();
+		// This explicit timer completed; future deaths use the normal policy.
+		script_timer_active_ = false;
 
 		Log(Logs::Detail, Logs::Spawns, "Spawn2 %d: Timer has triggered", spawn2_id);
 

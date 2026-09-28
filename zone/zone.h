@@ -217,6 +217,7 @@ public:
 	bool	Depop(bool StartSpawnTimer = false);
 	void	Repop();
 	bool	InstanceRespawnsEnabled() const { return instance_respawns_enabled; }
+	static bool GuildInstanceRespawnsEnabledFor(uint32 guild_id);
 	void	SetGuildInstanceRespawnsEnabled(uint32 guild_id, bool enabled);
 	bool	GuildInstanceKiteLimitEnabled();
 	void	RepopClose(const glm::vec4& client_position, uint32 repop_distance);

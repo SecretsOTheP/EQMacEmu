@@ -58,7 +58,8 @@ public:
 	float	GetY()		{ return y; }
 	float	GetZ()		{ return z; }
 	float	GetHeading() { return heading; }
-	void	SetRespawnTimer(uint32 newrespawntime) { respawn_ = newrespawntime; };
+	void	SetRespawnTimer(uint32 newrespawntime) { respawn_ = newrespawntime; script_respawn_timer_custom_ = false; };
+	void	SetScriptRespawnTimer(uint32 duration) { respawn_ = duration; script_respawn_timer_custom_ = true; }
 	void	SetVariance(uint32 newvariance) { variance_ = newvariance; }
 	const uint32 GetVariance() const { return variance_; }
 	uint32	RespawnTimer() { return respawn_; }
@@ -70,7 +71,9 @@ public:
 	bool	NPCPointerValid() { return (npcthis!=nullptr); }
 	void	SetNPCPointer(NPC* n) { npcthis = n; }
 	NPC*	GetNPCPointer() { return npcthis; }
-	void	SetTimer(uint32 duration) { timer.Start(duration, false); }
+	void	SetTimer(uint32 duration) { timer.Start(duration, false); script_timer_active_ = false; }
+	void	SetScriptTimer(uint32 duration) { timer.Start(duration, false); script_timer_active_ = true; }
+	void	EnforceInstanceRespawnMinimum();
 	uint32  GetKillCount() { return killcount; }
 	bool	GetForceZ() { return force_z; }
 	bool	IsRaidTargetSpawnpoint() { return raid_target_spawnpoint; }
@@ -82,6 +85,7 @@ private:
 	uint32	spawn2_id;
 	uint32	respawn_;
 	uint32	resetTimer(bool quake_repop = false);
+	uint32	InstanceRespawnMinimum() const;
 	uint32	despawnTimer(uint32 despawn_timer);
 
 	uint32	spawngroup_id_;
@@ -104,6 +108,8 @@ private:
 	bool force_z;
 	bool rand_spawn;
 	bool raid_target_spawnpoint;
+	bool script_respawn_timer_custom_ = false;
+	bool script_timer_active_ = false;
 };
 
 class SpawnCondition {

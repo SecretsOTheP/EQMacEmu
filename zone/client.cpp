@@ -3106,9 +3106,9 @@ void Client::SetPVP(uint8 toggle) {
 	Save();
 }
 
-bool Client::GetGuildInstanceRespawnsEnabled() const { return GuildID() > 1 && Strings::ToBool(DataBucket::GetData(fmt::format("guild_instance_respawns:{}", GuildID()))); }
+bool Client::GetGuildInstanceRespawnsEnabled() const { return Zone::GuildInstanceRespawnsEnabledFor(GuildID()); }
 bool Client::SetGuildInstanceRespawnsEnabled(bool enabled) {
-	if (GuildID() <= 1) return false;
+	if (GuildID() <= 1 || GuildID() == GUILD_NONE || !RuleB(Quarm, EnableGuildInstanceRespawnControl)) return false;
 	DataBucket::SetData(fmt::format("guild_instance_respawns:{}", GuildID()), enabled ? "1" : "0");
 	auto pack = new ServerPacket(ServerOP_InstanceRespawnToggle, sizeof(ServerInstanceRespawnToggle_Struct));
 	auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);

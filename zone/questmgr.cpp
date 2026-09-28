@@ -2132,7 +2132,7 @@ void QuestManager::UpdateSpawnTimer(uint32 id, uint32 newTime)
 		{
 			if(!iterator.GetData()->NPCPointerValid())
 			{
-				iterator.GetData()->SetTimer(newTime);
+				iterator.GetData()->SetScriptTimer(newTime);
 			}
 			found = true;
 			break;
