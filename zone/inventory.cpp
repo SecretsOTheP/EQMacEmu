@@ -712,8 +712,18 @@ uint32 Client::GetNGRespecsRemaining()
 
 void Client::ResetPlayerForNewGamePlus(uint8 in_level, uint8 in_level2, bool reset_skill_points)
 {
-	// Revert player's bind location to default starting
-	SetBindPoint(m_pp.binds[4].zoneId, glm::vec3(m_pp.binds[4].x, m_pp.binds[4].y, m_pp.binds[4].z));
+	// Revert the player's bind to the selected home city's zone safe point.
+	// Character-creation bind coordinates can be GM/developer locations and are
+	// not suitable for a New Game Plus return destination.
+	const uint32 start_zone_id = m_pp.binds[4].zoneId;
+	const char* start_zone_name = database.GetZoneName(start_zone_id);
+	float safe_x = 0.0f, safe_y = 0.0f, safe_z = 0.0f, safe_heading = 0.0f;
+	if (start_zone_name && database.GetSafePoints(start_zone_name, &safe_x, &safe_y, &safe_z, &safe_heading)) {
+		SetBindPoint2(start_zone_id, glm::vec4(safe_x, safe_y, safe_z, safe_heading));
+	} else {
+		// Preserve the existing fallback if the selected zone has no safe-point data.
+		SetBindPoint(start_zone_id, glm::vec3(m_pp.binds[4].x, m_pp.binds[4].y, m_pp.binds[4].z));
+	}
 
 	// Reset level
 	uint8 old_level = GetLevel();
