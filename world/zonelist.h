@@ -38,6 +38,11 @@ public:
 	Timer *shutdowntimer;
 
 	uint16 GetAvailableZonePort();
+	// Dynamic ports come from ZonePortLow..ZonePortHigh only. Static zones specify their own ports;
+	// those must never enter the dynamic pool or two zones end up registered on the same port.
+	bool IsDynamicZonePort(uint16 port) const;
+	void ClaimZonePort(uint16 port);   // a zone specified this port itself; keep it out of the pool
+	void ReleaseZonePort(uint16 port); // return a dynamic port to the pool if nothing else is using it
 	uint32 GetAvailableZoneID();
 	uint32 TriggerBootup(uint32 iZoneID, uint32 iGuildID);
 

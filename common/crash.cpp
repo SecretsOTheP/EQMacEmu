@@ -228,17 +228,212 @@ void set_exception_handler() {
 #include <sys/fcntl.h>
 #include <time.h>
 
-#ifdef __FreeBSD__
 #include <signal.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
+#include <atomic>
+#include <string>
+#ifdef __linux__
+#include <sys/prctl.h>
 #endif
 
-// crash is off or an unhandled platform
+extern char** environ;
+
+// The old handler ran gdb detection, logging, file streams, an HTTP upload and exit() from inside
+// the signal handler. If the crash happened while that thread held the malloc, log or stdio lock
+// (common with heap corruption), the handler deadlocked and the process never died, so the launcher
+// never restarted it. Everything the handler needs is now prepared at startup, the handler only
+// makes async-signal-safe calls, gdb runs with a hard timeout, and the process always dies with
+// the original signal (the kernel still writes a core if core dumps are enabled).
+namespace {
+	constexpr int GDB_TIMEOUT_SECONDS = 60;
+
+	char s_exe_path[512]     = {};
+	char s_pid_str[16]       = {};
+	char s_report_path[512]  = {};
+	char s_gdb_path[512]     = {};
+	const char* s_gdb_argv[] = { "gdb", "--batch", "-n", "-ex", "thread apply all bt", s_exe_path, s_pid_str, nullptr };
+
+	std::atomic_flag s_handling = ATOMIC_FLAG_INIT;
+
+	void safe_write(int fd, const char* s)
+	{
+		if (fd >= 0) {
+			ssize_t ignored = write(fd, s, strlen(s));
+			(void) ignored;
+		}
+	}
+
+	void safe_write_int(int fd, long value)
+	{
+		char buf[24];
+		int  i        = sizeof(buf) - 1;
+		bool negative = value < 0;
+		unsigned long v = negative ? -static_cast<unsigned long>(value) : static_cast<unsigned long>(value);
+		buf[i] = '\0';
+		do {
+			buf[--i] = static_cast<char>('0' + (v % 10));
+			v /= 10;
+		} while (v && i > 1);
+		if (negative) {
+			buf[--i] = '-';
+		}
+		safe_write(fd, &buf[i]);
+	}
+
+	void find_gdb()
+	{
+		const char* path_env = getenv("PATH");
+		std::string paths    = path_env ? path_env : "/usr/bin:/bin:/usr/local/bin";
+		size_t      start    = 0;
+		while (start <= paths.size()) {
+			size_t      end  = paths.find(':', start);
+			std::string dir  = paths.substr(start, end == std::string::npos ? std::string::npos : end - start);
+			std::string full = (dir.empty() ? "." : dir) + "/gdb";
+			if (access(full.c_str(), X_OK) == 0 && full.size() < sizeof(s_gdb_path)) {
+				memcpy(s_gdb_path, full.c_str(), full.size() + 1);
+				return;
+			}
+			if (end == std::string::npos) {
+				break;
+			}
+			start = end + 1;
+		}
+	}
+
+	// Runs gdb against this process and waits at most GDB_TIMEOUT_SECONDS for it.
+	void run_gdb(int out_fd)
+	{
+		int sync_pipe[2];
+		if (pipe(sync_pipe) != 0) {
+			return;
+		}
+
+		// Raw clone instead of fork(): glibc's fork() runs atfork handlers that take the malloc locks,
+		// which is exactly what may already be held by the crashing thread.
+		pid_t child = static_cast<pid_t>(syscall(SYS_clone, SIGCHLD, 0, 0, 0, 0));
+		if (child == 0) {
+			setpgid(0, 0); // own process group, so a timeout can kill gdb and anything it started
+			close(sync_pipe[1]);
+			char go;
+			ssize_t ignored = read(sync_pipe[0], &go, 1); // wait until the parent allows us to ptrace it
+			(void) ignored;
+			dup2(out_fd, STDOUT_FILENO);
+			dup2(out_fd, STDERR_FILENO);
+			execve(s_gdb_path, const_cast<char* const*>(s_gdb_argv), environ);
+			_exit(127);
+		}
+
+		close(sync_pipe[0]);
+		if (child < 0) {
+			close(sync_pipe[1]);
+			return;
+		}
+
+#ifdef __linux__
+		// With Yama ptrace_scope=1 only an ancestor may attach; allow just this child. Ignored without Yama.
+		prctl(PR_SET_PTRACER, child, 0, 0, 0);
+#endif
+		ssize_t ignored = write(sync_pipe[1], "g", 1);
+		(void) ignored;
+		close(sync_pipe[1]);
+
+		const struct timespec tick = { 0, 100 * 1000 * 1000 };
+		for (int i = 0; i < GDB_TIMEOUT_SECONDS * 10; ++i) {
+			int status = 0;
+			if (waitpid(child, &status, WNOHANG) == child) {
+				return;
+			}
+			nanosleep(&tick, nullptr);
+		}
+
+		safe_write(out_fd, "\n[crash handler] gdb timed out, killing it\n");
+		kill(-child, SIGKILL);
+		kill(child, SIGKILL);
+		int status = 0;
+		waitpid(child, &status, 0);
+	}
+
+	void crash_signal_handler(int sig)
+	{
+		// Only the first crashing thread writes the report; any other thread that faults meanwhile waits
+		// here until the process is torn down.
+		if (s_handling.test_and_set()) {
+			for (;;) {
+				pause();
+			}
+		}
+
+		int fd = open(s_report_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		safe_write(fd, "Fatal signal ");
+		safe_write_int(fd, sig);
+		safe_write(fd, " in pid ");
+		safe_write(fd, s_pid_str);
+		safe_write(fd, " exe ");
+		safe_write(fd, s_exe_path);
+		safe_write(fd, "\n\n");
+
+		if (s_gdb_path[0] && fd >= 0) {
+			run_gdb(fd);
+		}
+		else {
+			safe_write(fd, "gdb not found in PATH at startup; no backtrace. Install gdb for crash backtraces.\n");
+		}
+
+		if (fd >= 0) {
+			close(fd);
+		}
+
+		// Die with the original signal so the launcher sees a crash and the kernel can write a core.
+		struct sigaction dfl;
+		memset(&dfl, 0, sizeof(dfl));
+		dfl.sa_handler = SIG_DFL;
+		sigemptyset(&dfl.sa_mask);
+		sigaction(sig, &dfl, nullptr);
+
+		sigset_t unblock;
+		sigemptyset(&unblock);
+		sigaddset(&unblock, sig);
+		sigprocmask(SIG_UNBLOCK, &unblock, nullptr);
+		raise(sig);
+
+		_exit(128 + sig); // only reached if the signal somehow didn't terminate us
+	}
+}
+
 void set_exception_handler()
 {
-	//signal(SIGABRT, reinterpret_cast<void (*)(int)>(print_trace));
-	//signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
-	//signal(SIGFPE, reinterpret_cast<void (*)(int)>(print_trace));
-	//signal(SIGSEGV, reinterpret_cast<void (*)(int)>(print_trace));
+	ssize_t len = readlink("/proc/self/exe", s_exe_path, sizeof(s_exe_path) - 1);
+	s_exe_path[len > 0 ? len : 0] = '\0';
+	snprintf(s_pid_str, sizeof(s_pid_str), "%d", getpid());
+
+	const char* exe_name = strrchr(s_exe_path, '/');
+	exe_name = exe_name ? exe_name + 1 : (s_exe_path[0] ? s_exe_path : "process");
+
+	mkdir("logs", 0755);
+	mkdir("logs/crashes", 0755);
+	snprintf(s_report_path, sizeof(s_report_path), "logs/crashes/backtrace_%.200s_%s.log", exe_name, s_pid_str);
+
+	find_gdb();
+
+	// Room to run the handler if the main thread overflows its stack.
+	static char alt_stack[64 * 1024];
+	stack_t ss;
+	memset(&ss, 0, sizeof(ss));
+	ss.ss_sp    = alt_stack;
+	ss.ss_size  = sizeof(alt_stack);
+	ss.ss_flags = 0;
+	sigaltstack(&ss, nullptr);
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = crash_signal_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_ONSTACK;
+
+	for (int sig : { SIGSEGV, SIGABRT, SIGFPE, SIGBUS, SIGILL }) {
+		sigaction(sig, &sa, nullptr);
+	}
 }
 #endif

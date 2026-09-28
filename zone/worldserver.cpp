@@ -136,29 +136,7 @@ void WorldServer::OnConnected() {
 	SendPacket(pack);
 	safe_delete(pack);
 
-	/* Tell the Worldserver basic information about this zone process */
-	pack = new ServerPacket(ServerOP_SetConnectInfo, sizeof(ServerConnectInfo));
-	ServerConnectInfo* sci = (ServerConnectInfo*) pack->pBuffer;
-
-	auto config = ZoneConfig::get();
-	sci->port = ZoneConfig::get()->ZonePort;
-	if(config->WorldAddress.length() > 0) {
-		strn0cpy(sci->address, config->WorldAddress.c_str(), 250);
-	}
-	if(config->LocalAddress.length() > 0) {
-		strn0cpy(sci->local_address, config->LocalAddress.c_str(), 250);
-	}
-
-	/* Fetch process ID */
-	if (getpid()) {
-		sci->process_id = getpid();
-	}
-	else {
-		sci->process_id = 0;
-	}
-
-	SendPacket(pack);
-	safe_delete(pack);
+	SendConnectInfo();
 
 	if (is_zone_loaded) {
 
@@ -182,6 +160,34 @@ void WorldServer::OnConnected() {
 	pack = new ServerPacket(ServerOP_LSZoneBoot,sizeof(ZoneBoot_Struct));
 	ZoneBoot_Struct* zbs = (ZoneBoot_Struct*)pack->pBuffer;
 	strcpy(zbs->compile_time,LAST_MODIFIED);
+	SendPacket(pack);
+	safe_delete(pack);
+}
+
+/* Tell the Worldserver basic information about this zone process. Port 0 asks world to assign one,
+   which is also how a zone recovers after failing to bind the port it was given. */
+void WorldServer::SendConnectInfo()
+{
+	auto pack = new ServerPacket(ServerOP_SetConnectInfo, sizeof(ServerConnectInfo));
+	ServerConnectInfo* sci = (ServerConnectInfo*) pack->pBuffer;
+
+	auto config = ZoneConfig::get();
+	sci->port = ZoneConfig::get()->ZonePort;
+	if(config->WorldAddress.length() > 0) {
+		strn0cpy(sci->address, config->WorldAddress.c_str(), 250);
+	}
+	if(config->LocalAddress.length() > 0) {
+		strn0cpy(sci->local_address, config->LocalAddress.c_str(), 250);
+	}
+
+	/* Fetch process ID */
+	if (getpid()) {
+		sci->process_id = getpid();
+	}
+	else {
+		sci->process_id = 0;
+	}
+
 	SendPacket(pack);
 	safe_delete(pack);
 }

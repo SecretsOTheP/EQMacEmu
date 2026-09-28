@@ -154,6 +154,14 @@ int main(int argc, char** argv) {
 	// static zone booting
 	const char *zone_name;
 	std::string z_name;
+	// Optional third field of zone:port:instance boots a guild instance (GUILD_NONE = normal zone).
+	uint32 static_guild_id = 0xFFFFFFFF;
+	if (argc >= 2 && !ZoneCLI::RanSidecarCommand(argc, argv)) {
+		auto zone_fields = Strings::Split(argv[1], ':');
+		if (zone_fields.size() > 2 && !zone_fields[2].empty()) {
+			static_guild_id = static_cast<uint32>(strtoul(zone_fields[2].c_str(), nullptr, 10));
+		}
+	}
 	if (!ZoneCLI::RanSidecarCommand(argc, argv)) {
 		if (argc == 4) {
 			worldserver.SetLauncherName(argv[2]);
@@ -389,7 +397,7 @@ int main(int argc, char** argv) {
 	if (!strlen(zone_name) || !strcmp(zone_name,".")) {
 		LogInfo("Entering sleep mode");
 	}
-	else if (!Zone::Bootup(ZoneID(zone_name), true)) {
+	else if (!Zone::Bootup(ZoneID(zone_name), true, static_guild_id)) {
 		LogError("Zone Bootup failed :: Zone::Bootup");
 		zone = nullptr;
 	}
@@ -444,6 +452,11 @@ int main(int argc, char** argv) {
 					LogError("Failed to open port {} ", Config->ZonePort);
 					ZoneConfig::SetZonePort(0);
 					worldwasconnected = false;
+					// Ask world for a different port now. Otherwise a zone already connected to world
+					// stays registered on a port it never bound and players are sent to whoever owns it.
+					if (worldserver.Connected()) {
+						worldserver.SendConnectInfo();
+					}
 				}
 			}
 
