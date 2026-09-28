@@ -1,0 +1,25 @@
+/* Add and enable every Plane of Power zone except poknowledge, which is already configured. */
+INSERT INTO `launcher_zones` (`launcher`, `zone`, `port`, `enabled`, `expansion`) VALUES
+('zone1', 'bothunder', 7251, 1, 'pop'),
+('zone2', 'codecay', 7252, 1, 'pop'),
+('zone3', 'hohonora', 7253, 1, 'pop'),
+('zone1', 'hohonorb', 7254, 1, 'pop'),
+('zone2', 'nightmareb', 7255, 1, 'pop'),
+('zone3', 'poair', 7256, 1, 'pop'),
+('zone1', 'podisease', 7257, 1, 'pop'),
+('zone2', 'poeartha', 7258, 1, 'pop'),
+('zone3', 'poearthb', 7259, 1, 'pop'),
+('zone1', 'pofire', 7260, 1, 'pop'),
+('zone2', 'poinnovation', 7261, 1, 'pop'),
+('zone3', 'pojustice', 7262, 1, 'pop'),
+('zone2', 'ponightmare', 7264, 1, 'pop'),
+('zone3', 'postorms', 7265, 1, 'pop'),
+('zone1', 'potactics', 7266, 1, 'pop'),
+('zone2', 'potimea', 7267, 1, 'pop'),
+('zone3', 'potimeb', 7268, 1, 'pop'),
+('zone1', 'potorment', 7269, 1, 'pop'),
+('zone2', 'potranquility', 7270, 1, 'pop'),
+('zone3', 'povalor', 7271, 1, 'pop'),
+('zone1', 'powater', 7272, 1, 'pop'),
+('zone2', 'solrotower', 7273, 1, 'pop')
+ON DUPLICATE KEY UPDATE `enabled` = VALUES(`enabled`);
