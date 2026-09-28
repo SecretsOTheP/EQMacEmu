@@ -52,6 +52,7 @@ public:
 	void SetLauncherName(const char *n) { m_launcherName = n; }
 
 	void RequestTellQueue(const char *who);
+	void SendConnectInfo(); // (re)send port/address to world; port 0 asks world to assign one
 
 private:
 	virtual void OnConnected();

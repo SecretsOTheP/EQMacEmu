@@ -836,6 +836,15 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		auto sci = (ServerConnectInfo*)pack->pBuffer;
 
 		if (!sci->port) {
+			// Port 0 is also how a zone asks again after failing to bind the port we gave it.
+			// Drop that port first so this zone isn't left registered on it.
+			uint16 previous_port = client_port;
+			client_port = 0;
+			if (previous_port) {
+				LogError("Zone could not use port [{}]; assigning a new one", previous_port);
+				zoneserver_list.ReleaseZonePort(previous_port);
+			}
+
 			client_port = zoneserver_list.GetAvailableZonePort();
 
 			ServerPacket p(ServerOP_SetConnectInfo, sizeof(ServerConnectInfo));
@@ -846,6 +855,10 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 			LogInfo("Auto zone port configuration. Telling zone to use port [{}]", client_port);
 		}
 		else {
+			if (auto other = zoneserver_list.FindByPort(sci->port); other && other != this) {
+				LogError("Zone specified port [{}], which is already registered to zone server [{}] ({})", sci->port, other->GetID(), other->GetZoneName());
+			}
+			zoneserver_list.ClaimZonePort(sci->port);
 			client_port = sci->port;
 			LogInfo("Zone specified port [{}]", client_port);
 		}

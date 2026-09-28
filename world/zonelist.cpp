@@ -28,6 +28,8 @@
 #include "../common/servertalk.h"
 #include "../common/strings.h"
 #include "../common/random.h"
+
+#include <algorithm>
 #include "../common/zone_store.h"
 #include "queryserv.h"
 
@@ -82,9 +84,10 @@ void ZSList::Remove(const std::string& uuid)
 			auto port = (*iter)->GetCPort();
 			zone_server_list.erase(iter);
 
-			if (port != 0) {
-				m_ports_free.push_back(port);
-			}
+			// Used to push every departing zone's port, including static ports like 7248, into the
+			// dynamic pool. A crashed static zone's port then went to a dynamic zone, which failed to
+			// bind once the static zone restarted but stayed registered on it.
+			ReleaseZonePort(port);
 			return;
 		}
 		iter++;
@@ -581,13 +584,40 @@ void ZSList::RebootZone(const char* ip1,uint16 port,const char* ip2, uint32 skip
 
 uint16 ZSList::GetAvailableZonePort()
 {
-	if (m_ports_free.empty()) {
-		return 0;
+	// Skip anything a registered zone server already uses; ReleaseZonePort puts it back when that
+	// server goes away.
+	while (!m_ports_free.empty()) {
+		auto port = m_ports_free.front();
+		m_ports_free.pop_front();
+		if (!FindByPort(port)) {
+			return port;
+		}
+		LogError("Dynamic zone port [{}] is already in use by a registered zone; skipping it", port);
 	}
 
-	auto first = m_ports_free.front();
-	m_ports_free.pop_front();
-	return first;
+	return 0;
+}
+
+bool ZSList::IsDynamicZonePort(uint16 port) const
+{
+	const WorldConfig* Config = WorldConfig::get();
+	return port != 0 && port >= Config->ZonePortLow && port <= Config->ZonePortHigh;
+}
+
+void ZSList::ClaimZonePort(uint16 port)
+{
+	m_ports_free.erase(std::remove(m_ports_free.begin(), m_ports_free.end(), port), m_ports_free.end());
+}
+
+void ZSList::ReleaseZonePort(uint16 port)
+{
+	if (!IsDynamicZonePort(port) || FindByPort(port)) {
+		return;
+	}
+
+	if (std::find(m_ports_free.begin(), m_ports_free.end(), port) == m_ports_free.end()) {
+		m_ports_free.push_back(port);
+	}
 }
 
 uint32 ZSList::GetAvailableZoneID()
