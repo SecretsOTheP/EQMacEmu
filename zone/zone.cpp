@@ -2027,7 +2027,10 @@ void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
 
 bool Zone::GuildInstanceKiteLimitEnabled()
 {
-	return RuleB(Quarm, EnableGuildInstanceKiteLimit) && GetGuildID() > 1 && GetZoneExpansion() == PlanesEQ;
+	return RuleB(Quarm, EnableGuildInstanceKiteLimit) &&
+		GetGuildID() > 1 &&
+		GetZoneExpansion() == PlanesEQ &&
+		InstanceRespawnsEnabled();
 }
 
 void Zone::Repop() {
