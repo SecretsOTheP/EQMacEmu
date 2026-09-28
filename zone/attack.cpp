@@ -1315,9 +1315,9 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 	if (qualifying_kill && IsInAGuild() && killer->IsInAGuild() && GuildID() == killer->GuildID())
 		qualifying_kill = false;
 
-	const int32 killer_forum_id = killer ? killer->ForumID() : 0;
-	const int32 victim_forum_id = ForumID();
-	if (qualifying_kill && (killer_forum_id <= 0 || victim_forum_id <= 0 || killer_forum_id == victim_forum_id))
+	const std::string killer_forum_name = killer ? Strings::ToLower(killer->ForumName()) : "";
+	const std::string victim_forum_name = Strings::ToLower(ForumName());
+	if (qualifying_kill && (killer_forum_name.empty() || victim_forum_name.empty() || killer_forum_name == victim_forum_name))
 		qualifying_kill = false;
 
 	if (qualifying_kill) {
@@ -1338,13 +1338,13 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 	if (qualifying_kill) {
 		cooldown_key = fmt::format(
 			"rallosian_glory_kill_{}_{}",
-			killer_forum_id,
-			victim_forum_id
+			killer_forum_name,
+			victim_forum_name
 		);
 		victim_cooldown_key =
-			fmt::format("rallosian_glory_victim_{}", victim_forum_id);
+			fmt::format("rallosian_glory_victim_{}", victim_forum_name);
 		killer_cooldown_key =
-			fmt::format("rallosian_glory_killer_{}", killer_forum_id);
+			fmt::format("rallosian_glory_killer_{}", killer_forum_name);
 
 		if (!DataBucket::GetData(cooldown_key).empty() ||
 				!DataBucket::GetData(victim_cooldown_key).empty() ||
