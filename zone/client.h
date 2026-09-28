@@ -714,10 +714,10 @@ public:
 	static constexpr uint8 RallosianGloryZoneXPBonus = 5;
 	static constexpr float RallosianGloryRankXPBonus = 2.5f;
 	static constexpr float RallosianGloryRankAAXPBonus = 0.5f;
-	static constexpr uint32 RallosianGloryCooldownSeconds = 900;
-	static constexpr uint32 RallosianGloryVictimCooldownSeconds = 900;
-	static constexpr uint32 RallosianGloryKillerCooldownSeconds = 900;
-	static constexpr uint32 RallosianGloryMinimumZoneSeconds = 125;
+	static constexpr uint32 RallosianGloryCooldownSeconds = 360;
+	static constexpr uint32 RallosianGloryVictimCooldownSeconds = 360;
+	static constexpr uint32 RallosianGloryKillerCooldownSeconds = 360;
+	static constexpr uint32 RallosianGloryMinimumZoneSeconds = 75;
 	inline int32 ForumID() const { return forum_id; }
 	inline uint8 GetRallosianGlory() const { return rallosian_glory; }
 	inline void SetRallosianGlory(uint8 rank) { rallosian_glory = rank > RallosianGloryMaxRank ? RallosianGloryMaxRank : rank; }
