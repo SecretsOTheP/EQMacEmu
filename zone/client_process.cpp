@@ -1131,7 +1131,7 @@ void Client::BulkSendMerchantInventory(int merchant_id, int npcid)
 				EQ::ItemInstance* inst = database.CreateItem(item, charges);
 				if (inst) {
 					uint32 capped_charges = ml.charges > MERCHANT_CHARGE_CAP ? MERCHANT_CHARGE_CAP : ml.charges;
-					inst->SetPrice(item->Price * item->SellRate);
+					inst->SetPrice(0);
 					inst->SetMerchantSlot(ml.slot);
 					inst->SetMerchantCount(capped_charges);
 					inst->SetCharges(charges);

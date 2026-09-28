@@ -8528,6 +8528,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 	int SinglePrice = 0;
 	float price_mod = CalcPriceMod(tmp);
 	SinglePrice = item->Price * item->SellRate * price_mod;
+	if (reimbursement_used)
+		SinglePrice = 0;
 
 	if (item->MaxCharges > 1)
 		mpo->price = SinglePrice;
