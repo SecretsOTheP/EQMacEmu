@@ -2075,7 +2075,7 @@ void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
 		if (client && client->GuildID() != target_guild_id &&
 			client->Admin() < RuleI(GM, MinStatusToZoneAnywhere) &&
 			client->Admin() < RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone)) {
-			client->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'Something has changed within this thread of time. Your presence here now threatens its fragile weave--and all of Norrath should it unravel. Forgive me. I must send you to safety.'");
+			client->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'The threads of time are unstable here. I cannot risk the danger spreading to Norrath. Forgive me. I must send you to safety.'");
 			client->BootFromGuildInstance(true);
 		}
 	}
