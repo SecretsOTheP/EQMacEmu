@@ -2045,15 +2045,21 @@ void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
 	enabled = enabled && RuleB(Quarm, EnableGuildInstanceRespawnControl);
 	instance_respawns_enabled = enabled;
 
-	// Slow Down and global-off extend eligible timers already counting down.
-	// Older expansions retain their minimum regardless of the guild's choice.
-	LinkedListIterator<Spawn2*> spawn_iterator(spawn2_list);
-	spawn_iterator.Reset();
-	while (spawn_iterator.MoreElements()) {
-		auto* spawn = spawn_iterator.GetData();
-		if (spawn)
-			spawn->EnforceInstanceRespawnMinimum();
-		spawn_iterator.Advance();
+	// With Timekeeper controls enabled, guild choices apply to future deaths.
+	// Do not extend or shorten an existing PoP countdown when switching modes.
+	// Outside that mode, preserve the legacy minimum behavior.
+	const bool enforce_existing_timers =
+		!RuleB(Quarm, EnableGuildInstanceRespawnControl) ||
+		GetZoneExpansion() <= LuclinEQ;
+	if (enforce_existing_timers) {
+		LinkedListIterator<Spawn2*> spawn_iterator(spawn2_list);
+		spawn_iterator.Reset();
+		while (spawn_iterator.MoreElements()) {
+			auto* spawn = spawn_iterator.GetData();
+			if (spawn)
+				spawn->EnforceInstanceRespawnMinimum();
+			spawn_iterator.Advance();
+		}
 	}
 
 	// Restoring normal respawns makes non-Time PoP instances guild-private.
