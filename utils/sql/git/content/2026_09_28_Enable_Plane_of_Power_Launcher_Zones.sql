@@ -1,0 +1,25 @@
+/* Add the missing Plane of Power zones using the live zone3 launcher layout. */
+INSERT INTO `launcher_zones` (`launcher`, `zone`, `port`, `enabled`, `expansion`) VALUES
+('zone3', 'bothunder', 7294, 1, 'classic'),
+('zone3', 'codecay', 7295, 1, 'classic'),
+('zone3', 'hohonora', 7296, 1, 'classic'),
+('zone3', 'hohonorb', 7297, 1, 'classic'),
+('zone3', 'nightmareb', 7298, 1, 'classic'),
+('zone3', 'poair', 7299, 1, 'classic'),
+('zone3', 'podisease', 7300, 1, 'classic'),
+('zone3', 'poeartha', 7301, 1, 'classic'),
+('zone3', 'poearthb', 7302, 1, 'classic'),
+('zone3', 'pofire', 7303, 1, 'classic'),
+('zone3', 'poinnovation', 7304, 1, 'classic'),
+('zone3', 'pojustice', 7305, 1, 'classic'),
+('zone3', 'ponightmare', 7306, 1, 'classic'),
+('zone3', 'postorms', 7307, 1, 'classic'),
+('zone3', 'potactics', 7308, 1, 'classic'),
+('zone3', 'potimea', 7309, 1, 'classic'),
+('zone3', 'potimeb', 7310, 1, 'classic'),
+('zone3', 'potorment', 7311, 1, 'classic'),
+('zone3', 'potranquility', 7312, 1, 'classic'),
+('zone3', 'povalor', 7313, 1, 'classic'),
+('zone3', 'powater', 7314, 1, 'classic'),
+('zone3', 'solrotower', 7315, 1, 'classic')
+ON DUPLICATE KEY UPDATE `enabled` = VALUES(`enabled`);
