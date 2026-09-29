@@ -3109,11 +3109,20 @@ void Client::SetPVP(uint8 toggle) {
 bool Client::GetGuildInstanceRespawnsEnabled() const { return Zone::GuildInstanceRespawnsEnabledFor(GuildID()); }
 bool Client::SetGuildInstanceRespawnsEnabled(bool enabled) {
 	if (GuildID() <= 1 || GuildID() == GUILD_NONE || !RuleB(Quarm, EnableGuildInstanceRespawnControl)) return false;
+	if (GetGuildInstanceRespawnsEnabled() == enabled) return false;
 	DataBucket::SetData(fmt::format("guild_instance_respawns:{}", GuildID()), enabled ? "1" : "0");
 	auto pack = new ServerPacket(ServerOP_InstanceRespawnToggle, sizeof(ServerInstanceRespawnToggle_Struct));
 	auto *toggle = reinterpret_cast<ServerInstanceRespawnToggle_Struct *>(pack->pBuffer);
 	toggle->guild_id = GuildID(); toggle->enabled = enabled;
-	worldserver.SendPacket(pack); safe_delete(pack); return true;
+	worldserver.SendPacket(pack); safe_delete(pack);
+
+	char announcement[512] = {};
+	snprintf(announcement, sizeof(announcement), enabled
+		? "A ripple passes through your guild's thread of time. %s has asked the Timekeeper of Druzzil Ro to set its weave right. Beware! Time has returned to its natural pace, and those walking it have been drawn back to Tranquility."
+		: "A ripple passes through your guild's thread of time. %s has asked the Timekeeper of Druzzil Ro to meddle with its weave. Beware! Time now moves slowly within your Planar Thread, and those walking it have been drawn back to Tranquility.",
+		GetCleanName());
+	worldserver.SendChannelMessage("Druzzil_Ro", ChatChannel_Guild, GuildID(), 0, 100, announcement);
+	return true;
 }
 
 void Client::Kick(const std::string& reason) {
