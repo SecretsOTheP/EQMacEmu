@@ -1408,6 +1408,16 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 				"Rallos Zek marks {} with his favor for spilling {}'s blood in {}. {} now bears {} of {} measures of Rallosian Glory.",
 				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), killer->GetCleanName(), new_killer_glory, RallosianGloryMaxRank);
 		}
+	} else if (!killer && killer_mob && killer_mob != this && killer_mob->IsNPC()) {
+		std::string victim_name = GetCleanName();
+		if (IsInAGuild()) {
+			const std::string guild_name = GetGuildName();
+			if (!guild_name.empty())
+				victim_name += fmt::format(" <{}>", guild_name);
+		}
+		message = fmt::format(
+			"Rallos Zek looks down in disgust as {} falls to {} in {}.",
+			victim_name, killer_mob->GetCleanName(), zone->GetLongName());
 	} else if (victim_glory > 0) {
 		message = fmt::format(
 			"Rallos Zek turns his gaze from {}. {} measure{} of Rallosian Glory {} lost in an unworthy death in {}.",
