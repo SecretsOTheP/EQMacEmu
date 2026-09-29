@@ -4204,7 +4204,7 @@ float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob
 	resist_chance += level_mod;
 
 	// Caps resists to 196 in PvP except when a player is casting a spell on themselves
-	if (caster->IsClient() && target && target->IsClient() && !use_classic_resists && this != caster)) {
+	if (caster->IsClient() && target && target->IsClient() && !use_classic_resists && caster != target)) {
 		if (resist_chance > 1 && resist_chance < 200) {
 			resist_chance = resist_chance * 400 / (200 + resist_chance);		// this changes the curve from linear to the bow shape seen in parses
 		}
