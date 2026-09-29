@@ -8444,6 +8444,8 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 		Message_StringID(Chat::White, StringID::DUPE_LORE_MERCHANT, tmp->GetCleanName());
 		QueuePacket(returnapp);
 		safe_delete(returnapp);
+		// Restore the item in the vendor window after the rejected purchase response.
+		entity_list.SendMerchantInventory(tmp);
 		return;
 	}
 
