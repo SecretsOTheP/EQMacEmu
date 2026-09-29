@@ -1957,9 +1957,12 @@ void Zone::RepopClose(const glm::vec4& client_position, uint32 repop_distance)
 
 bool Zone::GuildOneTimedRaidSpawnsEnabled()
 {
-	// Tier access must not bypass the quake window, even if a legacy timed
-	// raid bucket is still present in the database.
-	return false;
+	// Fear and Hate use raid-target spawnpoint flags for their entire population.
+	// Keep those PvP instances populated between quakes while other raid zones
+	// still require the quake window.
+	return GetGuildID() == 1 &&
+		(strcmp(GetShortName(), "fear_instanced") == 0 ||
+		 strcmp(GetShortName(), "hate_instanced") == 0);
 }
 
 bool Zone::GuildOneRaidWindowOpen()
