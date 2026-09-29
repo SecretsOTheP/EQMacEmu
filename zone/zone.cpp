@@ -2036,13 +2036,14 @@ bool Zone::GuildInstanceRespawnsEnabledFor(uint32 guild_id)
 	return choice.empty() || Strings::ToBool(choice);
 }
 
-void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
+void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled, bool move_occupants)
 {
 	if (GetGuildID() != target_guild_id || target_guild_id <= 1 || target_guild_id == GUILD_NONE) {
 		return;
 	}
 
 	enabled = enabled && RuleB(Quarm, EnableGuildInstanceRespawnControl);
+	const bool evict_on_change = move_occupants && instance_respawns_enabled != enabled;
 	instance_respawns_enabled = enabled;
 
 	// With Timekeeper controls enabled, guild choices apply to future deaths.
@@ -2062,8 +2063,9 @@ void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
 		}
 	}
 
-	// Restoring normal respawns makes non-Time PoP instances guild-private.
-	if (!enabled || GetZoneExpansion() != PlanesEQ ||
+	// A Timekeeper mode change clears occupied PoP instances so everyone
+	// re-enters under the new rules. Restore also removes outsider guests.
+	if ((!enabled && !evict_on_change) || GetZoneExpansion() != PlanesEQ ||
 		GetZoneID() == Zones::POTIMEA || GetZoneID() == Zones::POTIMEB) {
 		return;
 	}
@@ -2072,12 +2074,19 @@ void Zone::SetGuildInstanceRespawnsEnabled(uint32 target_guild_id, bool enabled)
 	std::list<Client*> clients;
 	entity_list.GetClientList(clients);
 	for (auto* client : clients) {
-		if (client && client->GuildID() != target_guild_id &&
-			client->Admin() < RuleI(GM, MinStatusToZoneAnywhere) &&
-			client->Admin() < RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone)) {
-			client->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'The threads of time are unstable here. I cannot risk the danger spreading to Norrath. Forgive me. I must send you to safety.'");
-			client->BootFromGuildInstance(true);
+		if (!client || client->Admin() >= RuleI(GM, MinStatusToZoneAnywhere) ||
+			client->Admin() >= RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone)) {
+			continue;
 		}
+		if (!evict_on_change && (!enabled || client->GuildID() == target_guild_id)) {
+			continue;
+		}
+		if (client->GuildID() == target_guild_id) {
+			client->Message(Chat::Red, "Druzzil Ro's voice fills your mind. \"How curious. Your guild's thread of time has shifted. I've pulled you out before you become too tangled in the mess they're making.\"");
+		} else {
+			client->Message(Chat::Red, "Druzzil Ro's voice echoes in your mind, sorrowful and concerned. 'The threads of time are unstable here. I cannot risk the danger spreading to Norrath. Forgive me. I must send you to safety.'");
+		}
+		client->MovePCGuildID(Zones::POTRANQUILITY, GUILD_NONE, -4.0f, -191.0f, -628.0f, 149.0f, 1);
 	}
 }
 
