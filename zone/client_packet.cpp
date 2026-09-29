@@ -3051,8 +3051,8 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 
 				if ((item->Click.Type == EQ::item::ItemEffectClick) || (item->Click.Type == EQ::item::ItemEffectExpendable) || (item->Click.Type == EQ::item::ItemEffectEquipClick) || (item->Click.Type == EQ::item::ItemEffectClick2))
 				{
-					int32 casttime_ = item->CastTime_ != 0 && (zone->GetGuildID() == 1 || zone->GetGuildID() != GUILD_NONE && zone->GetZoneExpansion() == content_service.GetCurrentExpansion() )
-						? item->CastTime_ // cast time override for current expansion instances
+					int32 casttime_ = item->CastTime_ != 0 && zone->GetGuildID() == 1
+						? item->CastTime_ // PvP-only cast time override
 						: item->CastTime; // normal cast time
 					// Clickies with 0 casttime and expendable items had no level or regeant requirement on AK. Also, -1 casttime was instant cast.
 					if(casttime_ <= 0 || inst->IsExpendable())
