@@ -1957,20 +1957,9 @@ void Zone::RepopClose(const glm::vec4& client_position, uint32 repop_distance)
 
 bool Zone::GuildOneTimedRaidSpawnsEnabled()
 {
-	if (GetGuildID() != 1) {
-		return false;
-	}
-
-	const uint32 now = Timer::GetTimeSeconds();
-	if (guild_one_raid_tier_refresh == 0 || now >= guild_one_raid_tier_refresh) {
-		const auto active = "," + Strings::ToLower(DataBucket::GetData("pvpzone_active_shortnames")) + ",";
-		const auto timed = "," + Strings::ToLower(DataBucket::GetData("pvpzone_timed_raid_shortnames")) + ",";
-		const auto needle = "," + Strings::ToLower(GetShortName()) + ",";
-		guild_one_raid_tier = active.find(needle) != std::string::npos && timed.find(needle) != std::string::npos ? 1 : -1;
-		guild_one_raid_tier_refresh = now + 5;
-	}
-
-	return guild_one_raid_tier >= 0;
+	// Tier access must not bypass the quake window, even if a legacy timed
+	// raid bucket is still present in the database.
+	return false;
 }
 
 bool Zone::GuildOneRaidWindowOpen()
