@@ -651,7 +651,7 @@ void ShowPVPZoneUsage(Client *c)
 	c->Message(Chat::White, "#pvpzone status | list | all <on|off>");
 	c->Message(Chat::White, "#pvpzone all <normal|raid|both> <on|off>");
 	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic timer only; server-wide)");
-	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access; designated raid targets remain quake-only)");
+	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access; Guild 1 raid targets outside Fear and Hate remain quake-only)");
 }
 }
 
@@ -726,14 +726,14 @@ void command_pvpzone(Client *c, const Seperator *sep)
 		SaveActivePVPZones(active);
 		c->Message(
 			Chat::Yellow,
-			"%s %zu PVP zones through %s. Designated Guild 1 raid targets remain quake-only.",
+			"%s %zu PVP zones through %s. Guild 1 raid targets outside Fear and Hate remain quake-only.",
 			enabled ? "Enabled" : "Disabled", tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
 		c->Message(Chat::White, "Active zone servers will notice the change within five seconds; use #repop if an immediate fresh spawn cycle is needed.");
 		return;
 	}
 	if (!strcasecmp(sep->arg[1], "status")) {
 		ShowPVPZoneStatus(c);
-		c->Message(Chat::White, "Designated Guild 1 raid targets: quake-only.");
+		c->Message(Chat::White, "Guild 1 raid targets: quake-only outside Fear and Hate.");
 		auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' LIMIT 1");
 		if (result.Success() && result.RowCount() > 0) {
 			auto row = result.begin();
