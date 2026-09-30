@@ -1639,8 +1639,7 @@ bool Zone::Process() {
 
 		if (clear_guild_one_raids) {
 			entity_list.Message(Chat::Default, Chat::Yellow, "Druzzil Ro's magic begins to fade. Time and space are once again whole. Creatures in PVP have despawned.");
-			Repop();
-			ZoneReload::HotReloadQuests();
+			ZoneReload::HotReloadQuests(true);
 		}
 	}
 
