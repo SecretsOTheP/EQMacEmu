@@ -545,7 +545,6 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 			safe_delete(outapp);
 			return false;
 		}
-		respawn_timer.Start();
 	}
 	if (m_type == OT_DROPPEDITEM) 
 	{
@@ -603,6 +602,9 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 
 			if (sender->SummonItem(item_id, charges, 0, true, m_inst->GetQuarmItemData()))
 			{
+				if (m_ground_spawn)
+					respawn_timer.Start();
+
 				EQ::ItemInstance* curitem = sender->GetInv().GetItem(EQ::invslot::slotCursor);
 				if (curitem && curitem->IsType(EQ::item::ItemClassBag))
 				{
@@ -625,6 +627,17 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 						}
 					}
 				}
+			}
+			else
+			{
+				// Leave the object available if the player could not receive the item.
+				auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
+				ClickObject_Struct* reply = (ClickObject_Struct*)outapp->pBuffer;
+				reply->player_id = click_object->player_id;
+				reply->drop_id = 0xFFFFFFFF;
+				sender->QueuePacket(outapp);
+				safe_delete(outapp);
+				return false;
 			}
 
 			if (m_inst) {
