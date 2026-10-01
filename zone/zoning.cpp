@@ -625,6 +625,12 @@ void Client::MovePCGuildID(uint32 zoneID, uint32 zoneGuildID, float x, float y, 
 
 void Client::ProcessMovePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, float z, float heading, uint8 ignorerestrictions, ZoneMode zm)
 {
+	// Players must opt in before entering Guild 1. Staff can still use
+	// #zoneguild to inspect it without changing their PvP flag.
+	if (zoneGuildID == 1 && zone->GetGuildID() != 1 && GetPVP() != 1 &&
+		Admin() < AccountStatus::QuestTroupe)
+		return;
+
 	// From what I have read, dragged corpses should stay with the player for Intra-zone summons etc, but we can implement that later.
 	ClearDraggedCorpses();
 
