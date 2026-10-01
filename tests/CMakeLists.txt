@@ -4,6 +4,7 @@ ADD_SUBDIRECTORY(cppunit)
 
 SET(tests_sources
 	main.cpp
+	../world/world_queue.cpp
 )
 
 SET(tests_headers
@@ -16,6 +17,7 @@ SET(tests_headers
 	memory_mapped_file_test.h
 	string_util_test.h
 	skills_util_test.h
+	world_queue_test.h
 )
 
 ADD_EXECUTABLE(tests ${tests_sources} ${tests_headers})

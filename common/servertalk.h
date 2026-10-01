@@ -32,6 +32,7 @@
 #define ServerOP_ZonePlayer			0x000C	// #zone, or #summon
 #define ServerOP_KickPlayer			0x000D	// #kick
 #define ServerOP_KickPlayerAccount	0x4205	// #kick
+#define ServerOP_QueueStatus		0x4206	// #show queue
 
 #define ServerOP_RefreshGuild		0x000E	// Notice to all zoneservers to refresh their guild cache for ID# in packet (ServerGuildRefresh_Struct)
 //#define ServerOP_GuildInvite		0x0010
@@ -818,6 +819,10 @@ struct UsertoWorldResponse {
 	int8	response; // -3) World Full, -2) Banned, -1) Suspended, 0) Denied, 1) Allowed
 	uint32	FromID;
 	uint32	ToID;
+};
+
+struct ServerQueueStatus_Struct {
+	char	adminname[64];
 };
 
 // generic struct to be used for alot of simple zone->world questions

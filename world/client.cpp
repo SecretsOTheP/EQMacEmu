@@ -78,6 +78,7 @@ extern volatile bool UCSServerAvailable_;
 Client::Client(EQStreamInterface* ieqs)
 :	autobootup_timeout(RuleI(World, ZoneAutobootTimeoutMS)),
 	connect(1000),
+	queue_push(1000),
 	eqs(ieqs)
 {
 
@@ -95,6 +96,11 @@ Client::Client(EQStreamInterface* ieqs)
 	}
 	client_inactive_timeout.Disable();
 	autobootup_timeout.Disable();
+	queue_held = false;
+	queue_position = 0;
+	queue_size = 0;
+	queue_joined_at = 0;
+	queue_push.Disable();
 	connect.Disable();
 	seen_character_select = false;
 	cle = 0;
@@ -200,14 +206,93 @@ void Client::SendCharInfo() {
 	}
 	
 	seen_character_select = true;
-	
-	// Send OP_SendCharInfo
+
+	if (client_list.QueueActive() && GetAdmin() == 0) {
+		QueueCharSelectDecide();
+		return;
+	}
+	SendCharSelectList();
+}
+
+void Client::SendCharSelectList() {
 	auto outapp = new EQApplicationPacket(OP_SendCharInfo, sizeof(CharacterSelect_Struct));
 	CharacterSelect_Struct* cs = (CharacterSelect_Struct*)outapp->pBuffer;
 
 	charcount = 0;
 	database.GetCharSelectInfo(GetAccountID(), cs, m_ClientVersionBit, charcount, mule);
 
+	QueuePacket(outapp);
+	safe_delete(outapp);
+}
+
+// Each call refreshes the queue entry, so an entry outlives a dead session only by QueueEntryTimeoutS. The idle
+// limit is not an activity timer, so it is restarted per push and only counts once the player has the real list.
+void Client::QueueCharSelectDecide() {
+	if (!cle || GetAccountID() == 0) {
+		// The client-list entry is gone (a second login on the account replaced it): this session is dead and must not
+		// enter the queue as account 0. World removes it once its stream times out.
+		LogInfo("[Queue] session from [{}] lost its account while held at character select, no longer polled", GetIP());
+		queue_held = false;
+		queue_push.Disable();
+		return;
+	}
+	uint32 now = ClientList::QueueNow();
+	QueueDecision decision = client_list.QueueDecide(cle ? cle->LSID() : 0, GetAccountID(), GetIP());
+	if (decision.admit) {
+		if (queue_held) {
+			LogInfo("[Queue] account [{}] admitted at character select after {}s, sending character list", GetAccountID(), now - queue_joined_at);
+		}
+		queue_held = false;
+		queue_push.Disable();
+		SendCharSelectList();
+		return;
+	}
+
+	if (!queue_held) {
+		queue_held = true;
+		queue_joined_at = now;
+		LogInfo("[Queue] account [{}] held at character select, position {} of {}", GetAccountID(), decision.position, decision.queue_size);
+	}
+	else if (decision.position != queue_position) {
+		// Log position changes. Set to debug as it's very spammy when there are multiple people in the queue.
+		LogDebug("[Queue] account [{}] position {} of {}", GetAccountID(), decision.position, decision.queue_size);
+	}
+	queue_position = decision.position;
+	queue_size = decision.queue_size;
+	SendQueueCharSelectList();
+
+	int push_s = RuleI(Quarm, QueueCharSelectPushS);
+	queue_push.Start((push_s > 0 ? push_s : 10) * 1000);
+	if (RuleB(Quarm, EnableWorldClientInactiveTimeout)) {
+		client_inactive_timeout.Start(RuleI(Quarm, WorldClientInactiveTimeoutMS));
+	}
+}
+
+// Fills slots with placeholder characters that display queue data or empty slots
+void Client::SendQueueCharSelectList() {
+	const uint16 kRace = (uint16)RuleI(Quarm, QueueCharSelectRace);
+	const uint8  kClass = 1;         // Warrior
+	const uint32 kMaterial = 3;      // plate
+	const uint32 kTint = 0xFFC00000; // red
+
+	std::string queue_line = fmt::format("Queue position {}", queue_position); // the total is in the log, not on screen
+
+	auto outapp = new EQApplicationPacket(OP_SendCharInfo, sizeof(CharacterSelect_Struct));
+	CharacterSelect_Struct* cs = (CharacterSelect_Struct*)outapp->pBuffer;
+	memset(cs, 0, sizeof(CharacterSelect_Struct));
+	for (int i = 0; i < 10; i++) {
+		// Name is queue position or an empty slot (to prevent character creation)
+		strn0cpy(cs->name[i], i == 0 ? queue_line.c_str() : " ", sizeof(cs->name[i])); // Use space instead of empty name to prevent server dropping client upon "Enter World"
+		cs->level[i] = 0;
+		cs->class_[i] = kClass;
+		cs->race[i] = kRace;
+		cs->zone[i] = 0;
+		cs->gender[i] = 0;
+		for (int m = EQ::textures::armorHead; m <= EQ::textures::armorFeet; m++) {
+			cs->equip[i].Slot[m].Material = kMaterial;
+			cs->cs_colors[i].Slot[m].Color = kTint;
+		}
+	}
 	QueuePacket(outapp);
 	safe_delete(outapp);
 }
@@ -349,7 +434,10 @@ bool Client::HandleNameApprovalPacket(const EQApplicationPacket *app)
 	if (GetAccountID() == 0) {
 		LogInfo("Name approval request with no logged in account");
 		return false;
-		return false;
+	}
+	if (queue_held) {
+		LogInfo("[Queue] account [{}] sent a name approval while held at character select, ignored", GetAccountID());
+		return true;
 	}
 
 	auto na = (NameApproval_Struct *)app->pBuffer;
@@ -502,6 +590,10 @@ bool Client::HandleCharacterCreatePacket(const EQApplicationPacket *app) {
 		LogInfo("Account ID not set; unable to create character.");
 		return false;
 	}
+	if (queue_held) {
+		LogInfo("[Queue] account [{}] sent a character create while held at character select, ignored", GetAccountID());
+		return true;
+	}
 	else if (app->size != sizeof(CharCreate_Struct)) {
 		LogInfo("Wrong size on OP_CharacterCreate. Got: [{}], Expected: [{}]",app->size,sizeof(CharCreate_Struct));
 		DumpPacket(app);
@@ -551,6 +643,23 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 
 	if (!mule && RuleI(World, MaxClientsPerIP) >= 0 && !client_list.CheckIPLimit(GetAccountID(), GetIP(), GetForumName(), GetAdmin(), cle)) {
 		return false;
+	}
+
+	if (queue_held) {
+		// Every entry in the held list is a placeholder. The only reply that leaves the client usable at character
+		// select is the zone-unavailable dialog; the list itself explains the wait.
+		LogInfo("[Queue] account [{}] clicked enter world while held at character select (position {} of {}), refused", GetAccountID(), queue_position, queue_size);
+		TellClientZoneUnavailable();
+		return true;
+	}
+
+	if (client_list.QueueActive() && GetAdmin() == 0 && !client_list.QueueClaimSlot(cle ? cle->LSID() : 0, GetAccountID(), GetIP())) {
+		// The world filled while the player sat at character select with the real list. ClaimSlot queued the
+		// account; hold the session here rather than dropping it.
+		LogInfo("[Queue] account [{}] enter world refused, world full and no slot held; holding at character select", GetAccountID());
+		TellClientZoneUnavailable();
+		QueueCharSelectDecide();
+		return true;
 	}
 
 	EnterWorld_Struct *ew = (EnterWorld_Struct *)app->pBuffer;
@@ -742,6 +851,10 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 
 bool Client::HandleDeleteCharacterPacket(const EQApplicationPacket *app) {
 
+	if (queue_held) {
+		LogInfo("[Queue] account [{}] sent a character delete while held at character select, ignored", GetAccountID());
+		return true;
+	}
 	uint32 char_acct_id = database.GetAccountIDByChar((char*)app->pBuffer);
 	uint32 level = database.GetLevelByChar((char*)app->pBuffer);
 	uint32 is_hardcore = database.GetHardcoreStatus((char*)app->pBuffer);
@@ -988,6 +1101,10 @@ bool Client::Process() {
 		//SendGuildList();// Send OPCode: OP_GuildsList
 		SendApproveWorld();
 		connect.Disable();
+	}
+
+	if (queue_held && queue_push.Check()) {
+		QueueCharSelectDecide();
 	}
 
 	if (cle)

@@ -17,6 +17,7 @@
 #include "show/npc_type.cpp"
 #include "show/quest_errors.cpp"
 #include "show/quest_globals.cpp"
+#include "show/queue.cpp"
 #include "show/server_info.cpp"
 #include "show/skills.cpp"
 #include "show/spawn_status.cpp"
@@ -62,6 +63,7 @@ void command_show(Client *c, const Seperator *sep)
 		Cmd{.cmd = "npc_type", .u = "npc_type [NPC ID]", .fn = ShowNPCType, .a = {"#viewnpctype"}},
 		Cmd{.cmd = "quest_errors", .u = "quest_errors", .fn = ShowQuestErrors, .a = {"#questerrors"}},
 		Cmd{.cmd = "quest_globals", .u = "quest_globals", .fn = ShowQuestGlobals, .a = {"#globalview"}},
+		Cmd{.cmd = "queue", .u = "queue", .fn = ShowQueue, .a = {"#queue"}},
 		Cmd{.cmd = "server_info", .u = "server_info", .fn = ShowServerInfo, .a = {"#serverinfo"}},
 		Cmd{.cmd = "skills", .u = "skills", .fn = ShowSkills, .a = {"#showskills"}},
 		Cmd{.cmd = "spawn_status", .u = "spawn_status [all|disabled|enabled|Spawn ID]", .fn = ShowSpawnStatus, .a = {"#spawnstatus"}},

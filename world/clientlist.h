@@ -9,6 +9,7 @@
 #include "../common/servertalk.h"
 #include "../common/event/timer.h"
 #include "../common/net/console_server_connection.h"
+#include "world_queue.h"
 #include <vector>
 #include <string>
 
@@ -79,8 +80,25 @@ public:
 	void GetClientList(Json::Value &response);
 
 	std::string AppendChallengeModeFlagsToName(ClientListEntry* cle);
-	
+
+	// Login queue (Quarm:EnableLoginQueue). Population is counted per account: in a zone, holding a
+	// reservation, or in grace. Status > 0 and offline traders never count, as with GetClientCount().
+	bool			QueueActive(); // Quarm:EnableLoginQueue is on
+	QueuePopulation	Population();  // accounts in zone and accounts at character select, from the entry list
+	uint32			EffectivePopulation(); // in zone plus reservations and grace, what the cap is compared against
+	QueueDecision	QueueDecide(uint32 iLSID, uint32 iAccID, uint32 ip); // answer a session at character select (on arrival, then every push while held)
+	bool			QueueClaimSlot(uint32 iLSID, uint32 iAccID, uint32 ip); // Enter World: take a slot or queue the account
+	void			QueueTick(); // expire and consume; every 5 s from OnTick
+	void			OnLeftZone(ClientListEntry* cle);   // entry dropped below Zoning: start grace if it was the account's last
+	void			OnZoneUpdate(ClientListEntry* cle); // zone reported the entry: track the linkdead flag
+	void			SendQueueStatus(const char* to, WorldTCPConnection* connection); // console "queue" and #show queue
+	static uint32	QueueNow(); // unix seconds, the queue's clock
+
 private:
+	void RefreshQueueConfig(); // copy the current rule values into the queue
+
+	WorldQueue m_queue;
+
 	void OnTick(EQ::Timer* t);
 	inline uint32 GetNextCLEID() { return NextCLEID++; }
 
