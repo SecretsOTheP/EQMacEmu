@@ -127,7 +127,10 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	}
 
 
-	if (RuleB(Quarm, EnableRespawnReductionSystem))
+	// Open world and the PvP instance use the spawn2 database timer. Only
+	// ordinary guild instances use the generic reduced respawn rules.
+	if (zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+		RuleB(Quarm, EnableRespawnReductionSystem))
 	{
 		if (zone->IsReducedSpawnTimersZone())
 		{
@@ -153,7 +156,8 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 
 	const bool guild_instance_uses_timekeeper_mode =
 		zone && zone->GetGuildID() > 1 && RuleB(Quarm, EnableGuildInstanceRespawnControl);
-	if (zone && zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint &&
+	if (zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+		zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint &&
 		last_instance_spawn_timer_override == 0 && !script_respawn_timer_custom_ && !guild_instance_uses_timekeeper_mode) {
 		const auto configured_timer = DataBucket::GetData(
 			fmt::format("pop_spawn_minutes_{}", Strings::ToLower(zone->GetShortName()))
@@ -210,8 +214,7 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 			return chardok_instance_respawn_ms;
 		}
 
-		if (last_instance_spawn_timer_override != 0)
-			return (int)((double)last_instance_spawn_timer_override * (double)zone->random.Real(1.0, 1.5));
+		// Other Guild 1 spawns follow their open-world database timer.
 	}
 
 	return (rspawn);
