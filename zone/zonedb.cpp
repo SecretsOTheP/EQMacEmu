@@ -2776,6 +2776,9 @@ void ZoneDatabase::SavePetInfo(Client *client)
 	suspended_pet_info.mana = (int32_t)suspendedpetinfo.Mana;
 	suspended_pet_info.size = suspendedpetinfo.size;
 
+	// fix - Sept 30, 2026 - without this line, the suspended pet never gets saved
+	suspended_pet_infos.push_back(suspended_pet_info);
+
 	// loop through pet buffs
 	for (int index = 0; index < BUFF_COUNT; index++) {
 		if (!IsValidSpell(suspendedpetinfo.Buffs[index].spellid)) {
@@ -2805,7 +2808,7 @@ void ZoneDatabase::SavePetInfo(Client *client)
 		}
 		suspended_item.char_id = client->CharacterID();
 		suspended_item.pet = 1;
-		suspended_item.slot = 0;
+		suspended_item.slot = i;
 		suspended_item.item_id = suspendedpetinfo.Items[i];
 
 		// add pet inventory to vector
@@ -2841,7 +2844,7 @@ void ZoneDatabase::SavePetInfo(Client *client)
 	// insert pet inventory into database
 	if (!suspended_inventory.empty()) {
 		// Delete existing pet inventory
-		CharacterPetInventoryRepository::DeleteWhere(database, fmt::format("char_id = {} pet = 1", client->CharacterID()));
+		CharacterPetInventoryRepository::DeleteWhere(database, fmt::format("char_id = {} AND pet = 1", client->CharacterID()));
 
 		// Insert new pet inventory
 		CharacterPetInventoryRepository::InsertMany(database, suspended_inventory);
