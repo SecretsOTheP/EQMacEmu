@@ -1515,6 +1515,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	}
 
 	InterruptSpell();
+	memset(&m_suspendedminion, 0, sizeof(PetInfo));
 	SavePetInfo(true);
 	SetPet(0);
 	SetHorseId(0);
