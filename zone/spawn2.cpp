@@ -37,6 +37,10 @@ extern Zone* zone;
 
 extern WorldServer worldserver;
 
+namespace {
+constexpr uint32 chardok_instance_respawn_ms = 18 * 60 * 60 * 1000;
+}
+
 Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	float in_x, float in_y, float in_z, float in_heading,
 	uint32 respawn, uint32 variance, uint32 timeleft, uint32 grid,
@@ -123,7 +127,10 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	}
 
 
-	if (RuleB(Quarm, EnableRespawnReductionSystem))
+	// Open world and the PvP instance use the spawn2 database timer. Only
+	// ordinary guild instances use the generic reduced respawn rules.
+	if (zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+		RuleB(Quarm, EnableRespawnReductionSystem))
 	{
 		if (zone->IsReducedSpawnTimersZone())
 		{
@@ -149,7 +156,8 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 
 	const bool guild_instance_uses_timekeeper_mode =
 		zone && zone->GetGuildID() > 1 && RuleB(Quarm, EnableGuildInstanceRespawnControl);
-	if (zone && zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint &&
+	if (zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+		zone->GetZoneExpansion() == PlanesEQ && !raid_target_spawnpoint &&
 		last_instance_spawn_timer_override == 0 && !script_respawn_timer_custom_ && !guild_instance_uses_timekeeper_mode) {
 		const auto configured_timer = DataBucket::GetData(
 			fmt::format("pop_spawn_minutes_{}", Strings::ToLower(zone->GetShortName()))
@@ -161,6 +169,19 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 			}
 		}
 	}
+	constexpr uint32 max_valid_respawn = 7 * 24 * 60 * 60 * 1000;
+	// PoP zone IDs 200-223 include stale expansion flags; older custom instances use higher IDs.
+	const bool pre_pop_instance = zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+		zone->GetZoneExpansion() <= LuclinEQ &&
+		(zone->GetZoneID() < Zones::CODECAY || zone->GetZoneID() > Zones::POTIMEB);
+	if (pre_pop_instance && !script_respawn_timer_custom_) {
+		if (last_instance_spawn_timer_override != 0 &&
+			last_instance_spawn_timer_override <= max_valid_respawn)
+			return last_instance_spawn_timer_override;
+		if (rspawn > max_valid_respawn)
+			rspawn = max_valid_respawn;
+	}
+
 	if (zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1)
 	{
 		const uint32 minimum = InstanceRespawnMinimum();
@@ -179,7 +200,8 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 		{
 			// Preserve longer database/NPC timers; explicit Lua timers are handled
 			// separately and remain script-controlled.
-			if (last_instance_spawn_timer_override > rspawn)
+			if (last_instance_spawn_timer_override > rspawn &&
+				(!pre_pop_instance || last_instance_spawn_timer_override <= max_valid_respawn))
 				rspawn = last_instance_spawn_timer_override;
 			if (rspawn < minimum)
 				rspawn = minimum;
@@ -187,13 +209,12 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	}
 	else if(zone && zone->GetGuildID() == 1)
 	{
-		if (zone->GetZoneID() == Zones::CHARDOK && last_instance_spawn_timer_override == 1592000000)
+		if (zone->GetZoneID() == Zones::CHARDOK && last_instance_spawn_timer_override == chardok_instance_respawn_ms)
 		{
-			return 1800000;
+			return chardok_instance_respawn_ms;
 		}
 
-		if (last_instance_spawn_timer_override != 0)
-			return (int)((double)last_instance_spawn_timer_override * (double)zone->random.Real(1.0, 1.5));
+		// Other Guild 1 spawns follow their open-world database timer.
 	}
 
 	return (rspawn);
@@ -454,7 +475,7 @@ bool Spawn2::Process() {
 			npc->AI_SetRoambox(spawn_group->roambox[0], spawn_group->roambox[1], spawn_group->roambox[2], spawn_group->roambox[3], spawn_group->delay, spawn_group->min_delay);
 		Log(Logs::General, Logs::Spawns, "Spawn2 %d: Group %d spawned %s (%d) at (%.3f, %.3f, %.3f).", spawn2_id, spawngroup_id_, npc->GetName(), npcid, loc.x, loc.y, loc.z);
 		
-		if(zone->GetGuildID() != 1 || zone->GetGuildID() == 1 && (last_instance_spawn_timer_override == 0 || zone->GetZoneID() == Zones::CHARDOK && last_instance_spawn_timer_override == 1592000000))
+		if(zone->GetGuildID() != 1 || zone->GetGuildID() == 1 && (last_instance_spawn_timer_override == 0 || zone->GetZoneID() == Zones::CHARDOK && last_instance_spawn_timer_override == chardok_instance_respawn_ms))
 			LoadGrid(starting_wp);
 	}
 	return true;
