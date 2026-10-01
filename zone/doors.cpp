@@ -328,6 +328,8 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 		float temp_x = m_destination.x;
 		float temp_y = m_destination.y;
 		uint32 zoneguildid = GUILD_NONE;
+		const bool pvp_opted_in = sender->GetPVP() == 1 ||
+			(zone->GetGuildID() == 1 && sender->GetPVP() != 0);
 
 		const auto* destination_zone = GetZone(zoneid);
 		const bool is_non_time_pop_instance =
@@ -350,7 +352,7 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			if (!sender)
 				return;
 
-			if (sender->GetPVP() == 0 && sender->GuildID() != 1)
+			if (!pvp_opted_in)
 			{
 				Raid* player_raid = sender->GetRaid();
 				// A raid selects its leader's guild; solo members select their own.
@@ -413,20 +415,17 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			return;
 		}
 
-		if (pvp_zone_door == 1 && sender && (uint32)(sender->GetLevel2()) > pvp_max_level)
+		// A PvP-capable book also serves eligible guild raids. A player who
+		// has not enabled PvP must never be redirected into Guild 1.
+		if (pvp_zone_door == 1 &&
+			(zoneguildid == GUILD_NONE || (zoneguildid == 1 && !pvp_opted_in)))
 		{
-			sender->Message(Chat::Red, "You are unable to enter a PVP Instance because your level is above the maximum allowed level of %i.", pvp_max_level);
 			return;
 		}
 
-		if (sender->GetPVP() != 0 && zoneguildid != GUILD_NONE || zoneguildid != GUILD_NONE && pvp_zone_door == 1)
+		if (pvp_zone_door == 1 && zoneguildid == 1 && (uint32)(sender->GetLevel2()) > pvp_max_level)
 		{
-			zoneguildid = 1;
-		}
-
-		if (pvp_zone_door == 1 && zoneguildid != 1)
-		{
-			sender->Message(Chat::Red, "You are unable to enter a PVP Instance at this time. Please use the chat command #togglepvp .");
+			sender->Message(Chat::Red, "You are unable to enter a PVP Instance because your level is above the maximum allowed level of %i.", pvp_max_level);
 			return;
 		}
 
