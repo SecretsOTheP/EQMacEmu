@@ -2766,11 +2766,11 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 					RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
 					if (zone && zone->IsLoaded() && zone->GetGuildID() > 1) {
 						const bool enabled = Zone::GuildInstanceRespawnsEnabledFor(zone->GetGuildID());
-						zone->SetGuildInstanceRespawnsEnabled(zone->GetGuildID(), enabled);
+						zone->SetGuildInstanceRespawnsEnabled(zone->GetGuildID(), enabled, false);
 					}
 				}
 				else if (zone && zone->IsLoaded()) {
-					zone->SetGuildInstanceRespawnsEnabled(toggle->guild_id, toggle->enabled);
+					zone->SetGuildInstanceRespawnsEnabled(toggle->guild_id, toggle->enabled, true);
 				}
 			}
 			break;
