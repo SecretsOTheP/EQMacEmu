@@ -1639,8 +1639,7 @@ bool Zone::Process() {
 
 		if (clear_guild_one_raids) {
 			entity_list.Message(Chat::Default, Chat::Yellow, "Druzzil Ro's magic begins to fade. Time and space are once again whole. Creatures in PVP have despawned.");
-			Repop();
-			ZoneReload::HotReloadQuests();
+			ZoneReload::HotReloadQuests(true);
 		}
 	}
 
@@ -1957,20 +1956,12 @@ void Zone::RepopClose(const glm::vec4& client_position, uint32 repop_distance)
 
 bool Zone::GuildOneTimedRaidSpawnsEnabled()
 {
-	if (GetGuildID() != 1) {
-		return false;
-	}
-
-	const uint32 now = Timer::GetTimeSeconds();
-	if (guild_one_raid_tier_refresh == 0 || now >= guild_one_raid_tier_refresh) {
-		const auto active = "," + Strings::ToLower(DataBucket::GetData("pvpzone_active_shortnames")) + ",";
-		const auto timed = "," + Strings::ToLower(DataBucket::GetData("pvpzone_timed_raid_shortnames")) + ",";
-		const auto needle = "," + Strings::ToLower(GetShortName()) + ",";
-		guild_one_raid_tier = active.find(needle) != std::string::npos && timed.find(needle) != std::string::npos ? 1 : -1;
-		guild_one_raid_tier_refresh = now + 5;
-	}
-
-	return guild_one_raid_tier >= 0;
+	// Fear and Hate use raid-target spawnpoint flags for their entire population.
+	// Keep those PvP instances populated between quakes while other raid zones
+	// still require the quake window.
+	return GetGuildID() == 1 &&
+		(strcmp(GetShortName(), "fear_instanced") == 0 ||
+		 strcmp(GetShortName(), "hate_instanced") == 0);
 }
 
 bool Zone::GuildOneRaidWindowOpen()

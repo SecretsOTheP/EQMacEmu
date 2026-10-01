@@ -557,6 +557,12 @@ void SaveActivePVPZones(const std::set<std::string> &active)
 	SavePVPZoneSet(PVP_ZONE_BUCKET, active);
 }
 
+void ClearPVPTimedRaidOverride()
+{
+	DataBucket::DeleteData(PVP_RAID_SPAWN_TIER_BUCKET);
+	DataBucket::DeleteData(PVP_TIMED_RAID_ZONES_BUCKET);
+}
+
 std::set<std::string> LoadPVPZoneSet(const char *bucket)
 {
 	std::set<std::string> zones;
@@ -645,7 +651,7 @@ void ShowPVPZoneUsage(Client *c)
 	c->Message(Chat::White, "#pvpzone status | list | all <on|off>");
 	c->Message(Chat::White, "#pvpzone all <normal|raid|both> <on|off>");
 	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic timer only; server-wide)");
-	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access and Guild 1 timed raid spawns)");
+	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access; Guild 1 raid targets outside Fear and Hate remain quake-only)");
 }
 }
 
@@ -705,51 +711,29 @@ void command_pvpzone(Client *c, const Seperator *sep)
 		}
 		const auto tier = Strings::ToLower(sep->arg[1]);
 		const auto tier_zones = PVPZonesThroughTier(tier);
+		// Older tier commands also enabled Guild 1 raid spawns between quakes.
+		// Keep zone access separate from that obsolete override.
+		ClearPVPTimedRaidOverride();
+
+		auto active = LoadActivePVPZones();
 		if (enabled) {
-			DataBucket::SetData(PVP_RAID_SPAWN_TIER_BUCKET, tier);
-			SavePVPZoneSet(PVP_TIMED_RAID_ZONES_BUCKET, tier_zones);
-
-			auto active = LoadActivePVPZones();
 			active.insert(tier_zones.begin(), tier_zones.end());
-			SaveActivePVPZones(active);
-
-			auto result = database.QueryDatabase(
-				"DELETE rt FROM respawn_times rt "
-				"INNER JOIN spawn2 s2 ON s2.id = rt.id "
-				"WHERE rt.guild_id = 1 AND s2.raid_target_spawnpoint = 1");
-			const char *expansion_name = tier == "pop" ? "Planes of Power" : "Luclin";
-			if (result.Success()) {
-				c->Message(
-					Chat::Yellow,
-					"Enabled %zu PVP zones through %s with Guild 1 timed raid spawns. Dormant timers were cleared; later expansions remain quake-only.",
-					tier_zones.size(), expansion_name);
-			} else {
-				c->Message(
-					Chat::Red,
-					"Enabled %zu PVP zones through %s, but dormant raid timers could not be cleared.",
-					tier_zones.size(), expansion_name);
-			}
 		} else {
-			DataBucket::DeleteData(PVP_RAID_SPAWN_TIER_BUCKET);
-			DataBucket::DeleteData(PVP_TIMED_RAID_ZONES_BUCKET);
-
-			auto active = LoadActivePVPZones();
 			for (const auto &short_name : tier_zones) {
 				active.erase(short_name);
 			}
-			SaveActivePVPZones(active);
-			c->Message(
-				Chat::Yellow,
-				"Disabled %zu PVP zones through %s. Guild 1 raid targets are quake-only.",
-				tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
 		}
+		SaveActivePVPZones(active);
+		c->Message(
+			Chat::Yellow,
+			"%s %zu PVP zones through %s. Guild 1 raid targets outside Fear and Hate remain quake-only.",
+			enabled ? "Enabled" : "Disabled", tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
 		c->Message(Chat::White, "Active zone servers will notice the change within five seconds; use #repop if an immediate fresh spawn cycle is needed.");
 		return;
 	}
 	if (!strcasecmp(sep->arg[1], "status")) {
 		ShowPVPZoneStatus(c);
-		const auto raid_tier = Strings::ToLower(DataBucket::GetData(PVP_RAID_SPAWN_TIER_BUCKET));
-		c->Message(Chat::White, fmt::format("Guild 1 timed raid spawns: {}.", raid_tier.empty() ? "off" : (raid_tier == "pop" ? "PoP and earlier" : "Luclin and earlier")).c_str());
+		c->Message(Chat::White, "Guild 1 raid targets: quake-only outside Fear and Hate.");
 		auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' LIMIT 1");
 		if (result.Success() && result.RowCount() > 0) {
 			auto row = result.begin();
@@ -771,9 +755,8 @@ void command_pvpzone(Client *c, const Seperator *sep)
 	SaveActivePVPZones({});
 	SavePVPZoneSet(PVP_NORMAL_LOOT_BUCKET, {});
 	SavePVPZoneSet(PVP_RAID_LOOT_BUCKET, {});
-	DataBucket::DeleteData(PVP_RAID_SPAWN_TIER_BUCKET);
-	DataBucket::DeleteData(PVP_TIMED_RAID_ZONES_BUCKET);
-	c->Message(Chat::Yellow, "All PVP zones, double loot, and Guild 1 timed raid spawns are now disabled.");
+	ClearPVPTimedRaidOverride();
+	c->Message(Chat::Yellow, "All PVP zones and double loot are now disabled.");
 	return;
 	}
 
@@ -823,6 +806,7 @@ void command_pvpzone(Client *c, const Seperator *sep)
 	}
 
 	SaveActivePVPZones(enabled ? all_zones : std::set<std::string>{});
+	ClearPVPTimedRaidOverride();
 	c->Message(
 		Chat::Yellow,
 		fmt::format(
@@ -911,5 +895,6 @@ void command_pvpzone(Client *c, const Seperator *sep)
 	auto active = LoadActivePVPZones();
 	if (enabled) active.insert(short_name); else active.erase(short_name);
 	SaveActivePVPZones(active);
+	ClearPVPTimedRaidOverride();
 	c->Message(Chat::Yellow, fmt::format("PVP zone {} is now {}.", short_name, enabled ? "enabled" : "disabled").c_str());
 }

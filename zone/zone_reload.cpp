@@ -21,15 +21,16 @@
 #include "zone_reload.h"
 #include "quest_parser_collection.h"
 
-void ZoneReload::HotReloadQuests()
+void ZoneReload::HotReloadQuests(bool force_repop)
 {
 	BenchTimer timer;
+	const bool repop = force_repop || RuleB(HotReload, QuestsRepopWithReload);
 
 	entity_list.ClearAreas();
 
 	parse->ReloadQuests();
 
-	if (RuleB(HotReload, QuestsRepopWithReload)) {
+	if (repop) {
 		zone->Repop();
 	}
 
@@ -38,7 +39,7 @@ void ZoneReload::HotReloadQuests()
 	LogHotReload(
 		"[Quests] Reloading [{}] repop [{}] reset_timers [{}] repop_when_not_in_combat [{}] Time [{:.4f}]",
 		zone->GetShortName(),
-		(RuleB(HotReload, QuestsRepopWithReload) ? "true" : "false"),
+		(repop ? "true" : "false"),
 		(RuleB(HotReload, QuestsResetTimersWithReload) ? "true" : "false"),
 		(RuleB(HotReload, QuestsRepopWhenPlayersNotInCombat) ? "true" : "false"),
 		timer.elapsed()

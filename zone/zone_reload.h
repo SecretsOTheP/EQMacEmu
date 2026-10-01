@@ -24,7 +24,7 @@
 
 class ZoneReload {
 public:
-	static void HotReloadQuests();
+	static void HotReloadQuests(bool force_repop = false);
 };
 
 
