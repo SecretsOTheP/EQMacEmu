@@ -323,6 +323,10 @@ void Object::ResetState()
 
 bool Object::Save()
 {
+	// A player drop exists only in the zone process that created it.
+	if (m_is_player_drop)
+		return true;
+
 	if (m_id) {
 		// Update existing
 		database.UpdateObject(m_id, m_type, m_icon, m_data, m_inst);
@@ -337,6 +341,9 @@ bool Object::Save()
 
 uint16 Object::VarSave()
 {
+	if (m_is_player_drop)
+		return 0;
+
 	if (m_id) {
 		// Update existing
 		database.UpdateObject(m_id, m_type, m_icon, m_data, m_inst);
@@ -383,7 +390,8 @@ void Object::PutItem(uint8 index, const EQ::ItemInstance* inst)
 		else {
 			m_inst->DeleteItem(index);
 		}
-		database.SaveWorldContainer(zone->GetZoneID(),m_id,m_inst);
+		if (!m_is_player_drop)
+			database.SaveWorldContainer(zone->GetZoneID(),m_id,m_inst);
 		// This is _highly_ inefficient, but for now it will work: Save entire object to database
 		Save();
 	}
@@ -394,7 +402,8 @@ void Object::Close() {
 	if(user != 0)
 	{
 		last_user = user;
-		database.SaveWorldContainer(zone->GetZoneID(),m_id,m_inst);
+		if (!m_is_player_drop)
+			database.SaveWorldContainer(zone->GetZoneID(),m_id,m_inst);
 		Client* objuser = entity_list.GetClientByCharID(user);
 		if(objuser)
 			objuser->SetTradeskillObject(nullptr);
@@ -461,7 +470,8 @@ bool Object::Process(){
 		safe_delete(outapp);
 
 		// Remove object
-		database.DeleteObject(m_id);
+		if (m_id != 0)
+			database.DeleteObject(m_id);
 		return false;
 	}
 
@@ -531,6 +541,19 @@ void Object::RandomSpawn(bool send_packet) {
 
 bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 {
+	// Older player drops were saved without a guild ID. Do not allow an
+	// instance to pick up one if it reaches this path.
+	if (zone && zone->GetGuildID() != GUILD_NONE && m_type == OT_DROPPEDITEM &&
+		m_id != 0 && !m_ground_spawn) {
+		auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
+		ClickObject_Struct* reply = (ClickObject_Struct*)outapp->pBuffer;
+		reply->player_id = click_object->player_id;
+		reply->drop_id = 0xFFFFFFFF;
+		sender->QueuePacket(outapp);
+		safe_delete(outapp);
+		return false;
+	}
+
 	if(m_ground_spawn)
 	{
 		// Already picked up and waiting to respawn. The object stays in the entity list with its
@@ -601,10 +624,28 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 			if(database.ItemQuantityType(item_id) != EQ::item::Quantity_Charges && charges < 1)
 				charges = 1;
 
-			if (sender->SummonItem(item_id, charges, 0, true, m_inst->GetQuarmItemData()))
+			bool received = false;
+			if (m_is_player_drop) {
+				EQ::ItemInstance* pickup = m_inst->Clone();
+				if (pickup) {
+					const auto cursor_size_before = sender->GetInv().CursorSize();
+					received = sender->PushItemOnCursorWithoutQueue(pickup);
+					if (!received && sender->GetInv().CursorSize() > cursor_size_before) {
+						// The cursor changed even though its database save failed. Do not
+						// leave a second copy on the ground.
+						Log(Logs::General, Logs::Error, "Ground item pickup cursor save failed for %s", sender->GetName());
+						received = true;
+					}
+				}
+				safe_delete(pickup);
+			} else {
+				received = sender->SummonItem(item_id, charges, 0, true, m_inst->GetQuarmItemData());
+			}
+
+			if (received)
 			{
 				EQ::ItemInstance* curitem = sender->GetInv().GetItem(EQ::invslot::slotCursor);
-				if (curitem && curitem->IsType(EQ::item::ItemClassBag))
+				if (!m_is_player_drop && curitem && curitem->IsType(EQ::item::ItemClassBag))
 				{
 					database.LoadWorldContainer(m_id, curitem);
 				}
@@ -619,12 +660,24 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 							const EQ::ItemInstance* bag_inst = m_inst->GetItem(sub_slot);
 							if (bag_inst)
 							{
-								sender->PutItemInInventory(EQ::invbag::CURSOR_BAG_BEGIN + sub_slot, *bag_inst, false);
+								if (!m_is_player_drop)
+									sender->PutItemInInventory(EQ::invbag::CURSOR_BAG_BEGIN + sub_slot, *bag_inst, false);
 								QServ->QSGroundSpawn(sender->CharacterID(), bag_inst->GetID(), bag_inst->GetCharges(), m_inst->GetID(), sender->GetZoneID(), false);
 							}
 						}
 					}
 				}
+			}
+			else if (m_is_player_drop)
+			{
+				// Keep the temporary object if the player could not receive it.
+				auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
+				ClickObject_Struct* reply = (ClickObject_Struct*)outapp->pBuffer;
+				reply->player_id = click_object->player_id;
+				reply->drop_id = 0xFFFFFFFF;
+				sender->QueuePacket(outapp);
+				safe_delete(outapp);
+				return false;
 			}
 
 			if (m_inst) {
@@ -646,7 +699,8 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 		safe_delete(outapp);
 
 		// Remove object
-		database.DeleteObject(m_id);
+		if (m_id != 0)
+			database.DeleteObject(m_id);
 		if(!m_ground_spawn)
 			entity_list.RemoveEntity(this->GetID());
 	} else {
@@ -960,7 +1014,8 @@ void Object::DepopWithTimer()
 	entity_list.QueueClients(0, app);
 	safe_delete(app);
 
-	database.DeleteObject(m_id);
+	if (m_id != 0)
+		database.DeleteObject(m_id);
 	if (!m_ground_spawn)
 		entity_list.RemoveEntity(this->GetID());
 	else

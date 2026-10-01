@@ -178,6 +178,11 @@ bool Zone::LoadZoneObjects() {
 
     LogInfo("Loading Objects from DB...");
     for (auto row = results.begin(); row != results.end(); ++row) {
+		// Player drops have no guild ID in the object table. Do not load old
+		// open-world drops into a guild instance.
+		if (GetGuildID() != GUILD_NONE && atoi(row[9]) == OT_DROPPEDITEM)
+			continue;
+
         if (atoi(row[9]) == 0)
         {
             // Type == 0 - Static Object

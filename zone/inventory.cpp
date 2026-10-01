@@ -513,7 +513,6 @@ void Client::CreateGroundObject(const EQ::ItemInstance* inst_in, glm::vec4 coord
 	// Package as zone object
 	Object *object = new Object(inst, coords.x, coords.y, coords.z, coords.w ,decay_time, true, this);
 	entity_list.AddObject(object, true);
-	object->Save();
 
 	safe_delete(inst);
 }
