@@ -339,9 +339,12 @@ public:
 	ServerEarthquakeImminent_Struct cached_quake_struct;
 	Timer*	EndQuake_Timer;
 	bool GuildOneTimedRaidSpawnsEnabled();
+	bool GuildOneQuakeEnabled(bool force_refresh = false);
 	bool GuildOneRaidWindowOpen();
 	uint32 guild_one_quake_start = 0;
 	uint32 guild_one_quake_refresh = 0;
+	uint32 guild_one_quake_scope_refresh = 0;
+	bool guild_one_quake_enabled = false;
 
 	uint8 loglevelvar;
 	uint8 merchantvar;
