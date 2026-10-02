@@ -2024,6 +2024,40 @@ bool Zone::GuildOneRaidWindowOpen()
 		&& (now - guild_one_quake_start) < static_cast<uint32>(RuleI(Quarm, QuakeEndTimeDuration));
 }
 
+bool Zone::OpenWorldRaidSpawnsEnabled(bool force_refresh)
+{
+	if (GetGuildID() != GUILD_NONE || GetZoneExpansion() > LuclinEQ) {
+		return false;
+	}
+
+	const auto short_name = Strings::ToLower(GetShortName());
+	static const std::set<std::string> pop_zone_names = {
+		"bothunder", "codecay", "hohonora", "hohonorb", "nightmareb", "poair", "podisease",
+		"poeartha", "poearthb", "pofire", "poinnovation", "pojustice", "ponightmare", "postorms",
+		"potactics", "potimea", "potimeb", "potorment", "povalor", "powater", "solrotower"
+	};
+	// Some PoP zones have stale expansion values in older databases.
+	if (short_name == "veksar" ||
+		short_name.find("_instanced") != std::string::npos ||
+		pop_zone_names.count(short_name)) {
+		return false;
+	}
+
+	const uint32 now = Timer::GetTimeSeconds();
+	if (force_refresh || open_world_raid_spawns_refresh == 0 || now >= open_world_raid_spawns_refresh) {
+		const auto value = DataBucket::GetData("open_world_raid_respawns");
+		open_world_raid_spawns_started_at = static_cast<uint32>(strtoul(value.c_str(), nullptr, 10));
+		open_world_raid_spawns_enabled = open_world_raid_spawns_started_at > 1;
+		open_world_raid_spawns_refresh = now + 5;
+	}
+	return open_world_raid_spawns_enabled;
+}
+
+uint32 Zone::OpenWorldRaidSpawnsStartedAt()
+{
+	return OpenWorldRaidSpawnsEnabled() ? open_world_raid_spawns_started_at : 0;
+}
+
 bool Zone::ResetEngageNotificationTargets(uint32 in_respawn_timer, bool update_respawn_in_db)
 {
 	bool reset_at_least_one_spawn2 = false;

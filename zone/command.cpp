@@ -302,6 +302,7 @@ int command_init(void)
 		command_add("qtest", "QueryServ testing command.", AccountStatus::GMTester, command_qtest) ||
 		command_add("quaketrigger", "- [type_num (1 = Normal, 2 = PVP)] Triggers an earthquake manually", AccountStatus::GMImpossible, command_quaketrigger) ||
 		command_add("pvpzone", "Manage PVP zone access, loot, and experience bonuses.", AccountStatus::GMAdmin, command_pvpzone) ||
+		command_add("openworldraid", "Toggle natural open-world raid respawns through Luclin.", AccountStatus::GMAdmin, command_openworldraid) ||
 		command_add("popaltaccess", "Enable or disable Plane of Power alternate-access keys and quests.", AccountStatus::GMAdmin, command_popaltaccess) ||
 		command_add("popflagtest", "Grant or clear Plane of Power zone flags on your target for testing.", AccountStatus::GMAdmin, command_popflagtest) ||
 
@@ -1044,6 +1045,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/playsound.cpp"
 #include "gm_commands/popflags.cpp"
 #include "gm_commands/popaltaccess.cpp"
+#include "gm_commands/openworldraid.cpp"
 #include "gm_commands/popflagtest.cpp"
 #include "gm_commands/profanity.cpp"
 #include "gm_commands/push.cpp"
