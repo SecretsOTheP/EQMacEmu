@@ -959,15 +959,35 @@ bool Corpse::Process() {
 
 	if (worldserver.Connected() && corpse_graveyard_timer.Check() && (zone->GetGuildID() != GUILD_NONE || corpse_graveyard_forced)) {
 		if (zone->HasGraveyard()) {
-			// Justice trial cleanup and explicit instance-graveyard moves retain
-			// the corpse in its guild instance rather than the shared live graveyard.
-			const bool justice_trial_instance = zone->GetZoneID() == Zones::POJUSTICE && zone->GetGuildID() > 1;
+			// Failed Justice trials stay at the tribunal; other PoP instance
+			// corpses use Tranquility when their graveyard timer expires.
+			const bool justice_trial_instance = zone->GetZoneID() == Zones::POJUSTICE &&
+				zone->GetGuildID() != GUILD_NONE && corpse_graveyard_forced;
 			const bool same_instance_graveyard = justice_trial_instance || corpse_graveyard_same_instance;
-			const uint32 graveyard_zone_id = same_instance_graveyard ? zone->GetZoneID() : zone->graveyard_zoneid();
-			const uint32 graveyard_guild_id = same_instance_graveyard ? zone->GetGuildID() : GUILD_NONE;
-			const glm::vec4 graveyard_point = justice_trial_instance
+			uint32 graveyard_zone_id = same_instance_graveyard ? zone->GetZoneID() : zone->graveyard_zoneid();
+			uint32 graveyard_guild_id = same_instance_graveyard ? zone->GetGuildID() : GUILD_NONE;
+			glm::vec4 graveyard_point = justice_trial_instance
 				? glm::vec4(473.0f, 685.0f, 10.0f, 0.0f)
 				: zone->GetGraveyardPoint();
+
+			if (zone->GetGuildID() != GUILD_NONE && zone->GetZoneExpansion() == PlanesEQ &&
+				!same_instance_graveyard) {
+				auto results = database.QueryDatabase(StringFormat(
+					"SELECT x, y, z, heading FROM graveyard WHERE zone_id = %u LIMIT 1",
+					static_cast<uint32>(Zones::POTRANQUILITY)));
+				if (!results.Success() || results.RowCount() != 1) {
+					Log(Logs::General, Logs::Error,
+						"Tranquility graveyard is missing; retaining corpse %s in %s and retrying.",
+						GetName(), zone->GetShortName());
+					corpse_graveyard_timer.Start(60000);
+					return true;
+				}
+
+				auto row = results.begin();
+				graveyard_zone_id = Zones::POTRANQUILITY;
+				graveyard_guild_id = GUILD_NONE;
+				graveyard_point = glm::vec4(atof(row[0]), atof(row[1]), atof(row[2]), atof(row[3]));
+			}
 			Save();
 
 			if (being_looted_by != 0xFFFFFFFF)
