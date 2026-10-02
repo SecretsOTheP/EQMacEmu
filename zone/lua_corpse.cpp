@@ -72,6 +72,11 @@ void Lua_Corpse::MoveToGraveyard() {
 	self->MoveToGraveyard();
 }
 
+void Lua_Corpse::MoveToInstanceGraveyard() {
+	Lua_Safe_Call_Void();
+	self->MoveToInstanceGraveyard();
+}
+
 void Lua_Corpse::Depop() {
 	Lua_Safe_Call_Void();
 	self->Depop();
@@ -175,6 +180,7 @@ luabind::scope lua_register_corpse() {
 		.def("Delete", (void(Lua_Corpse::*)(void))&Lua_Corpse::Delete)
 		.def("Bury", (void(Lua_Corpse::*)(void))&Lua_Corpse::Bury)
 		.def("MoveToGraveyard", (void(Lua_Corpse::*)(void))&Lua_Corpse::MoveToGraveyard)
+		.def("MoveToInstanceGraveyard", (void(Lua_Corpse::*)(void))&Lua_Corpse::MoveToInstanceGraveyard)
 		.def("Depop", (void(Lua_Corpse::*)(void))&Lua_Corpse::Depop)
 		.def("CountItems", (uint32(Lua_Corpse::*)(void))&Lua_Corpse::CountItems)
 		.def("AddItem", (void(Lua_Corpse::*)(uint32, uint16, int16, uint32, uint32, uint32, uint32, uint32))&Lua_Corpse::AddItem)

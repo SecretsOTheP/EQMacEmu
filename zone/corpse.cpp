@@ -957,8 +957,17 @@ bool Corpse::Process() {
 		return true;
 	}
 
-	if (worldserver.Connected() && corpse_graveyard_timer.Check() && zone->GetGuildID() != GUILD_NONE) {
+	if (worldserver.Connected() && corpse_graveyard_timer.Check() && (zone->GetGuildID() != GUILD_NONE || corpse_graveyard_forced)) {
 		if (zone->HasGraveyard()) {
+			// Justice trial cleanup and explicit instance-graveyard moves retain
+			// the corpse in its guild instance rather than the shared live graveyard.
+			const bool justice_trial_instance = zone->GetZoneID() == Zones::POJUSTICE && zone->GetGuildID() > 1;
+			const bool same_instance_graveyard = justice_trial_instance || corpse_graveyard_same_instance;
+			const uint32 graveyard_zone_id = same_instance_graveyard ? zone->GetZoneID() : zone->graveyard_zoneid();
+			const uint32 graveyard_guild_id = same_instance_graveyard ? zone->GetGuildID() : GUILD_NONE;
+			const glm::vec4 graveyard_point = justice_trial_instance
+				? glm::vec4(473.0f, 685.0f, 10.0f, 0.0f)
+				: zone->GetGraveyardPoint();
 			Save();
 
 			if (being_looted_by != 0xFFFFFFFF)
@@ -971,16 +980,16 @@ bool Corpse::Process() {
 			}
 
 			player_corpse_depop = true;
-			database.SendCharacterCorpseToGraveyard(corpse_db_id, zone->graveyard_zoneid(), GUILD_NONE, zone->GetGraveyardPoint());
+			database.SendCharacterCorpseToGraveyard(corpse_db_id, graveyard_zone_id, graveyard_guild_id, graveyard_point);
 			corpse_graveyard_timer.Disable();
 			auto pack = new ServerPacket(ServerOP_SpawnPlayerCorpse, sizeof(SpawnPlayerCorpse_Struct));
 			SpawnPlayerCorpse_Struct* spc = (SpawnPlayerCorpse_Struct*)pack->pBuffer;
 			spc->player_corpse_id = corpse_db_id;
-			spc->zone_id = zone->graveyard_zoneid();
-			spc->GuildID = GUILD_NONE;
+			spc->zone_id = graveyard_zone_id;
+			spc->GuildID = graveyard_guild_id;
 			worldserver.SendPacket(pack);
 			safe_delete(pack);
-			Log(Logs::General, Logs::Corpse, "Moved %s player corpse to the designated graveyard in zone %s.", this->GetName(), ZoneName(zone->graveyard_zoneid()));
+			Log(Logs::General, Logs::Corpse, "Moved %s player corpse to the designated graveyard in zone %s (guild instance %u).", this->GetName(), ZoneName(graveyard_zone_id), graveyard_guild_id);
 			corpse_db_id = 0;
 		}
 

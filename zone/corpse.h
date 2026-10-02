@@ -85,7 +85,8 @@ class Corpse : public Mob {
 
 	void			Delete();
 	void			Bury();
-	void			MoveToGraveyard() { if (IsPlayerCorpse()) corpse_graveyard_timer.Trigger(); }
+	void			MoveToGraveyard() { if (IsPlayerCorpse()) { corpse_graveyard_forced = true; corpse_graveyard_timer.Trigger(); } }
+	void			MoveToInstanceGraveyard() { if (IsPlayerCorpse()) { corpse_graveyard_forced = true; corpse_graveyard_same_instance = true; corpse_graveyard_timer.Trigger(); } }
 	void			CalcCorpseName();
 	void			LoadPlayerCorpseDecayTime(uint32 dbid, bool empty);
 
@@ -170,6 +171,8 @@ protected:
 private:
 	bool		is_player_corpse;
 	bool		is_corpse_changed;
+	bool		corpse_graveyard_forced = false;
+	bool		corpse_graveyard_same_instance = false;
 	bool		is_locked;
 	int32		player_kill_item;
 	uint32		corpse_db_id;
