@@ -4,6 +4,7 @@
 #include "../../common/repositories/rule_sets_repository.h"
 #include "../../common/repositories/rule_values_repository.h"
 #include "../data_bucket.h"
+#include "../pvp_zone_tiers.h"
 #include "../../common/rulesys.h"
 #include "../../common/strings.h"
 #include <cstdlib>
@@ -482,6 +483,8 @@ void SendRuleSubCommands(Client *c)
 }
 namespace {
 constexpr const char *PVP_ZONE_BUCKET = "pvpzone_active_shortnames";
+constexpr const char *PVP_QUAKE_TIER_BUCKET = "pvpzone_quake_tier";
+constexpr const char *PVP_QUAKE_SCOPE_BUCKET = "pvpzone_quake_scope";
 constexpr const char *PVP_NORMAL_LOOT_BUCKET = "pvpzone_normal_loot_shortnames";
 constexpr const char *PVP_RAID_LOOT_BUCKET = "pvpzone_raid_loot_shortnames";
 constexpr const char *PVP_XP_BUCKET = "pvpzone_xp_zem";
@@ -504,16 +507,6 @@ const std::set<std::string> &AllowedPVPZones()
 	return zones;
 }
 
-const std::set<std::string> &PlanesOfPowerPVPZones()
-{
-	static const std::set<std::string> zones = {
-		"bothunder", "codecay", "hohonora", "hohonorb", "nightmareb", "poair", "podisease",
-		"poeartha", "poearthb", "pofire", "poinnovation", "pojustice", "ponightmare", "postorms",
-		"potactics", "potimea", "potimeb", "potorment", "povalor", "powater", "solrotower"
-	};
-	return zones;
-}
-
 std::set<std::string> PVPZonesThroughTier(const std::string &tier)
 {
 	std::set<std::string> zones;
@@ -522,7 +515,7 @@ std::set<std::string> PVPZonesThroughTier(const std::string &tier)
 		if (short_name == "veksar") {
 			continue;
 		}
-		if (tier == "pop" || !PlanesOfPowerPVPZones().count(short_name)) {
+		if (tier == "pop" || !PVPZoneTiers::PlanesOfPowerZones().count(short_name)) {
 			zones.insert(short_name);
 		}
 	}
@@ -642,23 +635,66 @@ void ShowPVPZoneStatus(Client *c)
 	c->Message(Chat::White, fmt::format("Active PVP zones: {} of {}", active.size(), AllowedPVPZones().size()).c_str());
 }
 
-void ShowPVPZoneUsage(Client *c)
+void ShowPVPZoneUsage(Client *c, bool advanced = false)
 {
-	c->Message(Chat::White, "#pvpzone <shortname> <on|off>");
-	c->Message(Chat::White, "#pvpzone <shortname> xp <off|110-150>");
+	c->Message(Chat::White, "#pvpzone status | list");
+	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (PVP zone access)");
+	c->Message(Chat::White, "#pvpzone quake <luclin|pop> <on|off> (Guild 1 quake participation)");
+	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic quake timer)");
+	c->Message(Chat::White, "#pvpzone <shortname> <on|off> (one zone)");
+	if (!advanced) {
+		c->Message(Chat::White, "#pvpzone help advanced (loot, XP, and other commands)");
+		return;
+	}
+	c->Message(Chat::White, "#pvpzone all <on|off>");
+	c->Message(Chat::White, "#pvpzone <shortname> status | xp <off|110-150>");
 	c->Message(Chat::White, "#pvpzone <shortname> <1|normal|2|raid|3|both> <on|off>");
-	c->Message(Chat::White, "#pvpzone <shortname> status");
-	c->Message(Chat::White, "#pvpzone status | list | all <on|off>");
 	c->Message(Chat::White, "#pvpzone all <normal|raid|both> <on|off>");
-	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic timer only; server-wide)");
-	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (batch zone access; Guild 1 raid targets outside Fear and Hate remain quake-only)");
 }
 }
 
 void command_pvpzone(Client *c, const Seperator *sep)
 {
 	if (!c || sep->argnum < 1 || !strcasecmp(sep->arg[1], "help")) {
-		if (c) ShowPVPZoneUsage(c);
+		if (c) ShowPVPZoneUsage(c, sep->argnum >= 2 && !strcasecmp(sep->arg[2], "advanced"));
+		return;
+	}
+	const bool quake_scope_command = !strcasecmp(sep->arg[1], "quake");
+	const bool legacy_quake_scope_command = !strcasecmp(sep->arg[1], "qluclin") || !strcasecmp(sep->arg[1], "qpop");
+	if (quake_scope_command || legacy_quake_scope_command) {
+		if (c->Admin() < AccountStatus::GMAdmin) {
+			c->Message(Chat::Red, "GM Admin required.");
+			return;
+		}
+		const bool valid_tier = quake_scope_command && sep->argnum >= 2 &&
+			(!strcasecmp(sep->arg[2], "luclin") || !strcasecmp(sep->arg[2], "pop"));
+		bool enabled = false;
+		const bool independent_toggle = valid_tier && sep->argnum == 3 && ParsePVPToggle(sep->arg[3], enabled);
+		const bool previous_scope_syntax = valid_tier && sep->argnum == 2;
+		if ((!independent_toggle && !previous_scope_syntax && quake_scope_command) ||
+			(legacy_quake_scope_command && sep->argnum != 1)) {
+			c->Message(Chat::Red, "Usage: #pvpzone quake <luclin|pop> <on|off>");
+			return;
+		}
+		auto scope = PVPZoneTiers::ParseQuakeScope(
+			Strings::ToLower(DataBucket::GetData(PVP_QUAKE_SCOPE_BUCKET)),
+			Strings::ToLower(DataBucket::GetData(PVP_QUAKE_TIER_BUCKET)));
+		const bool pop_tier = quake_scope_command ? !strcasecmp(sep->arg[2], "pop") : !strcasecmp(sep->arg[1], "qpop");
+		if (independent_toggle) {
+			if (pop_tier) scope.pop = enabled;
+			else scope.luclin_and_earlier = enabled;
+		} else {
+			// Keep the older scope commands as aliases for their original behavior.
+			scope = pop_tier ? PVPZoneTiers::QuakeScope{ true, true } : PVPZoneTiers::QuakeScope{ true, false };
+		}
+		const char *scope_value = PVPZoneTiers::QuakeScopeValue(scope);
+		DataBucket::SetData(PVP_QUAKE_SCOPE_BUCKET, scope_value);
+		if (DataBucket::GetData(PVP_QUAKE_SCOPE_BUCKET) != scope_value) {
+			c->Message(Chat::Red, "Could not save Guild 1 quake participation.");
+			return;
+		}
+		c->Message(Chat::Yellow, "Guild 1 quake participation: Luclin and earlier %s, PoP %s. Automatic quake timer unchanged.",
+			scope.luclin_and_earlier ? "ON" : "OFF", scope.pop ? "ON" : "OFF");
 		return;
 	}
 
@@ -705,8 +741,12 @@ void command_pvpzone(Client *c, const Seperator *sep)
 	}
 	if (!strcasecmp(sep->arg[1], "luclin") || !strcasecmp(sep->arg[1], "pop")) {
 		bool enabled = false;
-		if (c->Admin() < AccountStatus::GMAdmin || sep->argnum != 2 || !ParsePVPToggle(sep->arg[2], enabled)) {
-			c->Message(Chat::Red, "GM Admin required. Usage: #pvpzone <luclin|pop> <on|off>");
+		if (c->Admin() < AccountStatus::GMAdmin) {
+			c->Message(Chat::Red, "GM Admin required.");
+			return;
+		}
+		if (sep->argnum != 2 || !ParsePVPToggle(sep->arg[2], enabled)) {
+			c->Message(Chat::Red, "Usage: #pvpzone <luclin|pop> <on|off>");
 			return;
 		}
 		const auto tier = Strings::ToLower(sep->arg[1]);
@@ -726,14 +766,19 @@ void command_pvpzone(Client *c, const Seperator *sep)
 		SaveActivePVPZones(active);
 		c->Message(
 			Chat::Yellow,
-			"%s %zu PVP zones through %s. Guild 1 raid targets outside Fear and Hate remain quake-only.",
-			enabled ? "Enabled" : "Disabled", tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
+			"PVP access %s for %zu zones through %s. Guild 1 quake scope unchanged.",
+			enabled ? "enabled" : "disabled", tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
 		c->Message(Chat::White, "Active zone servers will notice the change within five seconds; use #repop if an immediate fresh spawn cycle is needed.");
 		return;
 	}
 	if (!strcasecmp(sep->arg[1], "status")) {
 		ShowPVPZoneStatus(c);
 		c->Message(Chat::White, "Guild 1 raid targets: quake-only outside Fear and Hate.");
+		const auto scope = PVPZoneTiers::ParseQuakeScope(
+			Strings::ToLower(DataBucket::GetData(PVP_QUAKE_SCOPE_BUCKET)),
+			Strings::ToLower(DataBucket::GetData(PVP_QUAKE_TIER_BUCKET)));
+		c->Message(Chat::White, "Guild 1 quake participation: Luclin and earlier %s, PoP %s (active PVP zones only).",
+			scope.luclin_and_earlier ? "ON" : "OFF", scope.pop ? "ON" : "OFF");
 		auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' LIMIT 1");
 		if (result.Success() && result.RowCount() > 0) {
 			auto row = result.begin();

@@ -38,6 +38,7 @@ public:
 	void Delete();
 	void Bury();
 	void MoveToGraveyard();
+	void MoveToInstanceGraveyard();
 	void Depop();
 	uint32 CountItems();
 	void AddItem(uint32 itemnum, int8 charges, int16 slot);

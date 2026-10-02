@@ -339,6 +339,7 @@ public:
 	ServerEarthquakeImminent_Struct cached_quake_struct;
 	Timer*	EndQuake_Timer;
 	bool GuildOneTimedRaidSpawnsEnabled();
+	bool GuildOneQuakeEnabled(bool force_refresh = false);
 	bool GuildOneRaidWindowOpen();
 	bool OpenWorldRaidSpawnsEnabled(bool force_refresh = false);
 	uint32 OpenWorldRaidSpawnsStartedAt();
@@ -347,6 +348,8 @@ public:
 	uint32 open_world_raid_spawns_refresh = 0;
 	bool open_world_raid_spawns_enabled = false;
 	uint32 open_world_raid_spawns_started_at = 0;
+	uint32 guild_one_quake_scope_refresh = 0;
+	bool guild_one_quake_enabled = false;
 
 	uint8 loglevelvar;
 	uint8 merchantvar;

@@ -47,6 +47,7 @@
 #include "pathfinder_waypoint.h"
 #include "mob_movement_manager.h"
 #include "petitions.h"
+#include "pvp_zone_tiers.h"
 #include "quest_parser_collection.h"
 #include "spawn2.h"
 #include "spawngroup.h"
@@ -1969,6 +1970,30 @@ bool Zone::GuildOneTimedRaidSpawnsEnabled()
 		 strcmp(GetShortName(), "hate_instanced") == 0);
 }
 
+bool Zone::GuildOneQuakeEnabled(bool force_refresh)
+{
+	if (GetGuildID() != 1) {
+		return true;
+	}
+
+	const uint32 now = Timer::GetTimeSeconds();
+	if (force_refresh || guild_one_quake_scope_refresh == 0 || now >= guild_one_quake_scope_refresh) {
+		const auto active = Strings::ToLower(DataBucket::GetData("pvpzone_active_shortnames"));
+		const auto short_name = Strings::ToLower(GetShortName());
+		const auto scope = PVPZoneTiers::ParseQuakeScope(
+			Strings::ToLower(DataBucket::GetData("pvpzone_quake_scope")),
+			Strings::ToLower(DataBucket::GetData("pvpzone_quake_tier")));
+		const bool active_pvp_zone =
+			("," + active + ",").find("," + short_name + ",") != std::string::npos;
+		// Veksar opened after PoP and belongs to neither quake tier.
+		const bool within_tier = short_name != "veksar" &&
+			(PVPZoneTiers::PlanesOfPowerZones().count(short_name) ? scope.pop : scope.luclin_and_earlier);
+		guild_one_quake_enabled = active_pvp_zone && within_tier;
+		guild_one_quake_scope_refresh = now + 5;
+	}
+	return guild_one_quake_enabled;
+}
+
 bool Zone::GuildOneRaidWindowOpen()
 {
 	if (GetGuildID() != 1) {
@@ -1976,6 +2001,9 @@ bool Zone::GuildOneRaidWindowOpen()
 	}
 	if (GuildOneTimedRaidSpawnsEnabled()) {
 		return true;
+	}
+	if (!GuildOneQuakeEnabled()) {
+		return false;
 	}
 	if (!RuleB(Quarm, EnableQuakes)) {
 		return false;

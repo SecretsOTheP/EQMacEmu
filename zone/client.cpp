@@ -402,9 +402,15 @@ void Client::ForfeitRallosianGlory(const char *action)
 
 	const uint8 lost_glory = rallosian_glory;
 	rallosian_glory = 0;
+	std::string victim_name = GetCleanName();
+	if (IsInAGuild()) {
+		const std::string guild_name = GetGuildName();
+		if (!guild_name.empty())
+			victim_name += fmt::format(" <{}>", guild_name);
+	}
 	const auto message = fmt::format(
-		"Rallos Zek looks down in disgust as {} {} like a cowardly dog, surrendering {} measure{} of Rallosian Glory.",
-		GetCleanName(), action, lost_glory, lost_glory == 1 ? "" : "s");
+		"Rallos Zek looks down in disgust as {} {} in {} like a cowardly dog, forfeiting {} Glory.",
+		victim_name, action, zone->GetLongName(), lost_glory);
 	Message(Chat::Yellow, "[PVP] %s", message.c_str());
 
 	const auto sender = fmt::format("Rallosian_Glory:{}", CharacterID());

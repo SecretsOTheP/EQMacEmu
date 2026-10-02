@@ -1285,6 +1285,17 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 		if (owner && owner->IsClient())
 			killer = owner->CastToClient();
 	}
+	auto display_name = [](Client *client) {
+		std::string name = client->GetCleanName();
+		if (client->IsInAGuild()) {
+			const std::string guild_name = client->GetGuildName();
+			if (!guild_name.empty())
+				name += fmt::format(" <{}>", guild_name);
+		}
+		return name;
+	};
+	const std::string victim_name = display_name(this);
+	const std::string killer_name = killer ? display_name(killer) : "";
 
 	const uint8 victim_glory = rallosian_glory;
 	rallosian_glory = 0;
@@ -1395,46 +1406,48 @@ void Client::HandleRallosianGloryDeath(Mob *killer_mob)
 
 		if (victim_glory > 0) {
 			message = fmt::format(
-				"Rallos Zek exults as {} cuts down {} in {} and claims {} measure{} of hard-won Glory. {} now bears {} of {}.",
-				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), victim_glory,
-				victim_glory == 1 ? "" : "s", killer->GetCleanName(), new_killer_glory,
-				RallosianGloryMaxRank);
+				"Rallos Zek exults as {} cuts down {} in {}. {} loses {} Glory; {} now has {}/{}.",
+				killer_name, victim_name, zone->GetLongName(), victim_name, victim_glory,
+				killer_name, new_killer_glory, RallosianGloryMaxRank);
 		} else if (new_killer_glory == RallosianGloryMaxRank) {
-			message = fmt::format(
-				"The laughter of Rallos Zek thunders across Norrath as {} spills {}'s blood in {} and reaches {} measures of Rallosian Glory!",
-				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), RallosianGloryMaxRank);
+			if (old_killer_glory == RallosianGloryMaxRank) {
+				message = fmt::format(
+					"Rallos Zek exults as {} kills {} in {} and remains at {}/{} Glory.",
+					killer_name, victim_name, zone->GetLongName(), new_killer_glory, RallosianGloryMaxRank);
+			} else {
+				message = fmt::format(
+					"Rallos Zek exults as {} kills {} in {} and reaches {}/{} Glory!",
+					killer_name, victim_name, zone->GetLongName(), new_killer_glory, RallosianGloryMaxRank);
+			}
 		} else {
 			message = fmt::format(
-				"Rallos Zek marks {} with his favor for spilling {}'s blood in {}. {} now bears {} of {} measures of Rallosian Glory.",
-				killer->GetCleanName(), GetCleanName(), zone->GetLongName(), killer->GetCleanName(), new_killer_glory, RallosianGloryMaxRank);
+				"Rallos Zek favors {} for killing {} in {}. {} now has {}/{} Glory.",
+				killer_name, victim_name, zone->GetLongName(), killer_name, new_killer_glory, RallosianGloryMaxRank);
 		}
-	} else if (!killer && killer_mob && killer_mob != this && killer_mob->IsNPC()) {
-		std::string victim_name = GetCleanName();
-		if (IsInAGuild()) {
-			const std::string guild_name = GetGuildName();
-			if (!guild_name.empty())
-				victim_name += fmt::format(" <{}>", guild_name);
-		}
+	} else if (!killer && killer_mob && killer_mob != this) {
 		message = fmt::format(
 			"Rallos Zek looks down in disgust as {} falls to {} in {}.",
 			victim_name, killer_mob->GetCleanName(), zone->GetLongName());
+		if (victim_glory > 0)
+			message += fmt::format(" {} Glory lost.", victim_glory);
 	} else if (victim_glory > 0) {
-		message = fmt::format(
-			"Rallos Zek turns his gaze from {}. {} measure{} of Rallosian Glory {} lost in an unworthy death in {}.",
-			GetCleanName(), victim_glory, victim_glory == 1 ? "" : "s",
-			victim_glory == 1 ? "is" : "are", zone->GetLongName());
+		if (killer && killer != this) {
+			message = fmt::format(
+				"Rallos Zek looks down in disgust as {} falls to {} in {}. {} loses {} Glory; no Glory awarded.",
+				victim_name, killer_name, zone->GetLongName(), victim_name, victim_glory);
+		} else {
+			message = fmt::format(
+				"Rallos Zek looks down in disgust as {} falls in {}. {} Glory lost.",
+				victim_name, zone->GetLongName(), victim_glory);
+		}
 	} else if (killer && killer != this) {
 		message = fmt::format(
-			"Rallos Zek watches as {} spills {}'s blood in {}, but finds no worthy conquest.",
-			killer->GetCleanName(), GetCleanName(), zone->GetLongName());
-	} else if (killer_mob && killer_mob != this) {
-		message = fmt::format(
-			"Rallos Zek looks on as {} falls to {} in {}, but grants no Glory.",
-			GetCleanName(), killer_mob->GetCleanName(), zone->GetLongName());
+			"Rallos Zek looks down in disgust as {} falls to {} in {}. No Glory awarded.",
+			victim_name, killer_name, zone->GetLongName());
 	} else {
 		message = fmt::format(
-			"Rallos Zek looks down in disgust as {} falls in {} without a worthy foe.",
-			GetCleanName(), zone->GetLongName());
+			"Rallos Zek looks down in disgust as {} falls in {}.",
+			victim_name, zone->GetLongName());
 	}
 
 	worldserver.SendChannelMessage("Rallosian_Glory", ChatChannel_Broadcast, 0, 0, 100, message.c_str());

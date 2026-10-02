@@ -2910,7 +2910,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 		
 		case ServerOP_QuakeEnded:
 		{
-			if (zone && zone->GetGuildID() == 1)
+			if (zone && zone->GetGuildID() == 1 && zone->GuildOneQuakeEnabled(true))
 			{
 
 				ServerEarthquakeImminent_Struct* seis = (ServerEarthquakeImminent_Struct*)pack->pBuffer;
@@ -2926,7 +2926,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 
 		case ServerOP_QuakeImminent:
 		{
-			if (zone && zone->GetGuildID() == 1)
+			if (zone && zone->GetGuildID() == 1 && zone->GuildOneQuakeEnabled(true))
 			{
 
 				ServerEarthquakeImminent_Struct* seis = (ServerEarthquakeImminent_Struct*)pack->pBuffer;
