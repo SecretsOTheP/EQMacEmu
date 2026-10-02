@@ -127,9 +127,10 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 	}
 
 
-	// Open world and the PvP instance use the spawn2 database timer. Only
-	// ordinary guild instances use the generic reduced respawn rules.
-	if (zone && zone->GetGuildID() > 1 && zone->GetGuildID() != GUILD_NONE &&
+	// Open world and ordinary guild instances may use reduced respawns.
+	// Guild 1 PvP keeps the unmodified spawn2 database timer.
+	if (zone && zone->GetGuildID() != 1 &&
+		!(raid_target_spawnpoint && zone->GetGuildID() == GUILD_NONE) &&
 		RuleB(Quarm, EnableRespawnReductionSystem))
 	{
 		if (zone->IsReducedSpawnTimersZone())
