@@ -54,6 +54,14 @@ extern Zone* zone;
 extern WorldServer worldserver;
 extern QueryServ* QServ;
 
+namespace {
+bool IsPoPGraveyardZone()
+{
+	return zone && zone->GetZoneID() >= Zones::CODECAY &&
+		zone->GetZoneID() <= Zones::POTIMEB;
+}
+}
+
 void Corpse::SendEndLootErrorPacket(Client* client) {
 	if (client)
 	{
@@ -334,7 +342,8 @@ Corpse::Corpse(Client* client, int32 in_rezexp, uint8 in_killedby) : Mob (
 	EQ::ItemInstance *item = nullptr;
 
 	/* Check if Zone has Graveyard First */
-	if(!zone->HasGraveyard() || zone->GetGuildID() == GUILD_NONE && zone->GetZoneID() < 1000) {
+	if (!zone->HasGraveyard() ||
+		(zone->GetGuildID() == GUILD_NONE && zone->GetZoneID() < 1000 && !IsPoPGraveyardZone())) {
 		corpse_graveyard_timer.Disable();
 	}
 	corpse_graveyard_moved_timer.Disable();
@@ -611,7 +620,8 @@ Corpse::Corpse(uint32 in_dbid, uint32 in_charid, const char* in_charname, LootIt
 
 	LoadPlayerCorpseDecayTime(in_dbid, empty);
 
-	if (!zone->HasGraveyard() || wasAtGraveyard || zone->GetGuildID() == GUILD_NONE && zone->GetZoneID() < 1000){
+	if (!zone->HasGraveyard() || wasAtGraveyard ||
+		(zone->GetGuildID() == GUILD_NONE && zone->GetZoneID() < 1000 && !IsPoPGraveyardZone())) {
 		corpse_graveyard_timer.Disable();
 	}
 	corpse_graveyard_moved_timer.Disable();
@@ -957,10 +967,11 @@ bool Corpse::Process() {
 		return true;
 	}
 
-	if (worldserver.Connected() && corpse_graveyard_timer.Check() && (zone->GetGuildID() != GUILD_NONE || corpse_graveyard_forced)) {
+	if (worldserver.Connected() && corpse_graveyard_timer.Check() &&
+		(zone->GetGuildID() != GUILD_NONE || IsPoPGraveyardZone() || corpse_graveyard_forced)) {
 		if (zone->HasGraveyard()) {
-			// Failed Justice trials stay at the tribunal; other PoP instance
-			// corpses use Tranquility when their graveyard timer expires.
+			// Open-world PoP uses its configured in-zone graveyard. Failed Justice
+			// trials stay at the tribunal; other PoP instances use Tranquility.
 			const bool justice_trial_instance = zone->GetZoneID() == Zones::POJUSTICE &&
 				zone->GetGuildID() != GUILD_NONE && corpse_graveyard_forced;
 			const bool same_instance_graveyard = justice_trial_instance || corpse_graveyard_same_instance;
@@ -970,7 +981,7 @@ bool Corpse::Process() {
 				? glm::vec4(473.0f, 685.0f, 10.0f, 0.0f)
 				: zone->GetGraveyardPoint();
 
-			if (zone->GetGuildID() != GUILD_NONE && zone->GetZoneExpansion() == PlanesEQ &&
+			if (zone->GetGuildID() != GUILD_NONE && IsPoPGraveyardZone() &&
 				!same_instance_graveyard) {
 				auto results = database.QueryDatabase(StringFormat(
 					"SELECT x, y, z, heading FROM graveyard WHERE zone_id = %u LIMIT 1",
