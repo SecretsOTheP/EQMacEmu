@@ -34,7 +34,8 @@ public:
 		uint32 respawn, uint32 variance,
 		uint32 timeleft = 0, uint32 grid = 0,
 		uint16 cond_id = SC_AlwaysEnabled, int16 min_value = 0, bool in_enabled = true, EmuAppearance anim = eaStanding, 
-		bool force_z = false, bool rand_spawn = false, bool raid_target_spawnpoint = false);
+		bool force_z = false, bool rand_spawn = false, bool raid_target_spawnpoint = false,
+		bool had_saved_respawn = false);
 	~Spawn2();
 
 	void	LoadGrid(int start_wp = 0);
@@ -108,6 +109,7 @@ private:
 	bool force_z;
 	bool rand_spawn;
 	bool raid_target_spawnpoint;
+	bool open_world_raid_timer_initialized_ = false;
 	bool script_respawn_timer_custom_ = false;
 	bool script_timer_active_ = false;
 };

@@ -45,7 +45,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	float in_x, float in_y, float in_z, float in_heading,
 	uint32 respawn, uint32 variance, uint32 timeleft, uint32 grid,
 	uint16 in_cond_id, int16 in_min_value, bool in_enabled, EmuAppearance anim, 
-	bool in_force_z, bool in_rand_spawn, bool in_raid_target_spawnpoint)
+	bool in_force_z, bool in_rand_spawn, bool in_raid_target_spawnpoint, bool had_saved_respawn)
 : timer(100000), killcount(0)
 {
 	spawn2_id = in_spawn2_id;
@@ -65,6 +65,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	force_z = in_force_z;
 	rand_spawn = in_rand_spawn;
 	raid_target_spawnpoint = in_raid_target_spawnpoint;
+	open_world_raid_timer_initialized_ = had_saved_respawn || timeleft != 0;
 	last_level_attempt = 0;
 	last_instance_spawn_timer_override = 0;
 
@@ -296,7 +297,29 @@ bool Spawn2::Process() {
 		return true;
 
 	if (raid_target_spawnpoint && zone->GetGuildID() == GUILD_NONE) {
-		return true;
+		if (!zone->OpenWorldRaidSpawnsEnabled()) {
+			return true;
+		}
+		if (!open_world_raid_timer_initialized_) {
+			// A target suppressed before this toggle has no meaningful countdown.
+			// Count from when the toggle was enabled, including zones booted later.
+			open_world_raid_timer_initialized_ = true;
+			const uint32 duration = resetTimer();
+			const uint32 started_at = zone->OpenWorldRaidSpawnsStartedAt();
+			const uint32 now = Timer::GetTimeSeconds();
+			const uint32 elapsed = now > started_at ? now - started_at : 0;
+			const uint32 duration_seconds = duration / 1000;
+			if (elapsed >= duration_seconds) {
+				timer.Trigger();
+			} else {
+				const uint32 remaining_seconds = duration_seconds - elapsed;
+				timer.Start(remaining_seconds * 1000);
+				if (spawn2_id) {
+					database.UpdateRespawnTime(spawn2_id, remaining_seconds, GUILD_NONE);
+				}
+				return true;
+			}
+		}
 	}
 
 	if (!RuleB(Quarm, EnableQuakes) && raid_target_spawnpoint && zone->GetGuildID() == 1 && !zone->GuildOneTimedRaidSpawnsEnabled()) {
@@ -367,10 +390,6 @@ bool Spawn2::Process() {
 
 		if (tmp->npc_id == 0) {
 			LogError("NPC type did not load for npc_id [{}]", npcid);
-			return true;
-		}
-
-		if (raid_target_spawnpoint && zone->GetGuildID() == GUILD_NONE) {
 			return true;
 		}
 
@@ -520,6 +539,7 @@ uint16 Spawn2::GetGrid() {
 	associated with this spawn point is no longer relavent.
 */
 void Spawn2::Reset(uint32 rtime) {
+	open_world_raid_timer_initialized_ = true;
 
 	if (rtime > 0)
 	{
@@ -540,6 +560,7 @@ void Spawn2::Depop() {
 }
 
 void Spawn2::Repop(uint32 delay) {
+	open_world_raid_timer_initialized_ = true;
 	if (npcthis)
 		npcthis->Depop();
 
@@ -638,6 +659,7 @@ void Spawn2::ChangeDespawn(uint8 new_despawn, uint32 new_despawn_timer)
 //resets our spawn as if we just died
 void Spawn2::DeathReset(bool realdeath)
 {
+	open_world_raid_timer_initialized_ = true;
 	//get our reset based on variance etc and store it locally
 	uint32 cur = resetTimer();
 	//set our timer to our reset local
@@ -660,6 +682,7 @@ void Spawn2::DeathReset(bool realdeath)
 //resets our spawn as if we just died
 void Spawn2::QuakeReset()
 {
+	open_world_raid_timer_initialized_ = true;
 	//get our reset based on variance etc and store it locally
 	uint32 cur = resetTimer(true);
 	//set our timer to our reset local
@@ -778,7 +801,8 @@ bool ZoneDatabase::PopulateZoneSpawnListClose(uint32 zoneid, LinkedList<Spawn2*>
 			(EmuAppearance)atoi(row[12]),				   // EmuAppearance anim
 			atobool(row[13]),							   // bool force_z
 			false,
-			atobool(row[14])							   // bool raid_target_spawnpoint
+			atobool(row[14]),							   // bool raid_target_spawnpoint
+			spawn_times.count(atoi(row[0])) != 0	// bool had_saved_respawn
 			);
 
 		spawn2_list.Insert(new_spawn);
@@ -876,7 +900,8 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 			(EmuAppearance)atoi(row[12]),				   // EmuAppearance anim
 			atobool(row[13]),							   // bool force_z
 			false,
-			atobool(row[14])							   // bool raid_target_spawnpoint
+			atobool(row[14]),							   // bool raid_target_spawnpoint
+			spawn_times.count(atoi(row[0])) != 0	// bool had_saved_respawn
 		);
 
 		spawn2_list.Insert(new_spawn);
