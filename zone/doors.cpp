@@ -336,8 +336,9 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 			destination_zone && destination_zone->expansion == PlanesEQEra &&
 			zoneid != Zones::POTIMEA && zoneid != Zones::POTIMEB;
 
-		// An unguilded player without a raid has no guild instance to enter.
-		if (guild_zone_door && is_non_time_pop_instance &&
+		// An unguilded solo player can enter Guild 1 with PvP opt-in, but
+		// cannot enter a private PoP guild instance without a guild or raid.
+		if (guild_zone_door && is_non_time_pop_instance && !pvp_opted_in &&
 			!sender->IsInAGuild() && !sender->GetRaid()) {
 			return;
 		}
