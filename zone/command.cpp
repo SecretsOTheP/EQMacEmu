@@ -336,6 +336,7 @@ int command_init(void)
 		command_add("revoke", "[charname] [1/0] - Makes charname unable to talk on OOC.", AccountStatus::GMStaff, command_revoke) ||
 		command_add("rewind", "Rewind to the previous location", AccountStatus::Player, command_rewind) ||
 		command_add("rules", "(subcommand) - Manage server rules.", AccountStatus::GMImpossible, command_rules) ||
+		command_add("zonelos", "Manage persistent zone LOS for open world and Guild 2+.", AccountStatus::GMAdmin, command_zonelos) ||
 		command_add("kitelimit", "Manage bard kite limits and TAKP stacked-mob behavior.", AccountStatus::GMAdmin, command_kitelimit) ||
 
 		command_add("save", "Force your player or player corpse target to be saved to the database.", AccountStatus::GMLeadAdmin, command_save) ||
@@ -937,6 +938,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/altactivate.cpp"
 #include "gm_commands/appearance.cpp"
 #include "gm_commands/kitelimit.cpp"
+#include "gm_commands/zonelos.cpp"
 #include "gm_commands/attack.cpp"
 #include "gm_commands/attackentity.cpp"
 #include "gm_commands/ban.cpp"
