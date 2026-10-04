@@ -317,7 +317,8 @@ public:
 	bool	IsBoatZone();
 	bool	IsBindArea(float x_coord, float y_coord, float z_coord);
 	// If true, skip LoS checks for FleeAllyCount (used for fungusgrove)
-	bool SkipLoS() const { return skip_los; }
+	bool SkipLoS() const;
+	void RefreshSkipLoSOverride() const;
 	bool FleeAllySkipLoS() const { return flee_ally_skip_los; }
 	bool	IsWaterZone(float z);
 	bool	ZoneWillNotIdle() { return newzone_data.never_idle; };
@@ -513,7 +514,10 @@ private:
 	bool	can_castoutdoor;
 	bool	can_castdungeon;
 	bool	can_levitate;
-	bool	skip_los; // Zone does not do a LOS spell check.
+	bool	skip_los; // Database default, also retained by Guild 1 PvP.
+	mutable bool los_override_loaded = false;
+	mutable uint32 los_override_checked = 0;
+	mutable int los_override = -1;
 	bool	drag_aggro;
 	uint8	zone_type;
 	uint32	m_graveyard_id, m_graveyard_zoneid;

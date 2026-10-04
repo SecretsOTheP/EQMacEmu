@@ -3605,3 +3605,34 @@ bool Zone::IsNoLeashPVPZone()
 }
 
 #include "zone_loot.cpp"
+
+// Read through the database so other zone processes see saved changes without
+// relying on the process-local data bucket cache.
+void Zone::RefreshSkipLoSOverride() const
+{
+	los_override_checked = Timer::GetCurrentTime();
+	auto result = database.QueryDatabase(fmt::format(
+		"SELECT value FROM data_buckets WHERE `key` = 'zone_skip_los:{}' LIMIT 1",
+		Strings::Escape(short_name)));
+	if (!result.Success()) {
+		return;
+	}
+	los_override_loaded = true;
+	los_override = -1;
+	if (result.RowCount()) {
+		auto row = result.begin();
+		if (row[0] && std::string(row[0]) == "1") los_override = 1;
+		else if (row[0] && std::string(row[0]) == "0") los_override = 0;
+	}
+}
+
+bool Zone::SkipLoS() const
+{
+	if (GetGuildID() == 1) return skip_los;
+	const auto now = Timer::GetCurrentTime();
+	if ((!los_override_loaded && los_override_checked == 0) ||
+		static_cast<uint32>(now - los_override_checked) >= 5000) {
+		RefreshSkipLoSOverride();
+	}
+	return los_override >= 0 ? los_override != 0 : skip_los;
+}
