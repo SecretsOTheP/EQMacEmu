@@ -942,6 +942,15 @@ bool ZoneDatabase::LoadCharacterLootLockouts(std::map<uint32, LootLockout>& loot
 	return true;
 }
 
+void ZoneDatabase::LoadCharacterBlockedBuffs(std::unordered_multimap<uint16, uint16>& blocked_buffs, uint32 character_id)
+{
+	blocked_buffs.clear();
+	auto results = QueryDatabase(StringFormat("SELECT spell_id, if_spell_id FROM `character_blocked_buffs` WHERE character_id = %u", character_id));
+	for (auto row = results.begin(); row != results.end(); ++row) {
+		blocked_buffs.emplace(Strings::ToUnsignedInt(row[0]), Strings::ToUnsignedInt(row[1]));
+	}
+}
+
 bool ZoneDatabase::LoadCharacterReimbursements(std::list<TempMerchantList>& reimbursement_list, uint32 character_id)
 {
 	std::string query = StringFormat(

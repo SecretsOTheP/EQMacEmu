@@ -556,6 +556,7 @@ bool Database::DeleteCharacter(char *name) {
 	query = StringFormat("DELETE FROM `character_consent` WHERE `name` = '%s'", name); QueryDatabase(query);	
 	query = StringFormat("DELETE FROM `character_soulmarks` WHERE `id` = '%d'", charid); QueryDatabase(query);	
 	query = StringFormat("DELETE FROM `character_timers` WHERE `id` = '%d'", charid); QueryDatabase(query);		
+	query = StringFormat("DELETE FROM `character_blocked_buffs` WHERE `character_id` = %u", charid); QueryDatabase(query);
 	query = StringFormat("DELETE FROM `guild_members` WHERE `char_id` = '%d'", charid); QueryDatabase(query);
 	DeleteCharacterCorpses(charid);
 	

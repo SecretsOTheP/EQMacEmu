@@ -1012,6 +1012,17 @@ public:
 	std::map<uint16, LootItemLockout> looted_legacy_items;
 	bool IsLootLockedOutOfNPC(uint32 npctype_id);
 
+	std::unordered_multimap<uint16, uint16> blocked_buffs; // spell_id -> if_spell_id (0 = always)
+	bool IsBuffBlocked(uint16 spell_id) {
+		auto range = blocked_buffs.equal_range(spell_id);
+		for (auto it = range.first; it != range.second; ++it) {
+			if (it->second == 0 || FindBuff(it->second)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 
 	inline bool IsTrader() const { return(Trader); }
 	eqFilterMode GetFilter(eqFilterType filter_id) const { return ClientFilters[filter_id]; }

@@ -38,6 +38,7 @@ namespace DatabaseSchema {
 		return {
 			{"character_alternate_abilities",  "id"},
 			{"character_bind",                 "id"},
+			{"character_blocked_buffs",        "character_id"},
 			{"character_buffs",                "character_id"},
 			{"character_corpses",              "id"},
 			{"character_currency",             "id"},
@@ -79,6 +80,7 @@ namespace DatabaseSchema {
 			"character_alternate_abilities",
 			"character_consent",
 			"character_bind",
+			"character_blocked_buffs",
 			"character_buffs",
 			"character_consent",
 			"character_corpse_items",
