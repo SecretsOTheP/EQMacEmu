@@ -23,7 +23,7 @@ public:
 
 	static RollingRestart &Instance();
 
-	std::string Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by);
+	std::string Schedule(uint32 seconds, const std::string &requested_by);
 	std::string RestartNow(const std::string &requested_by);
 	std::string Cancel(const std::string &requested_by);
 	std::string Status() const;
@@ -51,8 +51,8 @@ private:
 
 	Phase       m_phase           = Phase::Idle;
 	time_t      m_deadline        = 0;
-	uint32      m_interval        = 0;
 	uint32      m_next_checkpoint = 0;
+	bool        m_announced       = false; // a countdown was broadcast, so moves and cancels are too
 	std::string m_requested_by;
 
 	std::deque<std::string> m_queue;          // zone server UUIDs still to restart, fewest players first

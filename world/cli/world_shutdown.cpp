@@ -77,13 +77,16 @@ namespace {
 
 		auto usage = [&]() {
 			std::cout
-				<< fmt::format("Usage: world {} <delay> [interval]   schedule a {}\n", name, noun)
-				<< fmt::format("       world {} now                  {}\n", name, now)
-				<< fmt::format("       world {} cancel               cancel a scheduled {}\n", name, noun)
-				<< fmt::format("       world {} status               show the current schedule\n\n", name)
-				<< "  delay/interval: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds)\n"
-				<< "  interval: announcement spacing above 15 minutes left (default automatic).\n"
-				<< "            Below 15 minutes announcements escalate: 15, 10, 5, 4, 3, 2, 1 minutes, 30 and 10 seconds.\n"
+				<< fmt::format("Usage: world {} <when>    schedule a {}\n", name, noun)
+				<< fmt::format("       world {} now       {}\n", name, now)
+				<< fmt::format("       world {} cancel    cancel a scheduled {}\n", name, noun)
+				<< fmt::format("       world {} status    show the current schedule\n\n", name)
+				<< "  when: a delay:              90m, 1h30m, 2d4h (a bare number is seconds)\n"
+				<< "        a time in Eastern:    7am, 7:30pm, 19:00 (the next time it comes around)\n"
+				<< "        a date and time:      10/5/2026 7am, \"Oct 5 2026 7:00am\", 2026-10-05 07:00\n"
+				<< "                              (Eastern unless it ends in UTC)\n"
+				<< "        a Unix timestamp:     1759662000\n"
+				<< "  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.\n"
 				<< "  Run from the server directory (where eqemu_config.json is).\n";
 			std::exit(1);
 		};
@@ -93,7 +96,7 @@ namespace {
 			args.emplace_back(argv[i]);
 		}
 
-		if (args.empty() || args.size() > 2) {
+		if (args.empty()) {
 			usage();
 		}
 
@@ -122,16 +125,22 @@ namespace {
 			request = status_verb;
 		}
 		else {
-			uint32 seconds = 0, interval = 0;
-			if (!ShutdownDuration::Parse(args[0], seconds) || seconds == 0) {
-				std::cout << "Invalid delay [" << args[0] << "]\n\n";
+			std::string when;
+			for (const auto &a : args) {
+				when += (when.empty() ? "" : " ") + a;
+			}
+
+			const time_t now_time = std::time(nullptr);
+			uint32       seconds  = 0;
+			std::string  error;
+			if (!ShutdownDuration::ParseWhen(when, now_time, seconds, error)) {
+				std::cout << error << "\n\n";
 				usage();
 			}
-			if (args.size() == 2 && !ShutdownDuration::Parse(args[1], interval)) {
-				std::cout << "Invalid interval [" << args[1] << "]\n\n";
-				usage();
-			}
-			request = fmt::format("{} {} {} {}", schedule_verb, seconds, interval, by);
+
+			// World gets the deadline, not the delay, so the wait for it to pick this up doesn't shift it.
+			std::cout << "Scheduling for " << ShutdownDuration::Eastern::Format(now_time + seconds) << "\n";
+			request = fmt::format("{} {} {}", schedule_verb, static_cast<int64>(now_time + seconds), by);
 		}
 
 		SendWorldShutdownRequest(request);

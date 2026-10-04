@@ -16,6 +16,7 @@
 #include "zonelist.h"
 #include "zoneserver.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -79,6 +80,7 @@ void WorldShutdown::Announce(uint32 remaining)
 
 	LogInfo("{}", message);
 	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, remaining <= 60 ? Chat::Red : Chat::Yellow, message.c_str());
+	m_announced = true;
 }
 
 std::string WorldShutdown::GetMOTD() const
@@ -91,13 +93,8 @@ std::string WorldShutdown::GetMOTD() const
 	const char *label = m_restart ? "SERVER RESTART" : "SERVER SHUTDOWN";
 	std::string notice;
 	if (m_phase == Phase::Countdown) {
-		notice = fmt::format(
-			"{}: The server will {} in {} (at {}).",
-			label,
-			Verb(),
-			ShutdownDuration::FormatCountdown(Remaining()),
-			ShutdownDuration::FormatUTC(m_deadline)
-		);
+		// Only the absolute time: zones keep this MOTD until the next push, so a countdown would go stale.
+		notice = fmt::format("{}: The server will {} at {}.", label, Verb(), ShutdownDuration::Eastern::Format(m_deadline));
 	}
 	else if (IsShuttingDown()) {
 		notice = fmt::format("{}: The server is {} now.", label, m_restart ? "restarting" : "shutting down");
@@ -127,7 +124,7 @@ void WorldShutdown::PushMOTD()
 	zoneserver_list.SendPacket(&pack);
 }
 
-std::string WorldShutdown::Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by, bool restart)
+std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested_by, bool restart)
 {
 	if (IsShuttingDown()) {
 		return fmt::format("The world is already {}.", m_restart ? "restarting" : "shutting down");
@@ -141,35 +138,43 @@ std::string WorldShutdown::Schedule(uint32 seconds, uint32 interval_seconds, con
 	}
 
 	const bool rescheduled = m_phase == Phase::Countdown;
+	if (!rescheduled) {
+		m_announced = false;
+	}
 
 	m_phase           = Phase::Countdown;
 	m_restart         = restart;
 	m_deadline        = std::time(nullptr) + seconds;
-	m_interval        = interval_seconds;
 	m_requested_by    = requested_by;
-	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds, m_interval);
+	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds);
 	StartTicking();
 
 	LogInfo(
-		"World {} {} by [{}] for [{}] ([{}]), interval [{}]",
+		"World {} {} by [{}] for [{}] from now ([{}])",
 		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
 		requested_by,
 		ShutdownDuration::Format(seconds),
-		ShutdownDuration::FormatUTC(m_deadline),
-		interval_seconds ? ShutdownDuration::Format(interval_seconds) : "automatic"
+		ShutdownDuration::Eastern::Format(m_deadline)
 	);
 
-	Announce(seconds);
+	// More than an hour out, the MOTD is the only notice. Players who already heard a countdown
+	// are told it moved.
+	if (seconds <= ShutdownDuration::AnnounceStart) {
+		Announce(seconds);
+	}
+	else if (m_announced) {
+		const auto message = fmt::format("[SYSTEM] The server {} has been moved to {}.", Noun(), ShutdownDuration::Eastern::Format(m_deadline));
+		zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
+	}
 	PushMOTD();
 
 	return fmt::format(
-		"World {} {} for {} from now ({}). Announcements: {} until 15 minutes remain, then escalating.",
+		"World {} {} for {} ({} from now). Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.",
 		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
-		ShutdownDuration::Format(seconds),
-		ShutdownDuration::FormatUTC(m_deadline),
-		interval_seconds ? "every " + ShutdownDuration::Format(interval_seconds) : "automatic"
+		ShutdownDuration::Eastern::Format(m_deadline),
+		ShutdownDuration::Format(seconds)
 	);
 }
 
@@ -204,8 +209,11 @@ std::string WorldShutdown::Cancel(const std::string &requested_by)
 	StopTicking();
 
 	LogInfo("Scheduled world {} cancelled by [{}]", Noun(), requested_by);
-	const auto message = fmt::format("[SYSTEM] The scheduled server {} has been cancelled.", Noun());
-	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
+	// Players only heard about it if the countdown got within an hour; otherwise the MOTD was the notice.
+	if (m_announced) {
+		const auto message = fmt::format("[SYSTEM] The scheduled server {} has been cancelled.", Noun());
+		zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
+	}
 	PushMOTD();
 
 	return fmt::format("Scheduled world {} cancelled.", Noun());
@@ -216,11 +224,11 @@ std::string WorldShutdown::Status() const
 	switch (m_phase) {
 		case Phase::Countdown:
 			return fmt::format(
-				"World {} scheduled by {} in {} ({}).",
+				"World {} scheduled by {} for {} ({} from now).",
 				Noun(),
 				m_requested_by,
-				ShutdownDuration::Format(Remaining()),
-				ShutdownDuration::FormatUTC(m_deadline)
+				ShutdownDuration::Eastern::Format(m_deadline),
+				ShutdownDuration::Format(Remaining())
 			);
 		case Phase::Draining:
 			return fmt::format(
@@ -402,7 +410,7 @@ void WorldShutdown::Tick()
 			uint32 announce = 0;
 			while (m_next_checkpoint != 0 && remaining <= m_next_checkpoint) {
 				announce          = m_next_checkpoint;
-				m_next_checkpoint = ShutdownDuration::NextCountdownMark(m_next_checkpoint, m_interval);
+				m_next_checkpoint = ShutdownDuration::NextCountdownMark(m_next_checkpoint);
 			}
 
 			if (announce) {
@@ -536,7 +544,7 @@ void WorldShutdown::PollRequestFile()
 }
 
 // Request lines, written by `world world:shutdown`, `world:restart` and `world:rolling-restart`:
-//   schedule|restart|rolling <seconds> <interval_seconds> <requested_by>
+//   schedule|restart|rolling <deadline (Unix time)> <requested_by>
 //   now|restartnow|rollingnow <requested_by>
 //   cancel|rollingcancel <requested_by>
 //   status|rollingstatus
@@ -549,7 +557,7 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 
 	const auto verb      = Strings::ToLower(args[0]);
 	const bool scheduled = verb == "schedule" || verb == "restart" || verb == "rolling";
-	auto       by_index  = scheduled ? 3 : 1;
+	auto       by_index  = scheduled ? 2 : 1;
 	std::string requested_by;
 	for (size_t i = by_index; i < args.size(); i++) {
 		requested_by += (requested_by.empty() ? "" : " ") + args[i];
@@ -559,15 +567,21 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 	}
 
 	if (scheduled) {
-		if (args.size() < 3 || !Strings::IsNumber(args[1]) || !Strings::IsNumber(args[2])) {
+		if (args.size() < 2 || args[1].empty() || args[1].size() > 12 || !Strings::IsNumber(args[1])) {
 			return fmt::format("ERROR: malformed request [{}]", line);
 		}
-		const auto seconds  = Strings::ToUnsignedInt(args[1]);
-		const auto interval = Strings::ToUnsignedInt(args[2]);
-		if (verb == "rolling") {
-			return RollingRestart::Instance().Schedule(seconds, interval, requested_by);
+		// The CLI sends the deadline rather than a delay, so the few seconds before world picks the
+		// request up don't push a "7am" schedule past 7am.
+		const int64 now      = std::time(nullptr);
+		const int64 deadline = std::stoll(args[1]);
+		if (deadline - now > ShutdownDuration::MaxSeconds) {
+			return "ERROR: that's more than 30 days away";
 		}
-		return Schedule(seconds, interval, requested_by, verb == "restart");
+		const auto seconds = static_cast<uint32>(std::max<int64>(deadline - now, 1));
+		if (verb == "rolling") {
+			return RollingRestart::Instance().Schedule(seconds, requested_by);
+		}
+		return Schedule(seconds, requested_by, verb == "restart");
 	}
 	if (verb == "now") {
 		return ShutdownNow(requested_by);

@@ -69,15 +69,16 @@ void RollingRestart::Announce(uint32 remaining)
 
 	LogInfo("{}", message);
 	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, remaining <= 60 ? Chat::Red : Chat::Yellow, message.c_str());
+	m_announced = true;
 }
 
 std::string RollingRestart::MOTDNotice() const
 {
 	if (m_phase == Phase::Countdown) {
+		// Only the absolute time: zones keep this MOTD until the next push, so a countdown would go stale.
 		return fmt::format(
-			"ZONE RESTARTS: Zones will restart in {} (at {}). Expect a brief disconnect.",
-			ShutdownDuration::FormatCountdown(Remaining()),
-			ShutdownDuration::FormatUTC(m_deadline)
+			"ZONE RESTARTS: Zones will restart at {}. Expect a brief disconnect.",
+			ShutdownDuration::Eastern::Format(m_deadline)
 		);
 	}
 	if (m_phase == Phase::Restarting) {
@@ -86,7 +87,7 @@ std::string RollingRestart::MOTDNotice() const
 	return "";
 }
 
-std::string RollingRestart::Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by)
+std::string RollingRestart::Schedule(uint32 seconds, const std::string &requested_by)
 {
 	const auto blocked = CanStart();
 	if (!blocked.empty()) {
@@ -98,31 +99,40 @@ std::string RollingRestart::Schedule(uint32 seconds, uint32 interval_seconds, co
 	}
 
 	const bool rescheduled = m_phase == Phase::Countdown;
+	if (!rescheduled) {
+		m_announced = false;
+	}
 
 	m_phase           = Phase::Countdown;
 	m_deadline        = std::time(nullptr) + seconds;
-	m_interval        = interval_seconds;
 	m_requested_by    = requested_by;
-	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds, m_interval);
+	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds);
 	StartTicking();
 
 	LogInfo(
-		"Rolling zone restart {} by [{}] for [{}] ([{}]), interval [{}]",
+		"Rolling zone restart {} by [{}] for [{}] from now ([{}])",
 		rescheduled ? "rescheduled" : "scheduled",
 		requested_by,
 		ShutdownDuration::Format(seconds),
-		ShutdownDuration::FormatUTC(m_deadline),
-		interval_seconds ? ShutdownDuration::Format(interval_seconds) : "automatic"
+		ShutdownDuration::Eastern::Format(m_deadline)
 	);
 
-	Announce(seconds);
+	// More than an hour out, the MOTD is the only notice. Players who already heard a countdown
+	// are told it moved.
+	if (seconds <= ShutdownDuration::AnnounceStart) {
+		Announce(seconds);
+	}
+	else if (m_announced) {
+		const auto message = fmt::format("[SYSTEM] The zone restarts have been moved to {}.", ShutdownDuration::Eastern::Format(m_deadline));
+		zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
+	}
 	WorldShutdown::Instance().PushMOTD();
 
 	return fmt::format(
-		"Rolling zone restart {} for {} from now ({}). Zones restart {} at a time.",
+		"Rolling zone restart {} for {} ({} from now). Zones restart {} at a time. Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.",
 		rescheduled ? "rescheduled" : "scheduled",
+		ShutdownDuration::Eastern::Format(m_deadline),
 		ShutdownDuration::Format(seconds),
-		ShutdownDuration::FormatUTC(m_deadline),
 		std::max<uint32>(WorldConfig::get()->RollingRestartBatchSize, 1)
 	);
 }
@@ -161,7 +171,10 @@ std::string RollingRestart::Cancel(const std::string &requested_by)
 	StopTicking();
 
 	LogInfo("Scheduled rolling zone restart cancelled by [{}]", requested_by);
-	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, "[SYSTEM] The scheduled zone restarts have been cancelled.");
+	// Players only heard about it if the countdown got within an hour; otherwise the MOTD was the notice.
+	if (m_announced) {
+		zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, "[SYSTEM] The scheduled zone restarts have been cancelled.");
+	}
 	WorldShutdown::Instance().PushMOTD();
 
 	return "Scheduled rolling zone restart cancelled.";
@@ -172,10 +185,10 @@ std::string RollingRestart::Status() const
 	switch (m_phase) {
 		case Phase::Countdown:
 			return fmt::format(
-				"Rolling zone restart scheduled by {} in {} ({}).",
+				"Rolling zone restart scheduled by {} for {} ({} from now).",
 				m_requested_by,
-				ShutdownDuration::Format(Remaining()),
-				ShutdownDuration::FormatUTC(m_deadline)
+				ShutdownDuration::Eastern::Format(m_deadline),
+				ShutdownDuration::Format(Remaining())
 			);
 		case Phase::Restarting:
 			return fmt::format(
@@ -308,7 +321,9 @@ void RollingRestart::Tick()
 				if (!blocked.empty()) {
 					LogError("Rolling zone restart not started: {}", blocked);
 					m_phase = Phase::Idle;
-					zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, "[SYSTEM] The scheduled zone restarts have been cancelled.");
+					if (m_announced) {
+						zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, "[SYSTEM] The scheduled zone restarts have been cancelled.");
+					}
 					WorldShutdown::Instance().PushMOTD();
 					break;
 				}
@@ -320,7 +335,7 @@ void RollingRestart::Tick()
 			uint32 announce = 0;
 			while (m_next_checkpoint != 0 && remaining <= m_next_checkpoint) {
 				announce          = m_next_checkpoint;
-				m_next_checkpoint = ShutdownDuration::NextCountdownMark(m_next_checkpoint, m_interval);
+				m_next_checkpoint = ShutdownDuration::NextCountdownMark(m_next_checkpoint);
 			}
 
 			if (announce) {

@@ -36,7 +36,7 @@ public:
 	static WorldShutdown &Instance();
 
 	// restart = true brings the server back up after the drain instead of leaving it down.
-	std::string Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by, bool restart = false);
+	std::string Schedule(uint32 seconds, const std::string &requested_by, bool restart = false);
 	std::string ShutdownNow(const std::string &requested_by, bool restart = false);
 	std::string Cancel(const std::string &requested_by);
 	std::string Status() const;
@@ -79,8 +79,8 @@ private:
 	Phase       m_phase            = Phase::Idle;
 	bool        m_restart          = false;
 	time_t      m_deadline         = 0;
-	uint32      m_interval         = 0;
 	uint32      m_next_checkpoint  = 0;
+	bool        m_announced        = false; // a countdown was broadcast, so moves and cancels are too
 	std::string m_requested_by;
 	time_t      m_drain_started    = 0;
 	bool        m_zones_signalled  = false;

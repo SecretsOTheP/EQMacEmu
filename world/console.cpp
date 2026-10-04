@@ -751,6 +751,67 @@ void ConsoleVersion(
 	connection->SendLine(StringFormat("  Last modified on: %s", LAST_MODIFIED));
 }
 
+namespace {
+	// Parses everything after the command as a schedule ("90m", "7am", "10/5/2026 7am").
+	bool ParseConsoleSchedule(EQ::Net::ConsoleServerConnection* connection, const std::vector<std::string> &args, uint32 &seconds)
+	{
+		std::string when;
+		for (const auto &a : args) {
+			when += (when.empty() ? "" : " ") + a;
+		}
+
+		std::string error;
+		if (!ShutdownDuration::ParseWhen(when, std::time(nullptr), seconds, error)) {
+			connection->SendLine(error);
+			return false;
+		}
+		return true;
+	}
+
+	void SendConsoleScheduleUsage(EQ::Net::ConsoleServerConnection* connection, const char *name)
+	{
+		connection->SendLine(fmt::format("Usage: {} <when> | now | cancel | status", name));
+		connection->SendLine("  when: a delay (90m, 1h30m, 2d4h; a bare number is seconds), an Eastern time (7am, 7:30pm),");
+		connection->SendLine("        a date and time in Eastern (10/5/2026 7am, Oct 5 2026 7:00am, 2026-10-05 07:00), or a Unix timestamp");
+		connection->SendLine("  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.");
+	}
+
+	// Shared by worldshutdown, worldrestart and rollingrestart.
+	template <typename ScheduleFn, typename NowFn, typename CancelFn, typename StatusFn>
+	void RunConsoleSchedule(
+		EQ::Net::ConsoleServerConnection* connection,
+		const std::vector<std::string>& args,
+		const char *name,
+		const char *description,
+		ScheduleFn schedule, NowFn now, CancelFn cancel, StatusFn status
+	)
+	{
+		const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
+		const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
+
+		uint32 seconds = 0;
+		if (sub.empty() || sub == "help") {
+			SendConsoleScheduleUsage(connection, name);
+			connection->SendLine(description);
+		}
+		else if (sub == "now") {
+			connection->SendLine(now(by));
+		}
+		else if (sub == "disable" || sub == "cancel") {
+			connection->SendLine(cancel(by));
+		}
+		else if (sub == "status") {
+			connection->SendLine(status());
+		}
+		else if (ParseConsoleSchedule(connection, args, seconds)) {
+			connection->SendLine(schedule(seconds, by));
+		}
+		else {
+			SendConsoleScheduleUsage(connection, name);
+		}
+	}
+}
+
 /**
  * @param connection
  * @param command
@@ -763,50 +824,13 @@ void ConsoleWorldShutdown(
 )
 {
 	auto &shutdown = WorldShutdown::Instance();
-	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
-	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
-
-	uint32 seconds = 0, interval = 0;
-	if (sub == "now") {
-		connection->SendLine(shutdown.ShutdownNow(by));
-	}
-	else if (sub == "disable" || sub == "cancel") {
-		connection->SendLine(shutdown.Cancel(by));
-	}
-	else if (sub == "status") {
-		connection->SendLine(shutdown.Status());
-	}
-	else if (
-		(args.size() == 1 || args.size() == 2) &&
-		ShutdownDuration::Parse(args[0], seconds) && seconds > 0 &&
-		(args.size() == 1 || ShutdownDuration::Parse(args[1], interval))
-	) {
-		connection->SendLine(shutdown.Schedule(seconds, interval, by));
-	}
-	else {
-		connection->SendLine("Usage: worldshutdown <delay> [interval] | now | cancel | status");
-		connection->SendLine("  delay/interval: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds)");
-		connection->SendLine("  interval sets announcements above 15 minutes (default automatic); they escalate below 15 minutes");
-	}
-}
-
-namespace {
-	// Parses "<delay> [interval]" for the scheduled shutdown/restart console commands.
-	bool ParseConsoleSchedule(const std::vector<std::string> &args, uint32 &seconds, uint32 &interval)
-	{
-		seconds  = 0;
-		interval = 0;
-		return (args.size() == 1 || args.size() == 2) &&
-			ShutdownDuration::Parse(args[0], seconds) && seconds > 0 &&
-			(args.size() == 1 || ShutdownDuration::Parse(args[1], interval));
-	}
-
-	void SendConsoleScheduleUsage(EQ::Net::ConsoleServerConnection* connection, const char *name)
-	{
-		connection->SendLine(fmt::format("Usage: {} <delay> [interval] | now | cancel | status", name));
-		connection->SendLine("  delay/interval: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds)");
-		connection->SendLine("  interval sets announcements above 15 minutes (default automatic); they escalate below 15 minutes");
-	}
+	RunConsoleSchedule(
+		connection, args, "worldshutdown", "  Shuts down the server, all zones and the launcher.",
+		[&](uint32 seconds, const std::string &by) { return shutdown.Schedule(seconds, by); },
+		[&](const std::string &by) { return shutdown.ShutdownNow(by); },
+		[&](const std::string &by) { return shutdown.Cancel(by); },
+		[&]() { return shutdown.Status(); }
+	);
 }
 
 /**
@@ -821,26 +845,13 @@ void ConsoleWorldRestart(
 )
 {
 	auto &shutdown = WorldShutdown::Instance();
-	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
-	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
-
-	uint32 seconds = 0, interval = 0;
-	if (sub == "now") {
-		connection->SendLine(shutdown.ShutdownNow(by, true));
-	}
-	else if (sub == "disable" || sub == "cancel") {
-		connection->SendLine(shutdown.Cancel(by));
-	}
-	else if (sub == "status") {
-		connection->SendLine(shutdown.Status());
-	}
-	else if (ParseConsoleSchedule(args, seconds, interval)) {
-		connection->SendLine(shutdown.Schedule(seconds, interval, by, true));
-	}
-	else {
-		SendConsoleScheduleUsage(connection, "worldrestart");
-		connection->SendLine("  Shuts the whole server down like worldshutdown, then brings it back up.");
-	}
+	RunConsoleSchedule(
+		connection, args, "worldrestart", "  Shuts the whole server down like worldshutdown, then brings it back up.",
+		[&](uint32 seconds, const std::string &by) { return shutdown.Schedule(seconds, by, true); },
+		[&](const std::string &by) { return shutdown.ShutdownNow(by, true); },
+		[&](const std::string &by) { return shutdown.Cancel(by); },
+		[&]() { return shutdown.Status(); }
+	);
 }
 
 /**
@@ -855,26 +866,13 @@ void ConsoleRollingRestart(
 )
 {
 	auto &rolling = RollingRestart::Instance();
-	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
-	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
-
-	uint32 seconds = 0, interval = 0;
-	if (sub == "now") {
-		connection->SendLine(rolling.RestartNow(by));
-	}
-	else if (sub == "disable" || sub == "cancel") {
-		connection->SendLine(rolling.Cancel(by));
-	}
-	else if (sub == "status") {
-		connection->SendLine(rolling.Status());
-	}
-	else if (ParseConsoleSchedule(args, seconds, interval)) {
-		connection->SendLine(rolling.Schedule(seconds, interval, by));
-	}
-	else {
-		SendConsoleScheduleUsage(connection, "rollingrestart");
-		connection->SendLine("  Restarts zones a few at a time; world and logins stay up.");
-	}
+	RunConsoleSchedule(
+		connection, args, "rollingrestart", "  Restarts zones a few at a time; world and logins stay up.",
+		[&](uint32 seconds, const std::string &by) { return rolling.Schedule(seconds, by); },
+		[&](const std::string &by) { return rolling.RestartNow(by); },
+		[&](const std::string &by) { return rolling.Cancel(by); },
+		[&]() { return rolling.Status(); }
+	);
 }
 
 /**

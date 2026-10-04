@@ -24,8 +24,9 @@ namespace {
 
 		auto usage = [c, &cmd]() {
 			c->Message(Chat::White, fmt::format("{} - {}", cmd.name, cmd.what).c_str());
-			c->Message(Chat::White, fmt::format("Usage: {} [delay] [interval] - Schedule a {} after [delay]. Announcements every [interval] until 15 minutes remain, then they escalate.", cmd.name, cmd.noun).c_str());
-			c->Message(Chat::White, "  [delay]/[interval]: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds). [interval] is optional.");
+			c->Message(Chat::White, fmt::format("Usage: {} [when] - Schedule a {}.", cmd.name, cmd.noun).c_str());
+			c->Message(Chat::White, "  [when]: a delay (90m, 1h30m, 2d4h; a bare number is seconds), an Eastern time (7am, 7:30pm), a date and time in Eastern (10/5/2026 7am, Oct 5 2026 7:00am, 2026-10-05 07:00), or a Unix timestamp.");
+			c->Message(Chat::White, "  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.");
 			c->Message(Chat::White, fmt::format("Usage: {} now - Starts the {} immediately.", cmd.name, cmd.noun).c_str());
 			c->Message(Chat::White, fmt::format("Usage: {} disable - Cancels a scheduled {}.", cmd.name, cmd.noun).c_str());
 			c->Message(Chat::White, fmt::format("Usage: {} status - Shows the scheduled {}.", cmd.name, cmd.noun).c_str());
@@ -51,21 +52,16 @@ namespace {
 			wsd->action = cmd.status_action;
 		}
 		else {
-			uint32 seconds = 0, interval = 0;
-			if (!ShutdownDuration::Parse(sep->arg[1], seconds) || seconds == 0) {
-				c->Message(Chat::White, fmt::format("Invalid delay '{}'.", sep->arg[1]).c_str());
-				usage();
-				return;
-			}
-			if (sep->arg[2][0] && !ShutdownDuration::Parse(sep->arg[2], interval)) {
-				c->Message(Chat::White, fmt::format("Invalid interval '{}'.", sep->arg[2]).c_str());
+			uint32      seconds = 0;
+			std::string error;
+			if (!ShutdownDuration::ParseWhen(sep->argplus[1], std::time(nullptr), seconds, error)) {
+				c->Message(Chat::White, error.c_str());
 				usage();
 				return;
 			}
 
-			wsd->action           = cmd.schedule_action;
-			wsd->seconds          = seconds;
-			wsd->interval_seconds = interval;
+			wsd->action  = cmd.schedule_action;
+			wsd->seconds = seconds;
 		}
 
 		worldserver.SendPacket(&pack);

@@ -797,8 +797,7 @@ enum WorldShutDownAction : uint8 {
 
 // zone -> world. A zero-size ServerOP_ShutdownAll from world -> zone means "save and exit now".
 struct WorldShutDown_Struct {
-	uint32	seconds;          // delay before shutdown (WorldShutDownSchedule)
-	uint32	interval_seconds; // announce interval above 15 minutes, 0 = automatic
+	uint32	seconds;          // delay before the shutdown/restart (the schedule actions)
 	uint8	action;           // WorldShutDownAction
 	char	admin_name[64];   // who asked; replies are sent here
 };
