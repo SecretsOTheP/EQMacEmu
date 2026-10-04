@@ -260,6 +260,8 @@ void command_unscribespells(Client* c, const Seperator* sep);
 void command_viewplayerfaction(Client* c, const Seperator* sep);
 void command_wc(Client* c, const Seperator* sep);
 void command_worldshutdown(Client* c, const Seperator* sep);
+void command_worldrestart(Client* c, const Seperator* sep);
+void command_rollingrestart(Client* c, const Seperator* sep);
 void command_wp(Client* c, const Seperator* sep);
 void command_wpadd(Client* c, const Seperator* sep);
 void command_xpinfo(Client* c, const Seperator* sep);

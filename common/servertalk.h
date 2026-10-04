@@ -188,6 +188,7 @@ struct ServerInstanceRespawnToggle_Struct { uint32 guild_id; uint8 enabled; };
 #define ServerOP_LauncherZoneStatus		0x3002
 #define ServerOP_DoZoneCommand		0x3003
 #define ServerOP_BootDownZones		0x3004
+#define ServerOP_LauncherResume		0x3005	// world -> launcher: start restarting zones again after an in-place world restart
 
 #define ServerOP_CZMessagePlayer 0x4000
 #define ServerOP_CZSignalClient 0x4001
@@ -784,6 +785,14 @@ enum WorldShutDownAction : uint8 {
 	WorldShutDownNow      = 1,
 	WorldShutDownCancel   = 2,
 	WorldShutDownStatus   = 3,
+	// Same countdown and drain as a shutdown, then the server comes back up. Cancel/status are shared.
+	WorldRestartSchedule  = 4,
+	WorldRestartNow       = 5,
+	// Countdown, then zones are restarted a batch at a time while world stays up.
+	RollingRestartSchedule = 6,
+	RollingRestartNow      = 7,
+	RollingRestartCancel   = 8,
+	RollingRestartStatus   = 9,
 };
 
 // zone -> world. A zero-size ServerOP_ShutdownAll from world -> zone means "save and exit now".
@@ -935,7 +944,8 @@ struct LauncherConnectInfo {
 };
 
 // world -> launcher with ServerOP_ShutdownAll. The launcher stops restarting zones and waits for
-// them to exit. exit_process = 0 keeps the launcher idle so a process manager (pm2) can stop it.
+// them to exit. exit_process = 0 keeps the launcher idle so a process manager (pm2) can stop it,
+// or so world can resume it with ServerOP_LauncherResume after an in-place restart.
 struct LauncherShutdown_Struct {
 	uint8 exit_process;
 };

@@ -68,6 +68,15 @@ class EQEmuConfig
 		bool ShutdownUsePM2;
 		std::string ShutdownPM2Command;
 		uint32 ShutdownDrainSeconds;
+		// World restart: pm2 runs RestartPM2Command. Otherwise RestartCommand runs (detached) and world
+		// exits; with no RestartCommand, world stays up, resumes the launchers and waits up to
+		// RestartZoneWaitSeconds for the zones to come back before letting players in.
+		std::string RestartPM2Command;
+		std::string RestartCommand;
+		uint32 RestartZoneWaitSeconds;
+		// Rolling zone restart: zones restarted per batch, and the longest wait for a batch to come back.
+		uint32 RollingRestartBatchSize;
+		uint32 RollingRestartBatchSeconds;
 
 		// From <chatserver/>
 		std::string ChatHost;

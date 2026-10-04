@@ -390,6 +390,8 @@ int command_init(void)
 	
 		command_add("wc", "[wear slot] [material] - Sends an OP_WearChange for your target.", AccountStatus::GMImpossible, command_wc) ||
 		command_add("worldshutdown", "Shut down world and all zones.", AccountStatus::GMImpossible, command_worldshutdown) ||
+		command_add("worldrestart", "Shut down world and all zones, then bring them back up.", AccountStatus::GMImpossible, command_worldrestart) ||
+		command_add("rollingrestart", "Restart zones a few at a time while world stays up.", AccountStatus::GMImpossible, command_rollingrestart) ||
 		command_add("wp", "[add/delete] [grid_num] [pause] [wp_num] [-h] - Add/delete a waypoint to/from a wandering grid.", AccountStatus::GMImpossible, command_wp) ||
 		command_add("wpadd", "[pause] [-h] - Add your current location as a waypoint to your NPC target's AI path.", AccountStatus::GMImpossible, command_wpadd) ||
 

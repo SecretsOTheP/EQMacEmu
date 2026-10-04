@@ -8,6 +8,7 @@
 #include "../common/shutdown_duration.h"
 #include "../common/strings.h"
 #include "world_shutdown.h"
+#include "rolling_restart.h"
 #include "launcher_list.h"
 #include "main.h"
 #include "world_config.h"
@@ -25,33 +26,10 @@ extern LauncherList launcher_list;
 namespace fs = std::filesystem;
 
 namespace {
-	// Below this the countdown no longer follows the interval and escalates on its own.
-	constexpr uint32 EscalationStart = 15 * 60;
-	constexpr uint32 FinalMarks[]    = { 900, 600, 300, 240, 180, 120, 60, 30, 10 };
-
 	// Give zones a moment to deliver the "shutting down" broadcast before they are told to exit.
 	constexpr time_t ZoneSignalDelay = 2;
-	// How long to wait for pm2 to stop us before exiting on our own.
+	// How long to wait for pm2 to stop (or restart) us before acting on our own.
 	constexpr time_t PM2StopTimeout  = 30;
-
-	std::string FormatUTC(time_t t)
-	{
-		char buf[32] = { 0 };
-		std::tm tm{};
-#ifdef _WINDOWS
-		gmtime_s(&tm, &t);
-#else
-		gmtime_r(&t, &tm);
-#endif
-		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M UTC", &tm);
-		return buf;
-	}
-
-	// Whole minutes once we're past a minute out; seconds are noise in a MOTD or a broadcast.
-	std::string FormatRemaining(uint32 seconds)
-	{
-		return ShutdownDuration::Format(seconds >= 60 ? seconds - (seconds % 60) : seconds);
-	}
 
 	fs::path ServerFile(const char *name)
 	{
@@ -71,36 +49,32 @@ uint32 WorldShutdown::Remaining() const
 	return m_deadline > now ? static_cast<uint32>(m_deadline - now) : 0;
 }
 
-// Largest announcement mark strictly below `remaining`; 0 when there are none left.
-uint32 WorldShutdown::NextCheckpoint(uint32 remaining) const
+WorldShutdown::RestartMethod WorldShutdown::GetRestartMethod() const
 {
-	if (remaining > EscalationStart) {
-		uint32 step = m_interval;
-		if (step == 0) {
-			step = remaining > 86400 ? 21600 :
-				   remaining > 21600 ? 10800 :
-				   remaining > 3600  ? 3600  : 900;
-		}
-
-		const uint32 mark = ((remaining - 1) / step) * step;
-		return mark > EscalationStart ? mark : EscalationStart;
+	const auto config = WorldConfig::get();
+	if (config->ShutdownUsePM2 && !config->RestartPM2Command.empty()) {
+		return RestartMethod::PM2;
 	}
-
-	for (const auto mark : FinalMarks) {
-		if (mark < remaining) {
-			return mark;
-		}
+	if (!config->RestartCommand.empty()) {
+		return RestartMethod::Command;
 	}
-
-	return 0;
+	return RestartMethod::InPlace;
 }
 
 void WorldShutdown::Announce(uint32 remaining)
 {
+	std::string advice;
+	if (remaining <= 300) {
+		advice = m_restart ?
+			" Please find a safe place and log out. The server will be back shortly." :
+			" Please find a safe place and log out.";
+	}
+
 	const auto message = fmt::format(
-		"[SYSTEM] The server will shut down in {}.{}",
-		FormatRemaining(remaining),
-		remaining <= 300 ? " Please find a safe place and log out." : ""
+		"[SYSTEM] The server will {} in {}.{}",
+		Verb(),
+		ShutdownDuration::FormatCountdown(remaining),
+		advice
 	);
 
 	LogInfo("{}", message);
@@ -114,16 +88,22 @@ std::string WorldShutdown::GetMOTD() const
 		database.GetVariable("MOTD", motd);
 	}
 
+	const char *label = m_restart ? "SERVER RESTART" : "SERVER SHUTDOWN";
 	std::string notice;
 	if (m_phase == Phase::Countdown) {
 		notice = fmt::format(
-			"SERVER SHUTDOWN: The server will shut down in {} (at {}).",
-			FormatRemaining(Remaining()),
-			FormatUTC(m_deadline)
+			"{}: The server will {} in {} (at {}).",
+			label,
+			Verb(),
+			ShutdownDuration::FormatCountdown(Remaining()),
+			ShutdownDuration::FormatUTC(m_deadline)
 		);
 	}
 	else if (IsShuttingDown()) {
-		notice = "SERVER SHUTDOWN: The server is shutting down now.";
+		notice = fmt::format("{}: The server is {} now.", label, m_restart ? "restarting" : "shutting down");
+	}
+	else {
+		notice = RollingRestart::Instance().MOTDNotice();
 	}
 
 	if (!notice.empty()) {
@@ -147,31 +127,36 @@ void WorldShutdown::PushMOTD()
 	zoneserver_list.SendPacket(&pack);
 }
 
-std::string WorldShutdown::Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by)
+std::string WorldShutdown::Schedule(uint32 seconds, uint32 interval_seconds, const std::string &requested_by, bool restart)
 {
 	if (IsShuttingDown()) {
-		return "The world is already shutting down.";
+		return fmt::format("The world is already {}.", m_restart ? "restarting" : "shutting down");
+	}
+	if (m_phase == Phase::Restarting) {
+		return "The world is coming back up from a restart; try again once it's up.";
 	}
 
 	if (seconds == 0) {
-		return ShutdownNow(requested_by);
+		return ShutdownNow(requested_by, restart);
 	}
 
 	const bool rescheduled = m_phase == Phase::Countdown;
 
 	m_phase           = Phase::Countdown;
+	m_restart         = restart;
 	m_deadline        = std::time(nullptr) + seconds;
 	m_interval        = interval_seconds;
 	m_requested_by    = requested_by;
-	m_next_checkpoint = NextCheckpoint(seconds);
+	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds, m_interval);
 	StartTicking();
 
 	LogInfo(
-		"World shutdown {} by [{}] for [{}] ([{}]), interval [{}]",
+		"World {} {} by [{}] for [{}] ([{}]), interval [{}]",
+		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
 		requested_by,
 		ShutdownDuration::Format(seconds),
-		FormatUTC(m_deadline),
+		ShutdownDuration::FormatUTC(m_deadline),
 		interval_seconds ? ShutdownDuration::Format(interval_seconds) : "automatic"
 	);
 
@@ -179,45 +164,51 @@ std::string WorldShutdown::Schedule(uint32 seconds, uint32 interval_seconds, con
 	PushMOTD();
 
 	return fmt::format(
-		"World shutdown {} for {} from now ({}). Announcements: {} until 15 minutes remain, then escalating.",
+		"World {} {} for {} from now ({}). Announcements: {} until 15 minutes remain, then escalating.",
+		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
 		ShutdownDuration::Format(seconds),
-		FormatUTC(m_deadline),
+		ShutdownDuration::FormatUTC(m_deadline),
 		interval_seconds ? "every " + ShutdownDuration::Format(interval_seconds) : "automatic"
 	);
 }
 
-std::string WorldShutdown::ShutdownNow(const std::string &requested_by)
+std::string WorldShutdown::ShutdownNow(const std::string &requested_by, bool restart)
 {
 	if (IsShuttingDown()) {
-		return "The world is already shutting down.";
+		return fmt::format("The world is already {}.", m_restart ? "restarting" : "shutting down");
+	}
+	if (m_phase == Phase::Restarting) {
+		return "The world is coming back up from a restart; try again once it's up.";
 	}
 
+	m_restart      = restart;
 	m_requested_by = requested_by;
-	LogInfo("Immediate world shutdown requested by [{}]", requested_by);
+	LogInfo("Immediate world {} requested by [{}]", Noun(), requested_by);
 	BeginDrain();
-	return "World is shutting down now.";
+	return fmt::format("World is {} now.", m_restart ? "restarting" : "shutting down");
 }
 
 std::string WorldShutdown::Cancel(const std::string &requested_by)
 {
-	if (IsShuttingDown()) {
-		return "The shutdown is already in progress and can't be cancelled.";
+	if (IsShuttingDown() || m_phase == Phase::Restarting) {
+		return fmt::format("The {} is already in progress and can't be cancelled.", Noun());
 	}
 
 	if (m_phase != Phase::Countdown) {
-		return "No world shutdown is scheduled.";
+		return "No world shutdown or restart is scheduled.";
 	}
 
 	m_phase    = Phase::Idle;
 	m_deadline = 0;
 	StopTicking();
 
-	LogInfo("Scheduled world shutdown cancelled by [{}]", requested_by);
-	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, "[SYSTEM] The scheduled server shutdown has been cancelled.");
+	LogInfo("Scheduled world {} cancelled by [{}]", Noun(), requested_by);
+	const auto message = fmt::format("[SYSTEM] The scheduled server {} has been cancelled.", Noun());
+	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
 	PushMOTD();
 
-	return "Scheduled world shutdown cancelled.";
+	return fmt::format("Scheduled world {} cancelled.", Noun());
 }
 
 std::string WorldShutdown::Status() const
@@ -225,67 +216,104 @@ std::string WorldShutdown::Status() const
 	switch (m_phase) {
 		case Phase::Countdown:
 			return fmt::format(
-				"World shutdown scheduled by {} in {} ({}).",
+				"World {} scheduled by {} in {} ({}).",
+				Noun(),
 				m_requested_by,
 				ShutdownDuration::Format(Remaining()),
-				FormatUTC(m_deadline)
+				ShutdownDuration::FormatUTC(m_deadline)
 			);
 		case Phase::Draining:
-			return fmt::format("World is shutting down; waiting on {} zone(s) to save and exit.", m_draining_zones.size());
+			return fmt::format(
+				"World is {}; waiting on {} zone(s) to save and exit.",
+				m_restart ? "restarting" : "shutting down",
+				m_draining_zones.size()
+			);
 		case Phase::Finalizing:
-			return "World is shutting down; stopping processes.";
+			return m_restart ? "World is restarting; handing off to the process manager." : "World is shutting down; stopping processes.";
+		case Phase::Restarting:
+			return fmt::format(
+				"World is coming back up: {} of {} zone server(s) connected; logins open once they're back.",
+				zoneserver_list.getZoneServerList().size(),
+				m_zones_before_drain
+			);
 		default:
-			return "No world shutdown is scheduled.";
+			return "No world shutdown or restart is scheduled.";
 	}
 }
 
 void WorldShutdown::BeginDrain()
 {
+	// A world restart or shutdown restarts every zone anyway.
+	RollingRestart::Instance().Abort();
+
 	m_phase           = Phase::Draining;
 	m_drain_started   = std::time(nullptr);
 	m_zones_signalled = false;
 	StartTicking();
 
-	zoneserver_list.SendEmoteMessageRaw(
-		0, 0, AccountStatus::Player, Chat::Red,
-		"[SYSTEM] The server is shutting down now. Your character is being saved."
+	const auto message = fmt::format(
+		"[SYSTEM] The server is {} now. Your character is being saved.",
+		m_restart ? "restarting" : "shutting down"
 	);
+	zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Red, message.c_str());
 
-	// Keep new players out while zones go down.
+	// Keep new players out while zones go down. An in-place restart reopens logins only if they
+	// were open before.
+	m_was_locked = WorldConfig::get()->Locked;
 	WorldConfig::LockWorld();
 
 	m_draining_zones.clear();
 	for (const auto &zs : zoneserver_list.getZoneServerList()) {
 		m_draining_zones.insert(zs->GetUUID());
 	}
+	m_zones_before_drain = m_draining_zones.size();
 
-	// Launchers must stop restarting zones before those zones start exiting.
-	launcher_list.ShutdownAll(!WorldConfig::get()->ShutdownUsePM2);
+	// Launchers must stop restarting zones before those zones start exiting. They exit with world
+	// only when nothing else will manage them: a shutdown without pm2, or a restart handed to a
+	// restart command (which starts them again). Otherwise they idle until pm2 stops them or world
+	// resumes them.
+	bool launchers_exit = !WorldConfig::get()->ShutdownUsePM2;
+	if (m_restart) {
+		launchers_exit = GetRestartMethod() == RestartMethod::Command;
+	}
+	m_launchers_exit = launchers_exit;
+	launcher_list.ShutdownAll(launchers_exit);
 
-	LogInfo("World shutdown started; [{}] zone(s) to drain", m_draining_zones.size());
+	LogInfo("World {} started; [{}] zone(s) to drain", Noun(), m_draining_zones.size());
+}
+
+// Runs a shell command detached from world, so a process manager that kills world's process tree
+// can't kill the command partway through.
+bool WorldShutdown::RunDetached(const std::string &command, const char *log_name) const
+{
+#ifdef _WINDOWS
+	const auto shell = fmt::format("start \"\" /B cmd /C \"{}\"", command);
+#else
+	const auto shell = fmt::format(
+		"( {} ) </dev/null >>'{}/{}' 2>&1 &",
+		command,
+		path.GetLogPath(),
+		log_name
+	);
+#endif
+	return std::system(shell.c_str()) == 0;
 }
 
 void WorldShutdown::Finalize()
 {
+	if (m_restart) {
+		FinalizeRestart();
+		return;
+	}
+
 	m_phase             = Phase::Finalizing;
 	m_finalize_deadline = std::time(nullptr) + PM2StopTimeout;
 
 	const auto config = WorldConfig::get();
 	if (config->ShutdownUsePM2 && !config->ShutdownPM2Command.empty()) {
-		// Detach so the command isn't a child of world. pm2 kills the whole process tree of an app it
-		// stops; if this were our child it could be killed before it got through every process.
-#ifdef _WINDOWS
-		const auto command = fmt::format("start \"\" /B cmd /C \"{}\"", config->ShutdownPM2Command);
-#else
-		const auto command = fmt::format(
-			"( {} ) </dev/null >>'{}/world_shutdown_pm2.log' 2>&1 &",
-			config->ShutdownPM2Command,
-			path.GetLogPath()
-		);
-#endif
 		LogInfo("Zones drained; running [{}] to stop all managed processes", config->ShutdownPM2Command);
 
-		if (std::system(command.c_str()) == 0) {
+		if (RunDetached(config->ShutdownPM2Command, "world_shutdown_pm2.log")) {
 			// pm2 will SIGINT us shortly. If it never does, Tick() exits after PM2StopTimeout.
 			return;
 		}
@@ -295,6 +323,54 @@ void WorldShutdown::Finalize()
 
 	LogInfo("Zones drained; world exiting");
 	CatchSignal(2);
+}
+
+void WorldShutdown::FinalizeRestart()
+{
+	const auto config = WorldConfig::get();
+
+	switch (GetRestartMethod()) {
+		case RestartMethod::PM2:
+			LogInfo("Zones drained; running [{}] to restart all managed processes", config->RestartPM2Command);
+			if (RunDetached(config->RestartPM2Command, "world_restart_pm2.log")) {
+				// pm2 restarts world shortly. If it never does, Tick() resumes in place after PM2StopTimeout.
+				m_phase             = Phase::Finalizing;
+				m_finalize_deadline = std::time(nullptr) + PM2StopTimeout;
+				return;
+			}
+			LogError("Failed to run [{}]; restarting zones in place instead", config->RestartPM2Command);
+			break;
+		case RestartMethod::Command:
+			LogInfo("Zones drained; running [{}] and exiting so it can start the server again", config->RestartCommand);
+			if (RunDetached(config->RestartCommand, "world_restart.log")) {
+				m_phase = Phase::Finalizing;
+				CatchSignal(2);
+				return;
+			}
+			// The launchers were told to exit with world, so there may be nothing left to restart zones.
+			LogError("Failed to run [{}]; restarting zones in place instead. Check that eqlaunch is still running.", config->RestartCommand);
+			break;
+		default:
+			break;
+	}
+
+	ResumeInPlace();
+}
+
+// World restarts every zone itself: the launchers start restarting zones again and logins reopen
+// once the zones have reconnected. World's own process isn't restarted, so a new world binary
+// needs pm2 or restart_command.
+void WorldShutdown::ResumeInPlace()
+{
+	m_phase          = Phase::Restarting;
+	m_resume_started = std::time(nullptr);
+
+	if (launcher_list.GetLauncherCount() == 0 && !WorldConfig::get()->ShutdownUsePM2) {
+		LogWarning("World restart: no launcher is connected, so zones may not come back on their own");
+	}
+
+	LogInfo("Zones drained; resuming launchers and waiting for [{}] zone(s) to reconnect", m_zones_before_drain);
+	launcher_list.ResumeAll();
 }
 
 void WorldShutdown::StartTicking()
@@ -317,7 +393,7 @@ void WorldShutdown::Tick()
 		case Phase::Countdown: {
 			const uint32 remaining = Remaining();
 			if (remaining == 0) {
-				LogInfo("Shutdown timer expired");
+				LogInfo("{} timer expired", m_restart ? "Restart" : "Shutdown");
 				BeginDrain();
 				break;
 			}
@@ -326,7 +402,7 @@ void WorldShutdown::Tick()
 			uint32 announce = 0;
 			while (m_next_checkpoint != 0 && remaining <= m_next_checkpoint) {
 				announce          = m_next_checkpoint;
-				m_next_checkpoint = NextCheckpoint(m_next_checkpoint);
+				m_next_checkpoint = ShutdownDuration::NextCountdownMark(m_next_checkpoint, m_interval);
 			}
 
 			if (announce) {
@@ -361,21 +437,58 @@ void WorldShutdown::Tick()
 				Finalize();
 			}
 			else if (now - m_drain_started >= static_cast<time_t>(drain_limit + ZoneSignalDelay)) {
-				LogWarning("[{}] zone(s) did not exit within [{}] seconds; continuing shutdown", m_draining_zones.size(), drain_limit);
+				LogWarning("[{}] zone(s) did not exit within [{}] seconds; continuing {}", m_draining_zones.size(), drain_limit, Noun());
 				Finalize();
 			}
 			break;
 		}
 		case Phase::Finalizing:
 			if (now >= m_finalize_deadline) {
+				if (m_restart) {
+					LogWarning("Process manager did not restart world within [{}] seconds; restarting zones in place", PM2StopTimeout);
+					ResumeInPlace();
+					break;
+				}
 				LogWarning("Process manager did not stop world within [{}] seconds; exiting", PM2StopTimeout);
 				CatchSignal(2);
 				m_finalize_deadline = now + PM2StopTimeout;
 			}
 			break;
+		case Phase::Restarting: {
+			const size_t connected = zoneserver_list.getZoneServerList().size();
+			const bool   timed_out = now - m_resume_started >= static_cast<time_t>(WorldConfig::get()->RestartZoneWaitSeconds);
+			if (connected < m_zones_before_drain && !timed_out) {
+				break;
+			}
+
+			if (connected < m_zones_before_drain) {
+				LogWarning(
+					"Only [{}] of [{}] zone(s) reconnected within [{}] seconds of the restart; opening logins anyway",
+					connected,
+					m_zones_before_drain,
+					WorldConfig::get()->RestartZoneWaitSeconds
+				);
+			}
+
+			if (!m_was_locked) {
+				WorldConfig::UnlockWorld();
+			}
+			LogInfo(
+				"World restart complete: [{}] zone(s) connected after [{}]{}",
+				connected,
+				ShutdownDuration::Format(static_cast<uint32>(now - m_drain_started)),
+				m_was_locked ? "; world stays locked as it was before the restart" : ""
+			);
+
+			// Leave the tick timer running idle: this runs inside its callback.
+			m_phase   = Phase::Idle;
+			m_restart = false;
+			PushMOTD();
+			break;
+		}
 		default:
-			// Idle is only entered through Cancel(), which stops this timer. Never stop it from here:
-			// that would destroy the timer inside its own callback.
+			// Idle: Cancel() stops this timer. Never stop it from here: that would destroy the timer
+			// inside its own callback, so a finished in-place restart leaves it ticking idle.
 			break;
 	}
 }
@@ -422,11 +535,11 @@ void WorldShutdown::PollRequestFile()
 	}
 }
 
-// Request lines, written by `world world:shutdown`:
-//   schedule <seconds> <interval_seconds> <requested_by>
-//   now <requested_by>
-//   cancel <requested_by>
-//   status
+// Request lines, written by `world world:shutdown`, `world:restart` and `world:rolling-restart`:
+//   schedule|restart|rolling <seconds> <interval_seconds> <requested_by>
+//   now|restartnow|rollingnow <requested_by>
+//   cancel|rollingcancel <requested_by>
+//   status|rollingstatus
 std::string WorldShutdown::HandleRequest(const std::string &line)
 {
 	auto args = Strings::Split(line, ' ');
@@ -434,8 +547,9 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 		return "ERROR: empty shutdown request";
 	}
 
-	const auto verb     = Strings::ToLower(args[0]);
-	auto       by_index = verb == "schedule" ? 3 : 1;
+	const auto verb      = Strings::ToLower(args[0]);
+	const bool scheduled = verb == "schedule" || verb == "restart" || verb == "rolling";
+	auto       by_index  = scheduled ? 3 : 1;
 	std::string requested_by;
 	for (size_t i = by_index; i < args.size(); i++) {
 		requested_by += (requested_by.empty() ? "" : " ") + args[i];
@@ -444,17 +558,37 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 		requested_by = "command line";
 	}
 
-	if (verb == "schedule" && args.size() >= 3 && Strings::IsNumber(args[1]) && Strings::IsNumber(args[2])) {
-		return Schedule(Strings::ToUnsignedInt(args[1]), Strings::ToUnsignedInt(args[2]), requested_by);
+	if (scheduled) {
+		if (args.size() < 3 || !Strings::IsNumber(args[1]) || !Strings::IsNumber(args[2])) {
+			return fmt::format("ERROR: malformed request [{}]", line);
+		}
+		const auto seconds  = Strings::ToUnsignedInt(args[1]);
+		const auto interval = Strings::ToUnsignedInt(args[2]);
+		if (verb == "rolling") {
+			return RollingRestart::Instance().Schedule(seconds, interval, requested_by);
+		}
+		return Schedule(seconds, interval, requested_by, verb == "restart");
 	}
 	if (verb == "now") {
 		return ShutdownNow(requested_by);
+	}
+	if (verb == "restartnow") {
+		return ShutdownNow(requested_by, true);
 	}
 	if (verb == "cancel") {
 		return Cancel(requested_by);
 	}
 	if (verb == "status") {
 		return Status();
+	}
+	if (verb == "rollingnow") {
+		return RollingRestart::Instance().RestartNow(requested_by);
+	}
+	if (verb == "rollingcancel") {
+		return RollingRestart::Instance().Cancel(requested_by);
+	}
+	if (verb == "rollingstatus") {
+		return RollingRestart::Instance().Status();
 	}
 
 	return fmt::format("ERROR: unknown shutdown request [{}]", line);

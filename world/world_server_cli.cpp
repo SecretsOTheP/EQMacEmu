@@ -21,6 +21,8 @@ void WorldserverCLI::CommandHandler(int argc, char **argv)
 	 */
 	function_map["world:version"]               = &WorldserverCLI::Version;
 	function_map["world:shutdown"]              = &WorldserverCLI::WorldShutdownCommand;
+	function_map["world:restart"]               = &WorldserverCLI::WorldRestartCommand;
+	function_map["world:rolling-restart"]       = &WorldserverCLI::RollingRestartCommand;
 	function_map["database:version"]            = &WorldserverCLI::DatabaseVersion;
 	function_map["database:set-account-status"] = &WorldserverCLI::DatabaseSetAccountStatus;
 	function_map["database:schema"]             = &WorldserverCLI::DatabaseGetSchema;

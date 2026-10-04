@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include <cctype>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -117,6 +118,56 @@ namespace ShutdownDuration {
 			s += out[i];
 		}
 		return s;
+	}
+
+	// Countdown announcements (world shutdown, world restart, rolling zone restart). Above
+	// EscalationStart they follow the interval; below it they escalate through FinalMarks.
+	constexpr uint32 EscalationStart = 15 * 60;
+	constexpr uint32 FinalMarks[]    = { 900, 600, 300, 240, 180, 120, 60, 30, 10 };
+
+	// Largest announcement mark strictly below `remaining`; 0 when there are none left.
+	// interval_seconds 0 picks a spacing from how far out the deadline is.
+	inline uint32 NextCountdownMark(uint32 remaining, uint32 interval_seconds)
+	{
+		if (remaining > EscalationStart) {
+			uint32 step = interval_seconds;
+			if (step == 0) {
+				step = remaining > 86400 ? 21600 :
+					   remaining > 21600 ? 10800 :
+					   remaining > 3600  ? 3600  : 900;
+			}
+
+			const uint32 mark = ((remaining - 1) / step) * step;
+			return mark > EscalationStart ? mark : EscalationStart;
+		}
+
+		for (const auto mark : FinalMarks) {
+			if (mark < remaining) {
+				return mark;
+			}
+		}
+
+		return 0;
+	}
+
+	// Whole minutes once we're past a minute out; seconds are noise in a MOTD or a broadcast.
+	inline std::string FormatCountdown(uint32 seconds)
+	{
+		return Format(seconds >= 60 ? seconds - (seconds % 60) : seconds);
+	}
+
+	// "2026-10-04 21:00 UTC"
+	inline std::string FormatUTC(time_t t)
+	{
+		char buf[32] = { 0 };
+		std::tm tm{};
+#ifdef _WINDOWS
+		gmtime_s(&tm, &t);
+#else
+		gmtime_r(&t, &tm);
+#endif
+		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M UTC", &tm);
+		return buf;
 	}
 }
 

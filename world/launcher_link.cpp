@@ -103,7 +103,7 @@ void LauncherLink::ProcessMessage(uint16 opcode, EQ::Net::Packet& p)
 			// A launcher restarted by a process manager mid-shutdown must not boot zones again.
 			if (WorldShutdown::Instance().IsShuttingDown()) {
 				LogInfo("Launcher [{}] connected during world shutdown. Telling it to shut down", it->name);
-				Shutdown(!WorldConfig::get()->ShutdownUsePM2);
+				Shutdown(WorldShutdown::Instance().LaunchersShouldExit());
 				break;
 			}
 
@@ -303,4 +303,15 @@ void LauncherLink::Shutdown(bool exit_process) {
 	auto s = (LauncherShutdown_Struct *) pack.pBuffer;
 	s->exit_process = exit_process ? 1 : 0;
 	SendPacket(&pack);
+}
+
+void LauncherLink::Resume() {
+	ServerPacket pack(ServerOP_LauncherResume);
+	SendPacket(&pack);
+
+	// Zones that are still running answer "already running"; the rest boot on the next timer check.
+	for (auto &s : m_states) {
+		s.second.up = false;
+	}
+	m_bootTimer.Start();
 }

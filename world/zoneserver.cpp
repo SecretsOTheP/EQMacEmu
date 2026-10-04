@@ -40,6 +40,7 @@
 #include "../common/patches/patches.h"
 #include "../common/skill_caps.h"
 #include "world_shutdown.h"
+#include "rolling_restart.h"
 
 extern ClientList client_list;
 extern ZSList zoneserver_list;
@@ -907,6 +908,12 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 			case WorldShutDownSchedule: reply = shutdown.Schedule(wsd->seconds, wsd->interval_seconds, by); break;
 			case WorldShutDownNow:      reply = shutdown.ShutdownNow(by); break;
 			case WorldShutDownCancel:   reply = shutdown.Cancel(by); break;
+			case WorldRestartSchedule:  reply = shutdown.Schedule(wsd->seconds, wsd->interval_seconds, by, true); break;
+			case WorldRestartNow:       reply = shutdown.ShutdownNow(by, true); break;
+			case RollingRestartSchedule: reply = RollingRestart::Instance().Schedule(wsd->seconds, wsd->interval_seconds, by); break;
+			case RollingRestartNow:      reply = RollingRestart::Instance().RestartNow(by); break;
+			case RollingRestartCancel:   reply = RollingRestart::Instance().Cancel(by); break;
+			case RollingRestartStatus:   reply = RollingRestart::Instance().Status(); break;
 			default:                    reply = shutdown.Status(); break;
 		}
 

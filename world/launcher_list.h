@@ -47,6 +47,7 @@ public:
 
 	int GetLauncherCount();
 	void ShutdownAll(bool exit_process);
+	void ResumeAll();
 	void GetLauncherNameList(std::vector<std::string> &list);
 
 protected:

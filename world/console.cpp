@@ -28,6 +28,7 @@
 #include "zonelist.h"
 #include "zoneserver.h"
 #include "world_shutdown.h"
+#include "rolling_restart.h"
 #include "../common/shutdown_duration.h"
 #include "../common/zone_store.h"
 #include "../common/strings.h"
@@ -789,6 +790,93 @@ void ConsoleWorldShutdown(
 	}
 }
 
+namespace {
+	// Parses "<delay> [interval]" for the scheduled shutdown/restart console commands.
+	bool ParseConsoleSchedule(const std::vector<std::string> &args, uint32 &seconds, uint32 &interval)
+	{
+		seconds  = 0;
+		interval = 0;
+		return (args.size() == 1 || args.size() == 2) &&
+			ShutdownDuration::Parse(args[0], seconds) && seconds > 0 &&
+			(args.size() == 1 || ShutdownDuration::Parse(args[1], interval));
+	}
+
+	void SendConsoleScheduleUsage(EQ::Net::ConsoleServerConnection* connection, const char *name)
+	{
+		connection->SendLine(fmt::format("Usage: {} <delay> [interval] | now | cancel | status", name));
+		connection->SendLine("  delay/interval: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds)");
+		connection->SendLine("  interval sets announcements above 15 minutes (default automatic); they escalate below 15 minutes");
+	}
+}
+
+/**
+ * @param connection
+ * @param command
+ * @param args
+ */
+void ConsoleWorldRestart(
+	EQ::Net::ConsoleServerConnection* connection,
+	const std::string& command,
+	const std::vector<std::string>& args
+)
+{
+	auto &shutdown = WorldShutdown::Instance();
+	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
+	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
+
+	uint32 seconds = 0, interval = 0;
+	if (sub == "now") {
+		connection->SendLine(shutdown.ShutdownNow(by, true));
+	}
+	else if (sub == "disable" || sub == "cancel") {
+		connection->SendLine(shutdown.Cancel(by));
+	}
+	else if (sub == "status") {
+		connection->SendLine(shutdown.Status());
+	}
+	else if (ParseConsoleSchedule(args, seconds, interval)) {
+		connection->SendLine(shutdown.Schedule(seconds, interval, by, true));
+	}
+	else {
+		SendConsoleScheduleUsage(connection, "worldrestart");
+		connection->SendLine("  Shuts the whole server down like worldshutdown, then brings it back up.");
+	}
+}
+
+/**
+ * @param connection
+ * @param command
+ * @param args
+ */
+void ConsoleRollingRestart(
+	EQ::Net::ConsoleServerConnection* connection,
+	const std::string& command,
+	const std::vector<std::string>& args
+)
+{
+	auto &rolling = RollingRestart::Instance();
+	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
+	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
+
+	uint32 seconds = 0, interval = 0;
+	if (sub == "now") {
+		connection->SendLine(rolling.RestartNow(by));
+	}
+	else if (sub == "disable" || sub == "cancel") {
+		connection->SendLine(rolling.Cancel(by));
+	}
+	else if (sub == "status") {
+		connection->SendLine(rolling.Status());
+	}
+	else if (ParseConsoleSchedule(args, seconds, interval)) {
+		connection->SendLine(rolling.Schedule(seconds, interval, by));
+	}
+	else {
+		SendConsoleScheduleUsage(connection, "rollingrestart");
+		connection->SendLine("  Restarts zones a few at a time; world and logins stay up.");
+	}
+}
+
 /**
  * @param connection
  * @param command
@@ -888,6 +976,7 @@ void RegisterConsoleFunctions(std::unique_ptr<EQ::Net::ConsoleServer>& console)
 	console->RegisterCall("md5", 50, "md5", std::bind(ConsoleMd5, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("ooc", 50, "ooc [message]", std::bind(ConsoleOOC, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("reloadworld", 200, "reloadworld", std::bind(ConsoleReloadWorld, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	console->RegisterCall("rollingrestart", 200, "rollingrestart", std::bind(ConsoleRollingRestart, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("setpass", 200, "setpass [accountname] [newpass]", std::bind(ConsoleSetPass, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("signalcharbyname", 50, "signalcharbyname charname ID", std::bind(ConsoleSignalCharByName, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("tell", 50, "tell [name] [message]", std::bind(ConsoleTell, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
@@ -896,6 +985,7 @@ void RegisterConsoleFunctions(std::unique_ptr<EQ::Net::ConsoleServer>& console)
 	console->RegisterCall("version", 50, "version", std::bind(ConsoleVersion, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("who", 50, "who", std::bind(ConsoleWho, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("whoami", 50, "whoami", std::bind(ConsoleWhoami, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	console->RegisterCall("worldrestart", 200, "worldrestart", std::bind(ConsoleWorldRestart, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("worldshutdown", 200, "worldshutdown", std::bind(ConsoleWorldShutdown, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("zonebootup", 150, "zonebootup [ZoneServerID] [zonename]", std::bind(ConsoleZoneBootup, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("zonelock", 150, "zonelock [list|lock|unlock] [zonename]", std::bind(ConsoleZoneLock, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));

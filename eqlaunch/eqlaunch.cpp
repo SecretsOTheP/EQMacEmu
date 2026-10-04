@@ -179,6 +179,11 @@ int main(int argc, char *argv[]) {
 				shutdown_stops_sent = true;
 			}
 		}
+		else if (shutdown_started) {
+			// World resumed us after an in-place restart; a later shutdown starts fresh.
+			shutdown_started = false;
+			shutdown_stops_sent = false;
+		}
 	};
 
 	EQ::Timer process_timer(loop_fn);

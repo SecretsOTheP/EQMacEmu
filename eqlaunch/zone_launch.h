@@ -43,6 +43,8 @@ public:
 	// Once set, zones that exit stay down instead of being restarted.
 	static void SetShuttingDown() { s_shuttingDown = true; }
 	static bool IsShuttingDown() { return s_shuttingDown; }
+	// World restarted in place and wants zones running again.
+	static void ClearShuttingDown() { s_shuttingDown = false; }
 
 protected:
 	bool IsRunning() const { return(m_state == StateStarted || m_state == StateStopPending || m_state == StateRestartPending); }

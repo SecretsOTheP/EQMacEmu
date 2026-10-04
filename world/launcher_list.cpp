@@ -129,6 +129,13 @@ void LauncherList::ShutdownAll(bool exit_process) {
 	}
 }
 
+void LauncherList::ResumeAll() {
+	for (auto &l : m_launchers) {
+		LogInfo("Telling launcher [{}] to start zones again", l.first);
+		l.second->Resume();
+	}
+}
+
 int LauncherList::GetLauncherCount() {
 	return(m_launchers.size());
 }
