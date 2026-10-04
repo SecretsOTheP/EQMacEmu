@@ -51,6 +51,11 @@
         "port": "9000",
         "enabled": "true"
       },
+      "shutdown": {
+        "pm2": "false",
+        "pm2_command": "pm2 stop all",
+        "drain_seconds": "30"
+      },
       "key": "qwerty1234",
       "shortname": "TAKP Clone Server",
       "longname": "TAKP Clone Server",

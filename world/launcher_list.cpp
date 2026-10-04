@@ -122,6 +122,13 @@ void LauncherList::Remove(std::shared_ptr<EQ::Net::ServertalkServerConnection> c
 	}
 }
 
+void LauncherList::ShutdownAll(bool exit_process) {
+	for (auto &l : m_launchers) {
+		LogInfo("Telling launcher [{}] to shut down", l.first);
+		l.second->Shutdown(exit_process);
+	}
+}
+
 int LauncherList::GetLauncherCount() {
 	return(m_launchers.size());
 }

@@ -29,6 +29,7 @@
 
 #include "worlddb.h"
 #include "eql_config.h"
+#include "world_shutdown.h"
 
 #include <vector>
 #include <string>
@@ -96,6 +97,13 @@ void LauncherLink::ProcessMessage(uint16 opcode, EQ::Net::Packet& p)
 			if(config == nullptr) {
 				LogInfo("Unknown launcher [{}] connected. Disconnecting", it->name);
 				Disconnect();
+				break;
+			}
+
+			// A launcher restarted by a process manager mid-shutdown must not boot zones again.
+			if (WorldShutdown::Instance().IsShuttingDown()) {
+				LogInfo("Launcher [{}] connected during world shutdown. Telling it to shut down", it->name);
+				Shutdown(!WorldConfig::get()->ShutdownUsePM2);
 				break;
 			}
 
@@ -290,8 +298,9 @@ void LauncherLink::GetZoneDetails(const char *short_name, std::map<std::string,s
 	}
 }
 
-void LauncherLink::Shutdown() {
-	auto pack = new ServerPacket(ServerOP_ShutdownAll);
-	SendPacket(pack);
-	delete pack;
+void LauncherLink::Shutdown(bool exit_process) {
+	ServerPacket pack(ServerOP_ShutdownAll, sizeof(LauncherShutdown_Struct));
+	auto s = (LauncherShutdown_Struct *) pack.pBuffer;
+	s->exit_process = exit_process ? 1 : 0;
+	SendPacket(&pack);
 }

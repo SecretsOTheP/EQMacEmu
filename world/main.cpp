@@ -86,6 +86,7 @@
 #include "../common/content/world_content_service.h"
 #include "../common/zone_store.h"
 #include "world_event_scheduler.h"
+#include "world_shutdown.h"
 #include "../common/path_manager.h"
 #include "../common/events/player_event_logs.h"
 #include "../common/skill_caps.h"
@@ -306,7 +307,14 @@ int main(int argc, char** argv) {
 	server_connection->OnConnectionIdentified(
 		"Zone", [&console](std::shared_ptr<EQ::Net::ServertalkServerConnection> connection) {
 			numzones++;
-			zoneserver_list.Add(new ZoneServer(connection, console.get()));
+			auto zs = new ZoneServer(connection, console.get());
+			zoneserver_list.Add(zs);
+
+			// A zone restarted by a process manager mid-shutdown goes straight back down.
+			if (WorldShutdown::Instance().IsShuttingDown()) {
+				ServerPacket pack(ServerOP_ShutdownAll);
+				zs->SendPacket(&pack);
+			}
 
 			LogInfo(
 				"New Zone Server connection from [{}] at [{}:{}] zone_count [{}]",
@@ -445,10 +453,7 @@ int main(int argc, char** argv) {
 	//register all the patches we have avaliable with the stream identifier.
 	EQStreamIdentifier stream_identifier;
 	RegisterAllPatches(stream_identifier);
-	zoneserver_list.shutdowntimer = new Timer(60000);
-	zoneserver_list.shutdowntimer->Disable();
-	zoneserver_list.reminder = new Timer(20000);
-	zoneserver_list.reminder->Disable();
+	WorldShutdown::Instance().Start();
 	Timer InterserverTimer(INTERSERVER_TIMER); // does MySQL pings and auto-reconnect
 	InterserverTimer.Trigger();
 	uint8 ReconnectCounter = 100;
@@ -635,7 +640,6 @@ int main(int argc, char** argv) {
 
 		//check for timeouts in other threads
 		timeout_manager.CheckTimeouts();
-		zoneserver_list.Process();
 		launcher_list.Process();
 
 		if (InterserverTimer.Check()) {

@@ -46,6 +46,7 @@ public:
 	LauncherLink *FindByZone(const char *short_name);
 
 	int GetLauncherCount();
+	void ShutdownAll(bool exit_process);
 	void GetLauncherNameList(std::vector<std::string> &list);
 
 protected:

@@ -27,6 +27,8 @@
 #include "worlddb.h"
 #include "zonelist.h"
 #include "zoneserver.h"
+#include "world_shutdown.h"
+#include "../common/shutdown_duration.h"
 #include "../common/zone_store.h"
 #include "../common/strings.h"
 #include "../common/md5.h"
@@ -759,31 +761,31 @@ void ConsoleWorldShutdown(
 	const std::vector<std::string>& args
 )
 {
-	if (args.size() == 2) {
-		int32 time, interval;
-		if (Strings::IsNumber(args[0]) && Strings::IsNumber(args[1]) && ((time = atoi(args[0].c_str())) > 0) && ((interval = atoi(args[1].c_str())) > 0)) {
-			zoneserver_list.WorldShutDown(time, interval);
-		}
-		else {
-			connection->SendLine("Usage: worldshutdown [now] [disable] ([time] [interval])");
-		}
+	auto &shutdown = WorldShutdown::Instance();
+	const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
+	const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
+
+	uint32 seconds = 0, interval = 0;
+	if (sub == "now") {
+		connection->SendLine(shutdown.ShutdownNow(by));
 	}
-	else if (args.size() == 1) {
-		if (strcasecmp(args[0].c_str(), "now") == 0) {
-			zoneserver_list.WorldShutDown(0, 0);
-		}
-		else if (strcasecmp(args[0].c_str(), "disable") == 0) {
-			connection->SendLine("<SYSTEMWIDE MESSAGE>:SYSTEM MSG:World shutdown aborted.");
-			zoneserver_list.SendEmoteMessage(0, 0, 0, 15, "<SYSTEMWIDE MESSAGE>:SYSTEM MSG:World shutdown aborted.");
-			zoneserver_list.shutdowntimer->Disable();
-			zoneserver_list.reminder->Disable();
-		}
-		else {
-			connection->SendLine("Usage: worldshutdown [now] [disable] ([time] [interval])");
-		}
+	else if (sub == "disable" || sub == "cancel") {
+		connection->SendLine(shutdown.Cancel(by));
+	}
+	else if (sub == "status") {
+		connection->SendLine(shutdown.Status());
+	}
+	else if (
+		(args.size() == 1 || args.size() == 2) &&
+		ShutdownDuration::Parse(args[0], seconds) && seconds > 0 &&
+		(args.size() == 1 || ShutdownDuration::Parse(args[1], interval))
+	) {
+		connection->SendLine(shutdown.Schedule(seconds, interval, by));
 	}
 	else {
-		connection->SendLine("Usage: worldshutdown [now] [disable] ([time] [interval])");
+		connection->SendLine("Usage: worldshutdown <delay> [interval] | now | cancel | status");
+		connection->SendLine("  delay/interval: 90, 90s, 15m, 1h30m, 2d4h (no spaces; a bare number is seconds)");
+		connection->SendLine("  interval sets announcements above 15 minutes (default automatic); they escalate below 15 minutes");
 	}
 }
 

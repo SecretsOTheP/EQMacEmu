@@ -40,6 +40,10 @@ public:
 
 	const char *GetZone() const { return(m_zone.c_str()); }
 
+	// Once set, zones that exit stay down instead of being restarted.
+	static void SetShuttingDown() { s_shuttingDown = true; }
+	static bool IsShuttingDown() { return s_shuttingDown; }
+
 protected:
 	bool IsRunning() const { return(m_state == StateStarted || m_state == StateStopPending || m_state == StateRestartPending); }
 
@@ -70,6 +74,7 @@ protected:
 private:
 	static int s_running;
 	static Timer s_startTimer;
+	static bool s_shuttingDown;
 };
 
 #endif /*ZONELAUNCH_H_*/

@@ -89,6 +89,10 @@ void EQEmuConfig::parse_config() {
 		WorldHTTPEnabled = true;
 	}
 
+	ShutdownUsePM2 = _root["server"]["world"]["shutdown"].get("pm2", "false").asString() == "true";
+	ShutdownPM2Command = _root["server"]["world"]["shutdown"].get("pm2_command", "pm2 stop all").asString();
+	ShutdownDrainSeconds = Strings::ToUnsignedInt(_root["server"]["world"]["shutdown"].get("drain_seconds", "30").asString());
+
 	if (_root["server"].get("disable_config_checks", "false").asString() == "true") {
 		DisableConfigChecks = true;
 	}

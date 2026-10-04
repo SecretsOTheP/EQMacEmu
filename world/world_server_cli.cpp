@@ -20,6 +20,7 @@ void WorldserverCLI::CommandHandler(int argc, char **argv)
 	 * Register commands
 	 */
 	function_map["world:version"]               = &WorldserverCLI::Version;
+	function_map["world:shutdown"]              = &WorldserverCLI::WorldShutdownCommand;
 	function_map["database:version"]            = &WorldserverCLI::DatabaseVersion;
 	function_map["database:set-account-status"] = &WorldserverCLI::DatabaseSetAccountStatus;
 	function_map["database:schema"]             = &WorldserverCLI::DatabaseGetSchema;
@@ -37,3 +38,4 @@ void WorldserverCLI::CommandHandler(int argc, char **argv)
 #include "cli/test.cpp"
 #include "cli/test_expansion.cpp"
 #include "cli/version.cpp"
+#include "cli/world_shutdown.cpp"

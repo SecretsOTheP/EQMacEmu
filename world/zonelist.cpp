@@ -102,23 +102,6 @@ void ZSList::KillAll() {
 	}
 }
 
-void ZSList::Process() {
-
-	if(shutdowntimer && shutdowntimer->Check()){
-		LogInfo("Shutdown timer has expired. Telling all zones to shut down and exiting. (fake sigint)");
-		auto pack2 = new ServerPacket;
-		pack2->opcode = ServerOP_ShutdownAll;
-		pack2->size=0;
-		SendPacket(pack2);
-		safe_delete(pack2);
-		Process();
-		CatchSignal(2);
-	}
-	if(reminder && reminder->Check() && shutdowntimer){
-		SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow , fmt::format("[SYSTEM] World coming down in {} minutes.", ((shutdowntimer->GetRemainingTime() / 1000) / 60)).c_str());
-	}
-}
-
 bool ZSList::SendPacket(ServerPacket* pack) {
 	auto iterator = zone_server_list.begin();
 	while (iterator != zone_server_list.end()) {
@@ -685,31 +668,6 @@ void ZSList::GetZoneIDList(std::vector<uint32> &zones) {
 		ZoneServer* zs = (*iterator).get();
 		zones.push_back(zs->GetID());
 		iterator++;
-	}
-}
-
-void ZSList::WorldShutDown(uint32 time, uint32 interval)
-{
-	if( time > 0 ) {
-		SendEmoteMessage(0, 0, AccountStatus::Player, Chat::System, fmt::format("[SYSTEM] World will be shutting down in {} minutes.", (time / 60)).c_str());
-
-		time *= 1000;
-		interval *= 1000;
-		if(interval < 5000) { interval = 5000; }
-
-		shutdowntimer->Start(time);
-		reminder->Start(interval - 1000);
-		reminder->SetDuration(interval);
-	}
-	else {
-		SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow,"[SYSTEM] World is shutting down.");
-		auto pack = new ServerPacket;
-		pack->opcode = ServerOP_ShutdownAll;
-		pack->size=0;
-		SendPacket(pack);
-		safe_delete(pack);
-		Process();
-		CatchSignal(2);
 	}
 }
 

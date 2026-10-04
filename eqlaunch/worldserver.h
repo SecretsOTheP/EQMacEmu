@@ -36,7 +36,15 @@ public:
 
 	void SendStatus(const char *short_name, uint32 start_count, bool running);
 
+	// Set when world sends ServerOP_ShutdownAll.
+	bool ShutdownRequested() const { return m_shutdownRequested; }
+	// False when a process manager (pm2) will stop us; the launcher then idles once its zones are down.
+	bool ExitAfterShutdown() const { return m_exitAfterShutdown; }
+
 private:
+	bool m_shutdownRequested = false;
+	bool m_exitAfterShutdown = true;
+
 	virtual void OnConnected();
 
 	std::unique_ptr<EQ::Net::ServertalkClient> m_connection;

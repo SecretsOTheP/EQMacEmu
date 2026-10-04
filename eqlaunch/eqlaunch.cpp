@@ -32,11 +32,17 @@
 #include <set>
 #include <signal.h>
 #include <time.h>
+#include <chrono>
 
 EQEmuLogSys LogSys;
 PathManager path;
 
 bool RunLoops = false;
+
+// After world asks for a shutdown, how long zones get to exit on their own.
+static const uint32 ShutdownGraceMS = 30000;
+// When the launcher itself is stopped, how long zones get before being killed.
+static const uint32 ExitStopWaitMS = 15000;
 
 void CatchSignal(int sig_num);
 
@@ -105,6 +111,13 @@ int main(int argc, char *argv[]) {
 	Log(Logs::Detail, Logs::Launcher, "Starting main loop...");
 
 	ProcLauncher *launch = ProcLauncher::get();
+
+	// World tells zones to save and exit at the same time it tells us; give them that long to go
+	// on their own before we start signalling the stragglers.
+	Timer shutdown_grace(ShutdownGraceMS);
+	bool shutdown_started = false;
+	bool shutdown_stops_sent = false;
+
 	RunLoops = true;
 	auto loop_fn = [&](EQ::Timer* t) {
 		//Advance the timer to our current point in time
@@ -145,6 +158,27 @@ int main(int argc, char *argv[]) {
 			delete zone->second;
 			zones.erase(rem);
 		}
+
+		if (world.ShutdownRequested()) {
+			if (!shutdown_started) {
+				shutdown_started = true;
+				shutdown_grace.Start(ShutdownGraceMS);
+			}
+
+			if (zones.empty()) {
+				if (world.ExitAfterShutdown()) {
+					LogInfo("All zones are down. Launcher exiting");
+					RunLoops = false;
+				}
+			}
+			else if (!shutdown_stops_sent && shutdown_grace.Check(false)) {
+				LogInfo("[{}] zone(s) still running after shutdown grace period. Stopping them", zones.size());
+				for (auto &z : zones) {
+					z.second->Stop();
+				}
+				shutdown_stops_sent = true;
+			}
+		}
 	};
 
 	EQ::Timer process_timer(loop_fn);
@@ -152,22 +186,43 @@ int main(int argc, char *argv[]) {
 
 	EQ::EventLoop::Get().Run();
 
-	//try to be semi-nice about this... without waiting too long
-	zone = zones.begin();
-	zend = zones.end();
-	for(; zone != zend; ++zone) {
-		zone->second->Stop();
+	// Ask every zone to stop and give them time to save and exit. This used to force-kill them
+	// about 2ms after asking, which could cut off a zone mid-save.
+	ZoneLaunch::SetShuttingDown();
+	for (auto &z : zones) {
+		z.second->Stop();
 	}
-	Sleep(1);
-	launch->Process();
-	launch->TerminateAll(false);
-	Sleep(1);
-	launch->Process();
+
+	const auto stop_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(ExitStopWaitMS);
+	while (!zones.empty() && std::chrono::steady_clock::now() < stop_deadline) {
+		Timer::SetCurrentTime();
+		launch->Process();	// reaps exited zones
+
+		// Process() also escalates to a hard kill for zones that ignore the stop.
+		for (auto it = zones.begin(); it != zones.end();) {
+			if (!it->second->Process()) {
+				delete it->second;
+				it = zones.erase(it);
+			} else {
+				++it;
+			}
+		}
+
+		if (!zones.empty()) {
+			Sleep(100);
+		}
+	}
+
+	if (!zones.empty()) {
+		LogInfo("[{}] zone(s) did not stop in time. Killing them", zones.size());
+	}
+
 	//kill anybody left
 	launch->TerminateAll(true);
-	for(; zone != zend; ++zone) {
-		delete zone->second;
+	for (auto &z : zones) {
+		delete z.second;
 	}
+	zones.clear();
 
 	LogSys.CloseFileLogs();
 

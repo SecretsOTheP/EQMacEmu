@@ -31,6 +31,7 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "wguild_mgr.h"
+#include "world_shutdown.h"
 
 #include "../common/char_create_data.h"
 #include "../common/repositories/player_event_logs_repository.h"
@@ -688,14 +689,9 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app)
 	}
 
 	auto outapp = new EQApplicationPacket(OP_MOTD);
-	std::string motd = RuleS(World, MOTD);
+	// Configured MOTD (rule, then variable), with the shutdown notice in front during a countdown.
+	std::string motd = WorldShutdown::Instance().GetMOTD();
 	if (!motd.empty()) {
-		outapp->size = motd.length() + 1;
-		outapp->pBuffer = new uchar[outapp->size];
-		memset(outapp->pBuffer, 0, outapp->size);
-		strcpy((char*)outapp->pBuffer, motd.c_str());
-	}
-	else if (database.GetVariable("MOTD", motd)) {
 		outapp->size = motd.length() + 1;
 		outapp->pBuffer = new uchar[outapp->size];
 		memset(outapp->pBuffer, 0, outapp->size);

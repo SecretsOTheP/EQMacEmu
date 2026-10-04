@@ -34,9 +34,6 @@ public:
 	inline uint32 GetNextID() { return NextID++; }
 	int GetZoneCount();
 
-	Timer *reminder;
-	Timer *shutdowntimer;
-
 	uint16 GetAvailableZonePort();
 	// Dynamic ports come from ZonePortLow..ZonePortHigh only. Static zones specify their own ports;
 	// those must never enter the dynamic pool or two zones end up registered on the same port.
@@ -51,7 +48,6 @@ public:
 	void KillAll();
 	void ListLockedZones(const char *to, WorldTCPConnection *connection);
 	void NextGroupIDs(uint32 &start, uint32 &end);
-	void Process();
 	void RebootZone(const char *ip1, uint16 port, const char *ip2, uint32 skipid, uint32 zoneid = 0);
 	void Remove(const std::string& uuid);
 	void SendChannelMessage(const char *from, const char *to, uint8 chan_num, uint8 language, uint8 lang_skill, const char *message, ...);
@@ -64,7 +60,6 @@ public:
 	void SendZoneStatus(const char *to, int16 admin, WorldTCPConnection *connection);
 	void SOPZoneBootup(const char *adminname, uint32 ZoneServerID, uint32 ZoneGuildID, const char *zonename, bool iMakeStatic = false);
 	void UpdateUCSServerAvailable(bool ucss_available = true);
-	void WorldShutDown(uint32 time, uint32 interval);
 	void DropClient(uint32 lsid, ZoneServer* ignore_zoneserver);
 
 	ZoneServer* FindByName(const char* zonename);

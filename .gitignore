@@ -59,3 +59,7 @@ bin/
 /utils/TaskMaster/.vs/
 /utils/TaskMaster/Debug/
 submodules/libuv/RelWithDebInfo/uv.exp
+/.claude/
+/.codegraph/
+.mcp.json
+HANDOFF.md

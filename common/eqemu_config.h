@@ -63,6 +63,12 @@ class EQEmuConfig
 		std::string SharedKey;
 		bool DisableConfigChecks;
 
+		// From <world/shutdown/>. pm2 restarts anything that exits on its own, so a pm2-managed
+		// server has to be stopped through pm2. Off by default so local/debug runs never call it.
+		bool ShutdownUsePM2;
+		std::string ShutdownPM2Command;
+		uint32 ShutdownDrainSeconds;
+
 		// From <chatserver/>
 		std::string ChatHost;
 		uint16 ChatPort;

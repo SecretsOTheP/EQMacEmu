@@ -27,6 +27,7 @@
 
 int ZoneLaunch::s_running = 0;	//the number of zones running under this launcher
 Timer ZoneLaunch::s_startTimer(1);	//I do not trust this things state after static initialization
+bool ZoneLaunch::s_shuttingDown = false;
 
 ZoneLaunch::ZoneLaunch(WorldServer *world, const char *launcher_name,
 const char *zone_name, uint16 port, const EQEmuConfig *config)
@@ -152,6 +153,11 @@ void ZoneLaunch::Stop(bool graceful) {
 bool ZoneLaunch::Process() {
 	switch(m_state) {
 	case StateStartPending:
+		if(s_shuttingDown) {
+			Log(Logs::Detail, Logs::Launcher, "Not starting zone %s; launcher is shutting down.", m_zone.c_str());
+			m_state = StateStopped;
+			break;
+		}
 		if(m_timer.Check(false)) {
 			//our internal timer says its time to start. Check with the shared timer.
 			if(!s_startTimer.Check(false)) {
@@ -218,6 +224,13 @@ bool ZoneLaunch::Process() {
 //called when the process actually dies off...
 void ZoneLaunch::OnTerminate(const ProcLauncher::ProcRef &ref, const ProcLauncher::Spec *spec) {
 	s_running--;
+
+	if(s_shuttingDown && m_state != StateStopped) {
+		Log(Logs::Detail, Logs::Launcher, "Zone %s has exited during shutdown. Not restarting.", m_zone.c_str());
+		m_state = StateStopped;
+		SendStatus();
+		return;
+	}
 
 	switch(m_state) {
 	case StateStartPending:

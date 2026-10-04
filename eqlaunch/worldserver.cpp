@@ -79,7 +79,9 @@ void WorldServer::HandleMessage(uint16 opcode, EQ::Net::Packet& p) {
 
 		switch(ZoneRequestCommands(lzr->command)) {
 		case ZR_Start: {
-			if(m_zones.find(lzr->short_name) != m_zones.end()) {
+			if(m_shutdownRequested) {
+				Log(Logs::Detail, Logs::Launcher, "World told us to start zone %s during shutdown. Ignoring.", lzr->short_name);
+			} else if(m_zones.find(lzr->short_name) != m_zones.end()) {
 				Log(Logs::Detail, Logs::Launcher, "World told us to start zone %s, but it is already running.", lzr->short_name);
 			} else {
 				Log(Logs::Detail, Logs::Launcher, "World told us to start zone %s.", lzr->short_name);
@@ -109,6 +111,19 @@ void WorldServer::HandleMessage(uint16 opcode, EQ::Net::Packet& p) {
 			break;
 		}
 		}
+		break;
+	}
+	case ServerOP_ShutdownAll: {
+		// World has told the zones to save and exit; stop restarting them as they go down.
+		m_exitAfterShutdown = true;
+		if(pack->size >= sizeof(LauncherShutdown_Struct)) {
+			m_exitAfterShutdown = ((const LauncherShutdown_Struct *) pack->pBuffer)->exit_process != 0;
+		}
+		if(!m_shutdownRequested) {
+			LogInfo("World requested shutdown. Zones will not be restarted{}", m_exitAfterShutdown ? "; launcher exits once they are down" : "");
+		}
+		m_shutdownRequested = true;
+		ZoneLaunch::SetShuttingDown();
 		break;
 	}
 	case ServerOP_GroupIDReply: {

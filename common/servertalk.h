@@ -779,9 +779,19 @@ struct WorldToZone_Struct {
 	int8	response;
 };
 
+enum WorldShutDownAction : uint8 {
+	WorldShutDownSchedule = 0,
+	WorldShutDownNow      = 1,
+	WorldShutDownCancel   = 2,
+	WorldShutDownStatus   = 3,
+};
+
+// zone -> world. A zero-size ServerOP_ShutdownAll from world -> zone means "save and exit now".
 struct WorldShutDown_Struct {
-	uint32	time;
-	uint32	interval;
+	uint32	seconds;          // delay before shutdown (WorldShutDownSchedule)
+	uint32	interval_seconds; // announce interval above 15 minutes, 0 = automatic
+	uint8	action;           // WorldShutDownAction
+	char	admin_name[64];   // who asked; replies are sent here
 };
 
 struct ServerSyncWorldList_Struct {
@@ -922,6 +932,12 @@ struct LaunchName_Struct {
 
 struct LauncherConnectInfo {
 	char name[64];
+};
+
+// world -> launcher with ServerOP_ShutdownAll. The launcher stops restarting zones and waits for
+// them to exit. exit_process = 0 keeps the launcher idle so a process manager (pm2) can stop it.
+struct LauncherShutdown_Struct {
+	uint8 exit_process;
 };
 
 typedef enum {

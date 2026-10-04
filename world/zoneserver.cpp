@@ -39,6 +39,7 @@
 #include "../common/zone_store.h"
 #include "../common/patches/patches.h"
 #include "../common/skill_caps.h"
+#include "world_shutdown.h"
 
 extern ClientList client_list;
 extern ZSList zoneserver_list;
@@ -891,24 +892,26 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		break;
 	}
 	case ServerOP_ShutdownAll: {
-		if (pack->size == 0) {
-			zoneserver_list.SendPacket(pack);
-			zoneserver_list.Process();
-			CatchSignal(2);
+		auto &shutdown = WorldShutdown::Instance();
+		if (pack->size != sizeof(WorldShutDown_Struct)) {
+			LogInfo("Wrong size on ServerOP_ShutdownAll. Got: [{}], Expected: [{}]", pack->size, sizeof(WorldShutDown_Struct));
+			break;
 		}
-		else {
-			auto wsd = (WorldShutDown_Struct*)pack->pBuffer;
-			if (!wsd->time && !wsd->interval && zoneserver_list.shutdowntimer->Enabled()) {
-				zoneserver_list.shutdowntimer->Disable();
-				zoneserver_list.reminder->Disable();
-			}
-			else {
-				zoneserver_list.shutdowntimer->Start(wsd->time);
-				zoneserver_list.reminder->Start(wsd->interval - 1000);
-				zoneserver_list.reminder->SetDuration(wsd->interval);
-				zoneserver_list.shutdowntimer->Start();
-				zoneserver_list.reminder->Start();
-			}
+
+		auto wsd = (WorldShutDown_Struct*)pack->pBuffer;
+		wsd->admin_name[sizeof(wsd->admin_name) - 1] = '\0';
+		const std::string by = wsd->admin_name;
+
+		std::string reply;
+		switch (wsd->action) {
+			case WorldShutDownSchedule: reply = shutdown.Schedule(wsd->seconds, wsd->interval_seconds, by); break;
+			case WorldShutDownNow:      reply = shutdown.ShutdownNow(by); break;
+			case WorldShutDownCancel:   reply = shutdown.Cancel(by); break;
+			default:                    reply = shutdown.Status(); break;
+		}
+
+		if (!by.empty()) {
+			zoneserver_list.SendEmoteMessageRaw(by.c_str(), 0, AccountStatus::Player, Chat::White, reply.c_str());
 		}
 		break;
 	}
@@ -1223,7 +1226,26 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		}
 
 		auto smotd = (ServerMotd_Struct*)pack->pBuffer;
-		RuleManager::Instance()->SetRule("MOTD", smotd->motd, &database, true, true);
+		smotd->myname[sizeof(smotd->myname) - 1] = '\0';
+		smotd->motd[sizeof(smotd->motd) - 1] = '\0';
+
+		// Save to whichever source login reads. World:MOTD overrides the variable only while it is
+		// non-empty; always writing the rule would hide the MOTDs quakes write to the variable.
+		bool saved;
+		if (!RuleS(World, MOTD).empty()) {
+			saved = RuleManager::Instance()->SetRule("World:MOTD", smotd->motd, &database, true, true);
+		}
+		else {
+			saved = database.SetVariable("MOTD", smotd->motd);
+		}
+
+		if (saved) {
+			LogInfo("MOTD set by [{}]", smotd->myname);
+		}
+		else {
+			LogError("Failed to save MOTD set by [{}]", smotd->myname);
+		}
+
 		zoneserver_list.SendPacket(pack);
 		break;
 	}

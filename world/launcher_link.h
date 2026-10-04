@@ -50,7 +50,7 @@ public:
 	bool ContainsZone(const char *short_name) const;
 
 	//commands
-	void Shutdown();
+	void Shutdown(bool exit_process = true);
 	void BootZone(const char *short_name, uint16 port);
 	void StartZone(const char *short_name);
 	void StartZone(const char *short_name, uint16 port);
