@@ -92,6 +92,11 @@ void EQEmuConfig::parse_config() {
 	ShutdownUsePM2 = _root["server"]["world"]["shutdown"].get("pm2", "false").asString() == "true";
 	ShutdownPM2Command = _root["server"]["world"]["shutdown"].get("pm2_command", "pm2 stop all").asString();
 	ShutdownDrainSeconds = Strings::ToUnsignedInt(_root["server"]["world"]["shutdown"].get("drain_seconds", "30").asString());
+	RestartPM2Command = _root["server"]["world"]["shutdown"].get("restart_pm2_command", "pm2 restart all").asString();
+	RestartCommand = _root["server"]["world"]["shutdown"].get("restart_command", "").asString();
+	RestartZoneWaitSeconds = Strings::ToUnsignedInt(_root["server"]["world"]["shutdown"].get("restart_zone_wait_seconds", "300").asString());
+	RollingRestartBatchSize = Strings::ToUnsignedInt(_root["server"]["world"]["shutdown"].get("rolling_batch_size", "5").asString());
+	RollingRestartBatchSeconds = Strings::ToUnsignedInt(_root["server"]["world"]["shutdown"].get("rolling_batch_seconds", "180").asString());
 
 	if (_root["server"].get("disable_config_checks", "false").asString() == "true") {
 		DisableConfigChecks = true;

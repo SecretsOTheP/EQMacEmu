@@ -54,7 +54,12 @@
       "shutdown": {
         "pm2": "false",
         "pm2_command": "pm2 stop all",
-        "drain_seconds": "30"
+        "drain_seconds": "30",
+        "restart_pm2_command": "pm2 restart all",
+        "restart_command": "",
+        "restart_zone_wait_seconds": "300",
+        "rolling_batch_size": "5",
+        "rolling_batch_seconds": "180"
       },
       "key": "qwerty1234",
       "shortname": "TAKP Clone Server",

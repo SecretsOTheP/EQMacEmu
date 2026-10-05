@@ -126,6 +126,16 @@ void WorldServer::HandleMessage(uint16 opcode, EQ::Net::Packet& p) {
 		ZoneLaunch::SetShuttingDown();
 		break;
 	}
+	case ServerOP_LauncherResume: {
+		// World restarted in place. Zones are started again by world's ZR_Start requests.
+		if(m_shutdownRequested) {
+			LogInfo("World restart finished. Zones will be started and restarted again");
+		}
+		m_shutdownRequested = false;
+		m_exitAfterShutdown = true;
+		ZoneLaunch::ClearShuttingDown();
+		break;
+	}
 	case ServerOP_GroupIDReply: {
 		//ignore this, world is still being dumb
 		break;

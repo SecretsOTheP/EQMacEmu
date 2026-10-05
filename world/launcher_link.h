@@ -51,6 +51,8 @@ public:
 
 	//commands
 	void Shutdown(bool exit_process = true);
+	// After an in-place world restart: the launcher restarts zones again and every zone is booted.
+	void Resume();
 	void BootZone(const char *short_name, uint16 port);
 	void StartZone(const char *short_name);
 	void StartZone(const char *short_name, uint16 port);
