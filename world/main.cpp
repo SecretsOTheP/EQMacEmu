@@ -121,6 +121,15 @@ PlayerEventLogs     player_event_logs;
 
 void CatchSignal(int sig_num);
 
+// SIGINT/SIGTERM handler. Only flags the main loop: logging from a signal handler can deadlock on
+// the allocator lock if the signal lands inside malloc/free (this hung world and zones on stop).
+static volatile sig_atomic_t pending_shutdown_signal = 0;
+static void HandleShutdownSignal(int sig_num)
+{
+	pending_shutdown_signal = sig_num;
+	RunLoops = false;
+}
+
 inline void UpdateWindowTitle(std::string new_title)
 {
 #ifdef _WINDOWS
@@ -239,11 +248,11 @@ int main(int argc, char** argv) {
 	LogInfo("CURRENT_VERSION: [{0}]", CURRENT_VERSION);
 
 
-	if (signal(SIGINT, CatchSignal) == SIG_ERR)	{
+	if (signal(SIGINT, HandleShutdownSignal) == SIG_ERR)	{
 		LogError("Could not set signal handler");
 		return 1;
 	}
-	if (signal(SIGTERM, CatchSignal) == SIG_ERR) {
+	if (signal(SIGTERM, HandleShutdownSignal) == SIG_ERR) {
 		LogError("Could not set signal handler");
 		return 1;
 	}
@@ -665,6 +674,9 @@ int main(int argc, char** argv) {
 
 	EQ::EventLoop::Get().Run();
 
+	if (pending_shutdown_signal) {
+		LogInfo("Received signal [{}]", (int) pending_shutdown_signal);
+	}
 	LogInfo("World main loop completed.");
 	LogInfo("Shutting down zone connections (if any).");
 	zoneserver_list.KillAll();
@@ -676,6 +688,7 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
+// For normal (non-signal) code paths that want world to exit; safe to log here.
 void CatchSignal(int sig_num) {
 	LogInfo("Caught signal [{}]",sig_num);
 	RunLoops = false;

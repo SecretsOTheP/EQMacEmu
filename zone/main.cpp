@@ -127,6 +127,12 @@ void Shutdown();
 void UpdateWindowTitle(char* iNewTitle);
 void CatchSignal(int sig_num);
 
+// Set by the SIGINT/SIGTERM handler and acted on by the main loop. The handler must not do
+// anything else: it can interrupt malloc/free on the main thread, and logging or touching the
+// event loop from there deadlocks the zone on the allocator lock (seen hanging zones on stop).
+static volatile sig_atomic_t pending_shutdown_signal = 0;
+static void HandleShutdownSignal(int sig_num) { pending_shutdown_signal = sig_num; }
+
 extern void MapOpcodes();
 
 int main(int argc, char** argv) {
@@ -291,11 +297,11 @@ int main(int argc, char** argv) {
 	/*
 	* Setup nice signal handlers
 	*/
-	if (signal(SIGINT, CatchSignal) == SIG_ERR)	{
+	if (signal(SIGINT, HandleShutdownSignal) == SIG_ERR)	{
 		LogError("Could not set signal handler");
 		return 1;
 	}
-	if (signal(SIGTERM, CatchSignal) == SIG_ERR)	{
+	if (signal(SIGTERM, HandleShutdownSignal) == SIG_ERR)	{
 		LogError("Could not set signal handler");
 		return 1;
 	}
@@ -428,6 +434,14 @@ int main(int argc, char** argv) {
 			//profiler block to omit the sleep from times
 			//Advance the timer to our current point in time
 			Timer::SetCurrentTime();
+
+			if (pending_shutdown_signal) {
+				LogInfo("Received signal [{}]; saving clients and shutting down", (int) pending_shutdown_signal);
+				pending_shutdown_signal = 0;
+				entity_list.Save();
+				Shutdown();
+				return;
+			}
 
 			/**
 			* Calculate frame time
