@@ -37,7 +37,8 @@
 EQEmuLogSys LogSys;
 PathManager path;
 
-bool RunLoops = false;
+volatile bool RunLoops = false;
+static volatile sig_atomic_t pending_shutdown_signal = 0;
 
 // After world asks for a shutdown, how long zones get to exit on their own.
 static const uint32 ShutdownGraceMS = 30000;
@@ -191,6 +192,10 @@ int main(int argc, char *argv[]) {
 
 	EQ::EventLoop::Get().Run();
 
+	if (pending_shutdown_signal) {
+		LogInfo("Received signal [{}]; stopping zones", (int) pending_shutdown_signal);
+	}
+
 	// Ask every zone to stop and give them time to save and exit. This used to force-kill them
 	// about 2ms after asking, which could cut off a zone mid-save.
 	ZoneLaunch::SetShuttingDown();
@@ -235,8 +240,10 @@ int main(int argc, char *argv[]) {
 }
 
 
+// Only flag the main loop. Logging from a signal handler can deadlock on the allocator lock if the
+// signal lands inside malloc/free.
 void CatchSignal(int sig_num) {
-	Log(Logs::Detail, Logs::Launcher, "Caught signal %d", sig_num);
+	pending_shutdown_signal = sig_num;
 	RunLoops = false;
 }
 
