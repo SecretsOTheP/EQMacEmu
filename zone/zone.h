@@ -345,6 +345,7 @@ public:
 	bool OpenWorldRaidSpawnsEnabled(bool force_refresh = false);
 	uint32 OpenWorldRaidSpawnsStartedAt();
 	uint32 guild_one_quake_start = 0;
+	uint32 guild_one_quake_applied = 0;
 	uint32 guild_one_quake_refresh = 0;
 	uint32 open_world_raid_spawns_refresh = 0;
 	bool open_world_raid_spawns_enabled = false;

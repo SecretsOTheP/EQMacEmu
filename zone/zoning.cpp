@@ -468,15 +468,25 @@ void Client::DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 zone_gu
 	//this is called once the client is fully allowed to zone here
 	//it takes care of all the activities which occur when a client zones out
 
-	ForfeitRallosianGlory("flees the battlefield");
-
-	SendLogoutPackets();
-
 	if (zonesummon_id != zone_id && zonesummon_id != 0)
 		zone_id = zonesummon_id;
 
 	if (zonesummon_guildid != zone_guild_id && zonesummon_id != 0)
 		zone_guild_id = zonesummon_guildid;
+
+	if (zone_guild_id == 1 && Admin() < AccountStatus::QuestTroupe &&
+		(zone->GetGuildID() != 1 || zone->GetZoneID() != zone_id) &&
+		((zone->GetGuildID() != 1 && GetPVP() != 1) || !CanEnterPvpInstance(zone_id))) {
+		zonesummon_id = 0;
+		zonesummon_guildid = 0xFFFFFFFF;
+		zonesummon_ignorerestrictions = 0;
+		m_ZoneSummonLocation = glm::vec4();
+		SendZoneCancel(zc);
+		return;
+	}
+
+	ForfeitRallosianGlory("flees the battlefield");
+	SendLogoutPackets();
 
 	/* QS: PlayerLogZone */
 	if (RuleB(QueryServ, PlayerLogZone)){
@@ -627,9 +637,15 @@ void Client::ProcessMovePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, 
 {
 	// Players must opt in before entering Guild 1. Staff can still use
 	// #zoneguild to inspect it without changing their PvP flag.
-	if (zoneGuildID == 1 && zone->GetGuildID() != 1 && GetPVP() != 1 &&
-		Admin() < AccountStatus::QuestTroupe)
-		return;
+	if (zoneGuildID == 1 && Admin() < AccountStatus::QuestTroupe &&
+		(zone->GetGuildID() != 1 || (zoneID != 0 && zoneID != zone->GetZoneID()))) {
+		if (zone->GetGuildID() != 1 && GetPVP() != 1) {
+			Message(Chat::Red, "You must opt into PvP before entering this zone.");
+			return;
+		}
+		if (!CanEnterPvpInstance(zoneID))
+			return;
+	}
 
 	// From what I have read, dragged corpses should stay with the player for Intra-zone summons etc, but we can implement that later.
 	ClearDraggedCorpses();
@@ -685,6 +701,22 @@ void Client::ProcessMovePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, 
 
 	exemptHackCount = true;
 	ExpectedRewindPos = glm::vec3(x, y, z);
+}
+
+bool Client::CanEnterPvpInstance(uint32 zone_id)
+{
+	if (zone_id == 0 && zone) zone_id = zone->GetZoneID();
+	bool enabled = false;
+	const char *name = ZoneName(zone_id);
+	if (!name || !database.GetPVPZoneAccess(name, enabled)) {
+		Message(Chat::Red, "PVP zone access could not be verified. Please try again shortly.");
+		return false;
+	}
+	if (!enabled) {
+		Message(Chat::Red, "This PVP zone is not currently enabled.");
+		return false;
+	}
+	return true;
 }
 
 void Client::ZonePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, float z, float heading, uint8 ignorerestrictions, ZoneMode zm) {
@@ -1274,6 +1306,18 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 	uint32 target_zone_id = zoneid > 0 ? zoneid : zone->GetZoneID();
 
 	uint32 target_zone_guild_id = zone->GetGuildID();
+
+	if (zoneid == 0 && target_zone_guild_id == 1) {
+		bool enabled = false;
+		if (!database.GetPVPZoneAccess(target_zone_name, enabled)) {
+			// Do not eject a camper merely because the database is unavailable.
+			LogError("Could not verify PvP login access for [{}]; retaining the existing location.", GetName());
+		} else if (!enabled) {
+			Message(Chat::Red, "This PVP zone is no longer enabled. You will be returned to safety.");
+			return false;
+		}
+	}
+
 
 	float safe_x, safe_y, safe_z, safe_heading;
 	int16 minstatus = 0;

@@ -152,7 +152,7 @@ public:
 	void	ClearAllActive();
 	void	ClearAccountActive(uint32 AccountID);
 	void	SetAccountActive(uint32 AccountID);
-	bool AdjustPVPSpawnTimes();
+	bool AdjustPVPSpawnTimes(bool retry_on_failure = true);
 	uint32	GetHardcoreStatus(const char* charname);
 
 	/*
@@ -243,7 +243,9 @@ public:
 	struct TimeOfDay_Struct		LoadTime(time_t &realtime);
 	void LoadQuakeData(ServerEarthquakeImminent_Struct & earthquake_struct);
 	bool LoadNextQuakeTime(ServerEarthquakeImminent_Struct &realtime);
-	bool SaveNextQuakeTime(ServerEarthquakeImminent_Struct & earthquake_struct, QuakeType in_quake_type = QuakeType::QuakeNormal);
+	bool SaveNextQuakeTime(ServerEarthquakeImminent_Struct & earthquake_struct, QuakeType in_quake_type = QuakeType::QuakeNormal, uint32 automatic_deadline = 0);
+	bool GetAutomaticQuakeTime(uint32 &deadline);
+	bool GetPVPZoneAccess(const std::string &short_name, bool &enabled);
 	bool	SaveTime(int8 minute, int8 hour, int8 day, int8 month, int16 year);
 	bool	AdjustSpawnTimes();
 	uint8   GetZoneRandomLoc(uint32 zoneid);

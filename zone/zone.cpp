@@ -1986,8 +1986,7 @@ bool Zone::GuildOneQuakeEnabled(bool force_refresh)
 		const bool active_pvp_zone =
 			("," + active + ",").find("," + short_name + ",") != std::string::npos;
 		// Veksar opened after PoP and belongs to neither quake tier.
-		const bool within_tier = short_name != "veksar" &&
-			(PVPZoneTiers::PlanesOfPowerZones().count(short_name) ? scope.pop : scope.luclin_and_earlier);
+		const bool within_tier = PVPZoneTiers::IncludesZone(scope, short_name);
 		guild_one_quake_enabled = active_pvp_zone && within_tier;
 		guild_one_quake_scope_refresh = now + 5;
 	}

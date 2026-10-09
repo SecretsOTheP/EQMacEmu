@@ -47,16 +47,6 @@
 extern EntityList entity_list;
 extern WorldServer worldserver;
 
-namespace {
-constexpr const char *PVP_ZONE_BUCKET = "pvpzone_active_shortnames";
-
-bool IsPVPZoneEnabled(const std::string &short_name)
-{
-	auto active = Strings::ToLower(DataBucket::GetData(PVP_ZONE_BUCKET));
-	auto requested = Strings::ToLower(short_name);
-	return ("," + active + ",").find("," + requested + ",") != std::string::npos;
-}
-}
 
 Doors::Doors(const DoorsRepository::Doors &door) :
         close_timer(5000),
@@ -441,7 +431,12 @@ void Doors::HandleClick(Client* sender, uint8 trigger, bool floor_port)
 				return;
 			}
 
-			if (!IsPVPZoneEnabled(destination_zone_name))
+			bool enabled = false;
+			if (!database.GetPVPZoneAccess(destination_zone_name, enabled)) {
+				sender->Message(Chat::Red, "PVP zone access could not be verified. Please try again shortly.");
+				return;
+			}
+			if (!enabled)
 			{
 				sender->Message(Chat::Red, "This PVP zone is not currently enabled.");
 				return;

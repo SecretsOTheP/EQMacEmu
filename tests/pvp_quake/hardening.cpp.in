@@ -1,0 +1,83 @@
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdint>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+#include "common/pvp_zone_tiers.h"
+#include "common/quake_timing.h"
+using uint32=uint32_t; using uint64=uint64_t;
+#define LogError(...) ((void)0)
+int rules_QuakeMinVariance=604800,rules_QuakeMaxVariance=864000,rules_QuakeRepopDelay=5,rules_QuakeEndTimeDuration=28800;
+#define RuleI(category,name) rules_##name
+namespace Timer { uint32 GetTimeSeconds(){return 1000000;} }
+namespace EQ {struct Random {void Reseed(){} uint32 Int(int a,int){return a;}};}
+enum QuakeType {QuakeDisabled,QuakeNormal,QuakePVP,QuakeMax};
+struct ServerEarthquakeImminent_Struct {uint32 start_timestamp=0,next_start_timestamp=0;QuakeType quake_type=QuakeDisabled;};
+template<class... A> std::string StringFormat(const char *f,A...args){int n=snprintf(nullptr,0,f,args...);std::vector<char>b(n+1);snprintf(b.data(),b.size(),f,args...);return b.data();}
+namespace Strings {
+std::string ToLower(std::string s){for(char &c:s)c=std::tolower(static_cast<unsigned char>(c));return s;}
+std::vector<std::string> Split(const std::string&s,char c){std::stringstream ss(s);std::string v;std::vector<std::string>r;while(std::getline(ss,v,c))r.push_back(v);return r;}
+std::string Escape(const std::string&s){std::string o;for(char c:s){if(c=='\''||c=='\\')o+='\\';o+=c;}return o;}
+std::string Implode(std::string glue,std::vector<std::string>items){std::string o;for(auto &v:items){if(!o.empty())o+=glue;o+=v;}return o;}
+}
+struct Result {
+ bool ok=true;unsigned affected=1;std::vector<std::array<const char*,2>> rows;
+ bool Success()const{return ok;}unsigned RowsAffected()const{return affected;}unsigned RowCount()const{return rows.size();}
+ struct Iterator {std::vector<std::array<const char*,2>>*rows;size_t i;const char*operator[](size_t c)const{return (*rows)[i][c];}Iterator&operator++(){++i;return *this;}bool operator!=(const Iterator&o)const{return i!=o.i;}};
+ Iterator begin(){return {&rows,0};}Iterator end(){return {&rows,rows.size()};}
+};
+struct Database {
+ std::vector<std::string> queries;std::vector<bool> retries;unsigned fail_at=0,advance_rows=1;const char*engine_count="3";Result read;
+ Result QueryDatabase(const std::string&q,bool retry=true){queries.push_back(q);retries.push_back(retry);if(fail_at==queries.size())return {false,0,{}};
+ if(q.find("information_schema.TABLES")!=std::string::npos)return {true,0,{{engine_count,nullptr}}};
+ if(q.find("SELECT `key`, value")!=std::string::npos)return {true,0,{{"pvpzone_active_shortnames","sseru,povalor,veksar"},{"pvpzone_quake_scope","luclin"}}};
+ if(q.find("UPDATE data_buckets")==0)return {true,advance_rows,{}};
+ if(q.find("SELECT value FROM data_buckets")==0)return read;
+ return {};
+ }
+ bool SaveNextQuakeTime(ServerEarthquakeImminent_Struct&,QuakeType=QuakeNormal,uint32=0);
+ bool AdjustPVPSpawnTimes(bool=true);
+ bool GetAutomaticQuakeTime(uint32&);
+ bool GetPVPZoneAccess(const std::string&,bool&);
+};
+int checks=0;void check(bool b){++checks;if(!b){std::cerr<<"FAIL "<<checks<<"\n";exit(1);}}
+
+
+
+
+
+
+
+
+// PRODUCTION_METHODS
+
+int main(){
+ Database manual;ServerEarthquakeImminent_Struct q{};check(manual.SaveNextQuakeTime(q));check(q.start_timestamp==1000005);check(q.next_start_timestamp==1604805);
+ check(manual.queries.size()==7);check(manual.queries.back()=="COMMIT");for(bool r:manual.retries)check(!r);
+ check(manual.queries[4].find("guild_id = 1")!=std::string::npos);check(manual.queries[4].find("'sseru'")!=std::string::npos);check(manual.queries[4].find("'povalor'")==std::string::npos);
+ for(unsigned fail=1;fail<=8;++fail){Database db;db.fail_at=fail;ServerEarthquakeImminent_Struct prior{11,22,QuakePVP};check(!db.SaveNextQuakeTime(prior,QuakeNormal,1000000));check(prior.start_timestamp==11&&prior.next_start_timestamp==22&&prior.quake_type==QuakePVP);if(fail>=3)check(db.queries.back()=="ROLLBACK");for(bool r:db.retries)check(!r);}
+ for(unsigned affected:{0u,2u}){Database db;db.advance_rows=affected;q={};check(!db.SaveNextQuakeTime(q,QuakeNormal,1000000));check(q.start_timestamp==0);check(db.queries.back()=="ROLLBACK");}
+ {Database db;db.engine_count="2";check(!db.SaveNextQuakeTime(q));check(db.queries.size()==1);}
+ {Database db;q={};check(db.SaveNextQuakeTime(q,QuakeNormal,1000000));check(db.queries.size()==8);check(db.queries[6].find("AND value = '1000000'")!=std::string::npos);}
+ for(auto type:{QuakeDisabled,QuakeMax}){Database db;check(!db.SaveNextQuakeTime(q,type));check(db.queries.empty());}
+ using namespace QuakeTiming;uint32 d=99;
+ for(auto s:{"","0","-1","12junk","4294967296","999999999999999999999999"})check(!ParseDeadline(s,d));
+ check(ParseDeadline("1791489552",d)&&d==1791489552);check(ParseDeadline("4294967295",d)&&d==UINT32_MAX);
+ check(MillisecondsUntil(50,100)==1);check(MillisecondsUntil(UINT32_MAX,1)==MaxTimerSeconds*1000);
+ auto p=PlanNotification(1005,28800,0,1000);check(p.apply&&p.spawn_delay_ms==5000&&p.expiry_delay_ms==28805000);
+ p=PlanNotification(1005,28800,0,1011);check(p.apply&&p.spawn_delay_ms==0&&p.expiry_delay_ms==28794000);
+ check(!PlanNotification(1005,28800,1005,1011).apply);check(!PlanNotification(1005,28800,1006,1011).apply);
+ check(!PlanNotification(1005,28800,0,29805).apply);check(!PlanNotification(0,28800,0,1000).apply);check(!PlanNotification(1005,0,0,1000).apply);
+ check(!PlanNotification(UINT32_MAX,28800,0,1000).apply);
+ {Database db;bool on=true;check(db.GetPVPZoneAccess("sseru",on)&&!on);db.read={true,0,{{"SSERU,povalor",nullptr}}};check(db.GetPVPZoneAccess("sseru",on)&&on);check(db.GetPVPZoneAccess("seru",on)&&!on);db.read.ok=false;check(!db.GetPVPZoneAccess("sseru",on));}
+ {Database db;check(db.GetAutomaticQuakeTime(d)&&d==0);db.read={true,0,{{"1791489552",nullptr}}};check(db.GetAutomaticQuakeTime(d)&&d==1791489552);db.read={true,0,{{"oops",nullptr}}};check(!db.GetAutomaticQuakeTime(d));db.read={true,0,{{"1",nullptr},{"2",nullptr}}};check(!db.GetAutomaticQuakeTime(d));}
+ std::cout<<"PASS "<<checks<<" quake transaction, failure, timing and access checks\n";
+}

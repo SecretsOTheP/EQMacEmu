@@ -47,6 +47,8 @@
 #include "strings.h"
 #include "random.h"
 #include "zone_store.h"
+#include "pvp_zone_tiers.h"
+#include "quake_timing.h"
 
 extern Client client;
 EQ::Random emudb_random;
@@ -2435,22 +2437,73 @@ bool Database::LoadNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_str
 }
 
 //For usage on quake trigger. Does the 'fail logic' from above in the load process to set the next timer and current timer.
-bool Database::SaveNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_struct, QuakeType in_quake_type)
+bool Database::SaveNextQuakeTime(ServerEarthquakeImminent_Struct& earthquake_struct, QuakeType in_quake_type, uint32 automatic_deadline)
 {
+	const int minimum = RuleI(Quarm, QuakeMinVariance);
+	const int maximum = RuleI(Quarm, QuakeMaxVariance);
+	const int delay = RuleI(Quarm, QuakeRepopDelay);
+	const int window = RuleI(Quarm, QuakeEndTimeDuration);
+	if (in_quake_type <= QuakeDisabled || in_quake_type >= QuakeMax ||
+		minimum <= 0 || maximum < minimum || delay < 0 || window <= 0 ||
+		static_cast<uint64>(window) + delay > QuakeTiming::MaxTimerSeconds ||
+		static_cast<uint64>(maximum) + delay > QuakeTiming::MaxTimerSeconds) {
+		LogError("Quake not started: invalid quake type or timing rules.");
+		return false;
+	}
+	// Never reconnect and replay an individual statement inside a transaction.
+	const auto query = [this](const std::string &sql) { return QueryDatabase(sql, false); };
+	auto engines = query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+		"AND TABLE_NAME IN ('quake_data','respawn_times','data_buckets') AND ENGINE = 'InnoDB'");
+	if (!engines.Success() || engines.RowCount() != 1 || atoi(engines.begin()[0]) != 3) {
+		LogError("Quake not started: quake_data, respawn_times and data_buckets must all use InnoDB.");
+		return false;
+	}
+	if (!query("START TRANSACTION").Success()) return false;
+	const auto rollback = [&query]() { query("ROLLBACK"); return false; };
+	if (!query("DELETE FROM quake_data").Success() || !AdjustPVPSpawnTimes(false)) return rollback();
+
 	EQ::Random random;
 	random.Reseed();
-	uint32 random_timestamp = random.Int(RuleI(Quarm, QuakeMinVariance), RuleI(Quarm, QuakeMaxVariance));
-	earthquake_struct.start_timestamp = Timer::GetTimeSeconds() + RuleI(Quarm, QuakeRepopDelay);
-	earthquake_struct.next_start_timestamp = earthquake_struct.start_timestamp + random_timestamp;
-	earthquake_struct.quake_type = in_quake_type;
+	ServerEarthquakeImminent_Struct candidate = {};
+	candidate.start_timestamp = Timer::GetTimeSeconds() + delay;
+	candidate.next_start_timestamp = candidate.start_timestamp + random.Int(minimum, maximum);
+	candidate.quake_type = in_quake_type;
+	if (!query(StringFormat("INSERT INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%u, %u, %u)",
+		candidate.start_timestamp, candidate.next_start_timestamp, candidate.quake_type)).Success()) return rollback();
+	if (automatic_deadline) {
+		// A concurrent quakeoff or replacement schedule must cancel this attempt.
+		auto advance = query(StringFormat("UPDATE data_buckets SET value = '%u' WHERE `key` = 'pvpzone_quake_next' "
+			"AND value = '%u' AND (expires = 0 OR expires > UNIX_TIMESTAMP())",
+			candidate.next_start_timestamp, automatic_deadline));
+		if (!advance.Success() || advance.RowsAffected() != 1) return rollback();
+	}
+	if (!query("COMMIT").Success()) return rollback();
+	earthquake_struct = candidate;
+	return true;
+}
 
+bool Database::GetAutomaticQuakeTime(uint32 &deadline)
+{
+	deadline = 0;
+	auto result = QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' "
+		"AND (expires = 0 OR expires > UNIX_TIMESTAMP()) LIMIT 2");
+	if (!result.Success() || result.RowCount() > 1) return false;
+	if (!result.RowCount()) return true;
+	auto row = result.begin();
+	return row[0] && QuakeTiming::ParseDeadline(row[0], deadline);
+}
 
-	std::string query1 = StringFormat("DELETE FROM quake_data");
-	auto results1 = QueryDatabase(query1);
-
-	std::string query = StringFormat("REPLACE INTO quake_data (start_timestamp, next_timestamp, ruleset) VALUES (%i, %i, %i)", earthquake_struct.start_timestamp, earthquake_struct.next_start_timestamp, earthquake_struct.quake_type);
-	auto results = QueryDatabase(query);
-	return results.Success();
+bool Database::GetPVPZoneAccess(const std::string &short_name, bool &enabled)
+{
+	enabled = false;
+	auto result = QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_active_shortnames' "
+		"AND (expires = 0 OR expires > UNIX_TIMESTAMP()) LIMIT 2");
+	if (!result.Success() || result.RowCount() > 1) return false;
+	if (!result.RowCount()) return true;
+	auto row = result.begin();
+	if (!row[0]) return false;
+	enabled = ("," + Strings::ToLower(row[0]) + ",").find("," + Strings::ToLower(short_name) + ",") != std::string::npos;
+	return true;
 }
 
 bool Database::SaveTime(int8 minute, int8 hour, int8 day, int8 month, int16 year)
@@ -2484,18 +2537,39 @@ void Database::SetAccountActive(uint32 account_id)
 	return;
 }
 
-bool Database::AdjustPVPSpawnTimes()
+bool Database::AdjustPVPSpawnTimes(bool retry_on_failure)
 {
-
-	std::string dquery = StringFormat("DELETE FROM respawn_times WHERE guild_id = 1");
-	auto dresults = QueryDatabase(dquery);
-
-	if (!dresults.Success())
-	{
+	// A quake must release saved timers for eligible zones that are not loaded
+	// yet, without resetting excluded expansion tiers or inactive PvP zones.
+	const auto query = [this, retry_on_failure](const std::string &sql) { return QueryDatabase(sql, retry_on_failure); };
+	auto settings_result = query(
+		"SELECT `key`, value FROM data_buckets WHERE `key` IN "
+		"('pvpzone_active_shortnames','pvpzone_quake_scope','pvpzone_quake_tier') "
+		"AND (expires = 0 OR expires > UNIX_TIMESTAMP())");
+	if (!settings_result.Success()) {
+		LogError("Could not read Guild 1 quake settings; saved spawn timers were preserved.");
 		return false;
 	}
 
-	return true;
+	std::map<std::string, std::string> settings;
+	for (auto row = settings_result.begin(); row != settings_result.end(); ++row) {
+		if (row[0] && row[1]) settings[row[0]] = Strings::ToLower(row[1]);
+	}
+	const auto scope = PVPZoneTiers::ParseQuakeScope(
+		settings["pvpzone_quake_scope"], settings["pvpzone_quake_tier"]);
+	std::vector<std::string> zones;
+	for (const auto &short_name : Strings::Split(settings["pvpzone_active_shortnames"], ',')) {
+		if (!short_name.empty() && PVPZoneTiers::IncludesZone(scope, short_name)) {
+			zones.push_back("'" + Strings::Escape(short_name) + "'");
+		}
+	}
+	if (zones.empty()) return true;
+
+	auto result = query(
+		"DELETE rt FROM respawn_times AS rt "
+		"JOIN spawn2 AS s ON s.id = rt.id "
+		"WHERE rt.guild_id = 1 AND s.zone IN (" + Strings::Implode(",", zones) + ")");
+	return result.Success();
 }
 
 bool Database::AdjustSpawnTimes() 
