@@ -1,3 +1,4 @@
+#include "../common/quake_timing.h"
 /*	EQEMu: Everquest Server Emulator
 	Copyright (C) 2001-2002 EQEMu Development Team (http://eqemu.org)
 
@@ -2910,6 +2911,8 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 		
 		case ServerOP_QuakeEnded:
 		{
+			if (pack->size != sizeof(ServerEarthquakeImminent_Struct)) break;
+			if (zone && reinterpret_cast<ServerEarthquakeImminent_Struct*>(pack->pBuffer)->start_timestamp < zone->guild_one_quake_applied) break;
 			if (zone && zone->GetGuildID() == 1 && zone->GuildOneQuakeEnabled(true))
 			{
 
@@ -2926,38 +2929,22 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 
 		case ServerOP_QuakeImminent:
 		{
-			if (zone && zone->GetGuildID() == 1 && zone->GuildOneQuakeEnabled(true))
-			{
-
-				ServerEarthquakeImminent_Struct* seis = (ServerEarthquakeImminent_Struct*)pack->pBuffer;
-				memcpy(&zone->last_quake_struct, seis, sizeof(ServerEarthquakeImminent_Struct));
-
-				uint32 cur_time = Timer::GetTimeSeconds();
-				bool should_broadcast_notif = false;
-				if (zone->last_quake_struct.start_timestamp >= cur_time)
-				{
-					should_broadcast_notif = zone->ResetEngageNotificationTargets((RuleI(Quarm, QuakeRepopDelay)) * 1000); // if we reset at least one, this is true
-					if (should_broadcast_notif)
-					{
-						entity_list.Message(Chat::Default, Chat::Yellow, "Creatures in this zone will repop!");
-						//entity_list.EvacAllPlayers();
-					}
-				}
-				if (should_broadcast_notif == false)
-				{
-					zone->last_quake_struct.quake_type = QuakeDisabled;
-				}
-				//entity_list.TogglePVPForQuake();
-				if (zone->EndQuake_Timer)
-				{
-					zone->EndQuake_Timer->Enable();
-					zone->EndQuake_Timer->Start((RuleI(Quarm, QuakeRepopDelay) + RuleI(Quarm, QuakeEndTimeDuration)) * 1000);
-				}
+			if (pack->size != sizeof(ServerEarthquakeImminent_Struct) || !zone ||
+				zone->GetGuildID() != 1 || !zone->GuildOneQuakeEnabled(true)) break;
+			const auto *quake = reinterpret_cast<const ServerEarthquakeImminent_Struct*>(pack->pBuffer);
+			if (quake->quake_type <= QuakeDisabled || quake->quake_type >= QuakeMax) break;
+			const uint32 now = Timer::GetTimeSeconds();
+			const auto timing = QuakeTiming::PlanNotification(quake->start_timestamp,
+				RuleI(Quarm, QuakeEndTimeDuration), zone->guild_one_quake_applied, now);
+			if (!timing.apply) break; // expired, duplicate or older notification
+			zone->guild_one_quake_applied = quake->start_timestamp;
+			zone->guild_one_quake_start = quake->start_timestamp;
+			zone->guild_one_quake_refresh = now + 30;
+			zone->last_quake_struct = *quake;
+			if (zone->ResetEngageNotificationTargets(timing.spawn_delay_ms)) {
+				entity_list.Message(Chat::Default, Chat::Yellow, "Creatures in this zone will repop!");
 			}
-			else if (zone)
-			{
-				zone->last_quake_struct.quake_type = QuakeDisabled;
-			}
+			if (zone->EndQuake_Timer) zone->EndQuake_Timer->Start(timing.expiry_delay_ms);
 			break;
 		}
 

@@ -1,0 +1,79 @@
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cctype>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+#include "common/pvp_zone_tiers.h"
+#define LogError(...) ((void)0)
+namespace Strings {
+std::string ToLower(std::string s) { for(char &c:s) c=std::tolower(static_cast<unsigned char>(c)); return s; }
+std::vector<std::string> Split(const std::string &s,char d) { std::vector<std::string> out; std::stringstream in(s);std::string v;while(std::getline(in,v,d))out.push_back(v);return out; }
+std::string Escape(const std::string &s) {std::string out;for(char c:s){if(c=='\''||c=='\\')out+='\\';out+=c;}return out;}
+std::string Implode(std::string glue,std::vector<std::string> items) {std::string out;for(const auto &v:items){if(!out.empty())out+=glue;out+=v;}return out;}
+}
+struct Result {
+ bool ok=true; std::vector<std::array<const char*,2>> rows;
+ bool Success()const{return ok;}
+ struct Iterator {
+  std::vector<std::array<const char*,2>> *rows;std::size_t index;
+  const char *operator[](std::size_t column)const{return (*rows)[index][column];}
+  Iterator &operator++(){++index;return *this;}
+  bool operator!=(const Iterator &other)const{return index!=other.index;}
+ };
+ Iterator begin(){return {&rows,0};} Iterator end(){return {&rows,rows.size()};}
+};
+struct Database {
+ Result settings;bool delete_ok=true;std::vector<std::string> queries;
+ Result QueryDatabase(const std::string &sql, bool retry = true){queries.push_back(sql);if(queries.size()==1)return settings;return Result{delete_ok,{}};}
+ bool AdjustPVPSpawnTimes(bool retry_on_failure = true);
+};
+int checks=0;
+void check(bool value){++checks;if(!value){std::cerr<<"FAILED check "<<checks<<"\n";std::exit(1);}}
+
+
+
+
+// PRODUCTION_METHODS
+
+int main(){
+ const std::string prefix="DELETE rt FROM respawn_times AS rt JOIN spawn2 AS s ON s.id = rt.id WHERE rt.guild_id = 1 AND s.zone IN (";
+ struct Case {const char*scope;const char*legacy;const char*active;const char*expected;};
+ Case cases[]={
+ {"luclin","pop","sseru,povalor,veksar","'sseru'"},
+ {"pop","pop","sseru,povalor,veksar","'povalor'"},
+ {"both","pop","sseru,povalor,veksar","'sseru','povalor'"},
+ {"off","pop","sseru,povalor,veksar",""},
+ {"","pop","sseru,povalor,veksar","'sseru','povalor'"},
+ {"","luclin","sseru,povalor,veksar","'sseru'"},
+ {"luclin","pop","",""},
+ {"luclin","pop","povalor,veksar",""},
+ {"LUCLIN","POP","SSERU,POVALOR","'sseru'"},
+ {"luclin","pop",",sseru,,","'sseru'"},
+ {"both","pop","veksar",""},
+ {"luclin","pop","fear_instanced,hate_instanced,sseru","'fear_instanced','hate_instanced','sseru'"},
+ {"luclin","pop","sseru');DROP TABLE spawn2;--","'sseru\\');drop table spawn2;--'"}
+ };
+ int index=0;
+ for(const auto &c:cases){
+  Database db;db.settings.rows={{{"pvpzone_quake_scope",c.scope}},{{"pvpzone_quake_tier",c.legacy}},{{"pvpzone_active_shortnames",c.active}}};
+  check(db.AdjustPVPSpawnTimes());
+  check(db.queries[0].find("expires = 0 OR expires > UNIX_TIMESTAMP()")!=std::string::npos);
+  if(std::string(c.expected).empty())check(db.queries.size()==1);
+  else {check(db.queries.size()==2);check(db.queries[1]==prefix+c.expected+")");if(index<3)std::cout<<"SQL|"<<c.scope<<"|"<<db.queries[1]<<"\n";}
+  ++index;
+ }
+ Database failed;failed.settings.ok=false;check(!failed.AdjustPVPSpawnTimes());check(failed.queries.size()==1);
+ Database empty;check(empty.AdjustPVPSpawnTimes());check(empty.queries.size()==1);
+ Database deletion;deletion.settings.rows={{{"pvpzone_active_shortnames","sseru"}},{{"pvpzone_quake_scope","luclin"}}};deletion.delete_ok=false;check(!deletion.AdjustPVPSpawnTimes());
+ for(const auto &name:PVPZoneTiers::PlanesOfPowerZones()){
+  check(!PVPZoneTiers::IncludesZone({true,false},name));
+  check(PVPZoneTiers::IncludesZone({false,true},name));
+ }
+ check(PVPZoneTiers::IncludesZone({true,false},"sseru"));
+ check(!PVPZoneTiers::IncludesZone({false,true},"sseru"));
+ std::cout<<"PASS "<<checks<<" C++ checks\n";
+}

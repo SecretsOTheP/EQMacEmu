@@ -638,7 +638,7 @@ void ShowPVPZoneStatus(Client *c)
 void ShowPVPZoneUsage(Client *c, bool advanced = false)
 {
 	c->Message(Chat::White, "#pvpzone status | list");
-	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (PVP zone access)");
+	c->Message(Chat::White, "#pvpzone <luclin|pop> <on|off> (access THROUGH that expansion; pop includes Luclin)");
 	c->Message(Chat::White, "#pvpzone quake <luclin|pop> <on|off> (Guild 1 quake participation)");
 	c->Message(Chat::White, "#pvpzone quakeon | quakeoff (automatic quake timer)");
 	c->Message(Chat::White, "#pvpzone <shortname> <on|off> (one zone)");
@@ -714,12 +714,12 @@ void command_pvpzone(Client *c, const Seperator *sep)
 			c->Message(Chat::Red, "EnableQuakes is disabled. Enable that rule in world and zone before starting the timer.");
 			return;
 		}
-		auto current = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' LIMIT 1");
-		if (!current.Success()) {
-			c->Message(Chat::Red, "Could not read the automatic quake timer.");
+		uint32 current = 0;
+		if (!database.GetAutomaticQuakeTime(current)) {
+			c->Message(Chat::Red, "Automatic quake schedule is unreadable or invalid. Check it before using quakeoff/quakeon to replace it.");
 			return;
 		}
-		if (current.RowCount() > 0) {
+		if (current) {
 			c->Message(Chat::Yellow, "Automatic quake timer is already enabled; its deadline was not reset.");
 			return;
 		}
@@ -768,7 +768,7 @@ void command_pvpzone(Client *c, const Seperator *sep)
 			Chat::Yellow,
 			"PVP access %s for %zu zones through %s. Guild 1 quake scope unchanged.",
 			enabled ? "enabled" : "disabled", tier_zones.size(), tier == "pop" ? "Planes of Power" : "Luclin");
-		c->Message(Chat::White, "Active zone servers will notice the change within five seconds; use #repop if an immediate fresh spawn cycle is needed.");
+		c->Message(Chat::White, "Entry and login checks use the saved access setting. Turning access off does not immediately evict occupants. Quake participation updates within five seconds.");
 		return;
 	}
 	if (!strcasecmp(sep->arg[1], "status")) {
@@ -779,15 +779,18 @@ void command_pvpzone(Client *c, const Seperator *sep)
 			Strings::ToLower(DataBucket::GetData(PVP_QUAKE_TIER_BUCKET)));
 		c->Message(Chat::White, "Guild 1 quake participation: Luclin and earlier %s, PoP %s (active PVP zones only).",
 			scope.luclin_and_earlier ? "ON" : "OFF", scope.pop ? "ON" : "OFF");
-		auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' LIMIT 1");
-		if (result.Success() && result.RowCount() > 0) {
-			auto row = result.begin();
-			const uint32 deadline = row[0] ? static_cast<uint32>(strtoul(row[0], nullptr, 10)) : 0;
-			const uint32 now = Timer::GetTimeSeconds();
-			const uint32 remaining = deadline > now ? deadline - now : 0;
-			c->Message(Chat::White, "Automatic quakes: ON. Next trigger in %u hours %u minutes.", remaining / 3600, (remaining % 3600) / 60);
+		uint32 deadline = 0;
+		if (!database.GetAutomaticQuakeTime(deadline)) {
+			c->Message(Chat::Red, "Automatic quake status unavailable: unreadable, invalid or duplicate schedule.");
+		} else if (!RuleB(Quarm, EnableQuakes)) {
+			c->Message(Chat::White, "Automatic quakes: blocked by EnableQuakes in this zone's ruleset. Check world rules too.");
+		} else if (!deadline) {
+			c->Message(Chat::White, "Automatic quakes: OFF.");
 		} else {
-			c->Message(Chat::White, result.Success() ? "Automatic quakes: OFF." : "Automatic quake status unavailable.");
+			const uint32 now = Timer::GetTimeSeconds();
+			if (deadline <= now) c->Message(Chat::White, "Automatic quakes: scheduled deadline is due; awaiting world confirmation.");
+			else c->Message(Chat::White, "Automatic quakes: scheduled ON. Next trigger in %u hours %u minutes.",
+				(deadline - now) / 3600, ((deadline - now) % 3600) / 60);
 		}
 		return;
 	}

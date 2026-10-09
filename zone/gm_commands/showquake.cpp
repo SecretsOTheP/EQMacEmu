@@ -2,29 +2,24 @@
 
 void command_showquake(Client *c, const Seperator *sep)
 {
-	if (!c)
-		return;
-	
-	if (c->GuildID() == GUILD_NONE)
-	{
+	if (!c) return;
+	if (c->GuildID() == GUILD_NONE) {
 		c->Message(Chat::White, "You must be part of a guild to use this command.");
 		return;
 	}
-
-	int64 curTime = Timer::GetTimeSeconds();
-	int64 nextQuakeTime = zone ? zone->cached_quake_struct.next_start_timestamp : 0;
-	if (zone && zone->cached_quake_struct.quake_type == QuakeDisabled || zone && nextQuakeTime == 0 || zone && nextQuakeTime - curTime > 0)
-	{
-		//Load the next quake time
-		database.LoadQuakeData(zone->cached_quake_struct);
+	uint32 deadline = 0;
+	if (!database.GetAutomaticQuakeTime(deadline)) {
+		c->Message(Chat::Red, "The automatic earthquake schedule is unavailable.");
+		return;
 	}
-
-	if (nextQuakeTime - curTime > 0)
-	{
-		std::string time_str = "The next earthquake will begin in ";
-		time_str += Strings::SecondsToTime(nextQuakeTime - curTime);
-		time_str += "";
-		c->Message(Chat::Yellow, time_str.c_str());
+	if (!RuleB(Quarm, EnableQuakes) || !deadline) {
+		c->Message(Chat::Yellow, "Automatic earthquakes are currently disabled.");
+		return;
 	}
+	const uint32 now = Timer::GetTimeSeconds();
+	if (deadline <= now) {
+		c->Message(Chat::Yellow, "An automatic earthquake is due; awaiting confirmation from world.");
+		return;
+	}
+	c->Message(Chat::Yellow, "The next automatic earthquake is scheduled in %s.", Strings::SecondsToTime(deadline - now).c_str());
 }
-

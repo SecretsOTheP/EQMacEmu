@@ -85,6 +85,7 @@
 #include "world_server_cli.h"
 #include "../common/content/world_content_service.h"
 #include "../common/zone_store.h"
+#include "../common/quake_timing.h"
 #include "world_event_scheduler.h"
 #include "world_shutdown.h"
 #include "../common/path_manager.h"
@@ -145,21 +146,17 @@ Timer DisableQuakeTimer(900000);
 static uint32 automatic_quake_deadline = 0;
 static uint32 automatic_quake_poll = 0;
 static uint32 consumed_quake_deadline = 0;
+static uint32 automatic_quake_retry_after = 0;
 static void RefreshAutomaticQuakeTimer()
 {
 	const uint32 now = Timer::GetTimeSeconds();
 	if (now < automatic_quake_poll) return;
 	automatic_quake_poll = now + 1;
-	auto result = database.QueryDatabase("SELECT value FROM data_buckets WHERE `key` = 'pvpzone_quake_next' AND (expires = 0 OR expires > UNIX_TIMESTAMP()) LIMIT 1");
-	if (!result.Success()) {
+	uint32 deadline = 0;
+	if (!database.GetAutomaticQuakeTime(deadline)) {
 		NextQuakeTimer.Disable();
 		automatic_quake_deadline = 0;
 		return;
-	}
-	uint32 deadline = 0;
-	if (result.RowCount() > 0) {
-		auto row = result.begin();
-		if (row[0]) deadline = static_cast<uint32>(strtoul(row[0], nullptr, 10));
 	}
 	if (!RuleB(Quarm, EnableQuakes) || deadline == 0 || deadline == consumed_quake_deadline) {
 		NextQuakeTimer.Disable();
@@ -168,47 +165,43 @@ static void RefreshAutomaticQuakeTimer()
 	}
 	if (deadline != automatic_quake_deadline) {
 		automatic_quake_deadline = deadline;
-		NextQuakeTimer.Start(deadline > now ? (deadline - now) * 1000 : 1);
+		NextQuakeTimer.Start(QuakeTiming::MillisecondsUntil(deadline, now));
 	}
+}
+
+static void AnnounceQuake()
+{
+	const std::string motd = "Welcome to Project Quarm! An earthquake is in effect in selected PvP instances.";
+	database.SetVariable("MOTD", motd.c_str());
+	auto motd_packet = new ServerPacket(ServerOP_Motd, sizeof(ServerMotd_Struct));
+	auto message = reinterpret_cast<ServerMotd_Struct*>(motd_packet->pBuffer);
+	strn0cpy(message->myname, "Druzzil", sizeof(message->myname));
+	strn0cpy(message->motd, motd.c_str(), sizeof(message->motd));
+	zoneserver_list.SendPacket(motd_packet);
+	safe_delete(motd_packet);
+	zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Red,
+		"Druzzil Ro's voice echoes in your mind, 'Creatures of legendary strength return to areas of discord.'");
+	zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow,
+		"An earthquake is restoring creatures in enabled PvP instances within the selected expansions.");
+	auto packet = new ServerPacket(ServerOP_QuakeImminent, sizeof(ServerEarthquakeImminent_Struct));
+	memcpy(packet->pBuffer, &next_quake, sizeof(next_quake));
+	zoneserver_list.SendPacket(packet);
+	safe_delete(packet);
+	const uint32 end = next_quake.start_timestamp + RuleI(Quarm, QuakeEndTimeDuration);
+	DisableQuakeTimer.Start(QuakeTiming::MillisecondsUntil(end, Timer::GetTimeSeconds()));
 }
 
 void TriggerManualQuake(QuakeType in_quake_type)
 {
-	uint32 cur_time = Timer::GetTimeSeconds();
-	database.SaveNextQuakeTime(next_quake, in_quake_type);
-
-	// A manual quake does not enable or reset the automatic scheduler.
-
-	std::string motd_str = "Welcome to Project Quarm! ";
-	motd_str += "An earthquake ruleset is currently in effect in raid zones.";
-
-	database.SetVariable("MOTD", motd_str.c_str());
-
-	auto pack2 = new ServerPacket(ServerOP_Motd, sizeof(ServerMotd_Struct));
-	auto mss = (ServerMotd_Struct*)pack2->pBuffer;
-	strn0cpy(mss->myname, "Druzzil", sizeof(mss->myname));
-	strn0cpy(mss->motd, motd_str.c_str(), sizeof(mss->motd));
-
-	zoneserver_list.SendPacket(pack2);
-
-	//Roleplay flavor text, go!
-	zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Red, "Druzzil Ro's voice echoes in your mind, 'Beware, mortal. Creatures of legendary strength return to the world for a limited time.'");
-	zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow, "Druzzil Ro's projection alters time and space. Raid creatures have appeared in open world for a short time. Rule 9.x and Rule 10.x have been suspended in open world raid zones temporarily.");
-
-	//Inform of imminent quake. This happens after the MOTD so zone denizens are informed again with relevant information.
-	auto pack = new ServerPacket(ServerOP_QuakeImminent, sizeof(ServerEarthquakeImminent_Struct));
-	ServerEarthquakeImminent_Struct* seis = (ServerEarthquakeImminent_Struct*)pack->pBuffer;
-	seis->quake_type = in_quake_type;
-	seis->next_start_timestamp = next_quake.next_start_timestamp;
-	seis->start_timestamp = next_quake.start_timestamp;
-	zoneserver_list.SendPacket(pack);
-
-	safe_delete(pack2);
-	safe_delete(pack);
-
-	//Timer needs to be set to enforce MOTD rules.
-	DisableQuakeTimer.Enable();
-	DisableQuakeTimer.Start(((next_quake.start_timestamp - cur_time) + RuleI(Quarm, QuakeEndTimeDuration)) * 1000);
+	// Saving the window and releasing only eligible Guild 1 timers is one transaction.
+	// A manual quake never enables or resets the automatic schedule.
+	if (!RuleB(Quarm, EnableQuakes) || !database.SaveNextQuakeTime(next_quake, in_quake_type)) {
+		LogError("Manual quake was not announced: rule disabled or quake transaction failed.");
+		zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::GMAdmin, Chat::Red,
+			"Quake request failed. Check the world log; no success announcement was sent.");
+		return;
+	}
+	AnnounceQuake();
 }
 
 void LoadServerConfig()
@@ -565,53 +558,20 @@ int main(int argc, char** argv) {
 		RefreshAutomaticQuakeTimer();
 		if (RuleB(Quarm, EnableQuakes))
 		{
-			if (automatic_quake_deadline != 0 && NextQuakeTimer.Check())
+			if (automatic_quake_deadline != 0 && Timer::GetTimeSeconds() >= automatic_quake_deadline &&
+				Timer::GetTimeSeconds() >= automatic_quake_retry_after && NextQuakeTimer.Check())
 			{
-				// A failed schedule write must not repeatedly fire the old deadline.
-				consumed_quake_deadline = automatic_quake_deadline;
-				Log(Logs::Detail, Logs::WorldServer, "Triggered quake! %i", (next_quake.start_timestamp - Timer::GetTimeSeconds()));
-				uint32 cur_time = Timer::GetTimeSeconds();
-				database.SaveNextQuakeTime(next_quake);
-
-				NextQuakeTimer.Enable();
-				NextQuakeTimer.Start((next_quake.next_start_timestamp - cur_time) * 1000);
-				// UPDATE, not INSERT: a concurrent quakeoff must stay off.
-				database.QueryDatabase(StringFormat("UPDATE data_buckets SET value = '%u' WHERE `key` = 'pvpzone_quake_next'", next_quake.next_start_timestamp));
-				automatic_quake_deadline = next_quake.next_start_timestamp;
-
-				std::string motd_str = "Welcome to Project Quarm! ";
-				motd_str += "The '";
-				motd_str += QuakeTypeToString(next_quake.quake_type);
-				motd_str += "' earthquake ruleset is currently in effect in raid zones.";
-
-				database.SetVariable("MOTD", motd_str.c_str());
-
-				auto pack2 = new ServerPacket(ServerOP_Motd, sizeof(ServerMotd_Struct));
-				auto mss = (ServerMotd_Struct*)pack2->pBuffer;
-				strn0cpy(mss->myname, "Druzzil", sizeof(mss->myname));
-				strn0cpy(mss->motd, motd_str.c_str(), sizeof(mss->motd));
-
-				zoneserver_list.SendPacket(pack2);
-
-				//Roleplay flavor text, go!
-				database.AdjustPVPSpawnTimes(); //Adjust PVP spawn times on quake start.
-				zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Red, "Druzzil Ro's voice echoes in your mind, 'Beware, mortal. Creatures of legendary strength return to areas of discord.'");
-				zoneserver_list.SendEmoteMessage(0, 0, AccountStatus::Player, Chat::Yellow, "Druzzil Ro's projection alters time and space. Creatures have respawned in PVP instances.");
-
-				//Inform of imminent quake. This happens after the MOTD so zone denizens are informed again with relevant information.
-				auto pack = new ServerPacket(ServerOP_QuakeImminent, sizeof(ServerEarthquakeImminent_Struct));
-				ServerEarthquakeImminent_Struct* seis = (ServerEarthquakeImminent_Struct*)pack->pBuffer;
-				seis->quake_type = next_quake.quake_type;
-				seis->next_start_timestamp = next_quake.next_start_timestamp;
-				seis->start_timestamp = next_quake.start_timestamp;
-				zoneserver_list.SendPacket(pack);
-
-				safe_delete(pack2);
-				safe_delete(pack);
-
-				//Timer needs to be set to enforce MOTD rules.
-				DisableQuakeTimer.Enable();
-				DisableQuakeTimer.Start(((next_quake.start_timestamp - cur_time) + RuleI(Quarm, QuakeEndTimeDuration)) * 1000);
+				if (database.SaveNextQuakeTime(next_quake, QuakeNormal, automatic_quake_deadline)) {
+					consumed_quake_deadline = automatic_quake_deadline;
+					automatic_quake_deadline = next_quake.next_start_timestamp;
+					automatic_quake_retry_after = 0;
+					NextQuakeTimer.Start(QuakeTiming::MillisecondsUntil(automatic_quake_deadline, Timer::GetTimeSeconds()));
+					AnnounceQuake();
+				} else {
+					LogError("Automatic quake transaction failed or its schedule changed; no quake announcement sent. Retrying in 60 seconds if still enabled.");
+					automatic_quake_retry_after = Timer::GetTimeSeconds() + 60;
+					NextQuakeTimer.Start(60000);
+				}
 			}
 
 			if (DisableQuakeTimer.Check())

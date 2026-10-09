@@ -1,0 +1,68 @@
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <vector>
+
+using uint32 = uint32_t;
+namespace Chat { constexpr int Red = 13; }
+struct Zone { uint32 GetZoneID() const { return 159; } } current_zone;
+Zone *zone = &current_zone;
+const char *ZoneName(uint32 id)
+{
+    if (id == 159) return "sseru";
+    if (id == 208) return "povalor";
+    return nullptr;
+}
+struct Database {
+    bool success = true;
+    bool enabled = true;
+    unsigned calls = 0;
+    std::string requested;
+    bool GetPVPZoneAccess(const std::string &name, bool &result)
+    {
+        ++calls;
+        requested = name;
+        result = enabled;
+        return success;
+    }
+} database;
+struct Client {
+    std::vector<std::string> messages;
+    void Message(int, const char *text) { messages.emplace_back(text); }
+    bool CanEnterPvpInstance(uint32 zone_id);
+};
+unsigned checks = 0;
+void check(bool value)
+{
+    ++checks;
+    if (!value) { std::cerr << "FAIL access check " << checks << '\n'; std::exit(1); }
+}
+
+// PRODUCTION_METHODS
+
+int main()
+{
+    Client client;
+    check(client.CanEnterPvpInstance(159));
+    check(database.requested == "sseru");
+    check(client.messages.empty());
+
+    // A change saved by another zone must be seen on the next entry check.
+    database.enabled = false;
+    check(!client.CanEnterPvpInstance(159));
+    check(client.messages.back().find("not currently enabled") != std::string::npos);
+    database.enabled = true;
+    check(client.CanEnterPvpInstance(208));
+    check(database.requested == "povalor");
+
+    check(client.CanEnterPvpInstance(0));
+    check(database.requested == "sseru");
+    database.success = false;
+    check(!client.CanEnterPvpInstance(159));
+    check(client.messages.back().find("could not be verified") != std::string::npos);
+    const auto calls = database.calls;
+    check(!client.CanEnterPvpInstance(999999));
+    check(database.calls == calls);
+    std::cout << "PASS " << checks << " PvP entry checks\n";
+}
