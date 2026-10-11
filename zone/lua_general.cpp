@@ -1296,11 +1296,11 @@ std::string lua_get_deity_name(uint32 deity_id) {
 			npc_type->name = luabind::object_cast<c_type>(cur); \
 		} \
 		catch(luabind::cast_failed) { \
-			npc_type->size = default_value; \
+			npc_type->name = default_value; \
 		} \
 	} \
 	else { \
-		npc_type->size = default_value; \
+		npc_type->name = default_value; \
 	} \
 } while(0)
 
@@ -1309,20 +1309,20 @@ std::string lua_get_deity_name(uint32 deity_id) {
 	if(luabind::type(cur) != LUA_TNIL) { \
 		try { \
 			std::string tmp = luabind::object_cast<std::string>(cur); \
-			strncpy(npc_type->name, tmp.c_str(), str_length); \
+			strn0cpy(npc_type->name, tmp.c_str(), str_length); \
 		} \
 		catch(luabind::cast_failed) { \
-			strncpy(npc_type->name, default_value, str_length); \
+			strn0cpy(npc_type->name, default_value, str_length); \
 		} \
 	} \
 	else { \
-		strncpy(npc_type->name, default_value, str_length); \
+		strn0cpy(npc_type->name, default_value, str_length); \
 	} \
 } while(0)
 
-void lua_create_npc(luabind::adl::object table, float x, float y, float z, float heading) {
+Lua_NPC lua_create_npc(luabind::adl::object table, float x, float y, float z, float heading) {
 	if(luabind::type(table) != LUA_TTABLE) {
-		return;
+		return Lua_NPC();
 	}
 
 	auto npc_type = new NPCType;
@@ -1336,6 +1336,7 @@ void lua_create_npc(luabind::adl::object table, float x, float y, float z, float
 	LuaCreateNPCParse(max_hp, int32, 30);
 	LuaCreateNPCParse(size, float, 6.0f);
 	LuaCreateNPCParse(runspeed, float, 1.3f);
+	LuaCreateNPCParse(walkspeed, float, 0.0f);
 	LuaCreateNPCParse(gender, uint8, 0);
 	LuaCreateNPCParse(race, uint16, 1);
 	LuaCreateNPCParse(class_, uint8, Class::Warrior);
@@ -1345,6 +1346,12 @@ void lua_create_npc(luabind::adl::object table, float x, float y, float z, float
 	LuaCreateNPCParse(npc_id, uint32, 1);
 	LuaCreateNPCParse(texture, uint8, 0);
 	LuaCreateNPCParse(helmtexture, uint8, 0);
+	LuaCreateNPCParse(chesttexture, uint8, 0);
+	LuaCreateNPCParse(armtexture, uint8, 0);
+	LuaCreateNPCParse(bracertexture, uint8, 0);
+	LuaCreateNPCParse(handtexture, uint8, 0);
+	LuaCreateNPCParse(legtexture, uint8, 0);
+	LuaCreateNPCParse(feettexture, uint8, 0);
 	LuaCreateNPCParse(loottable_id, uint32, 0);
 	LuaCreateNPCParse(npc_spells_id, uint32, 0);
 	LuaCreateNPCParse(npc_spells_effects_id, uint32, 0);
@@ -1417,10 +1424,13 @@ void lua_create_npc(luabind::adl::object table, float x, float y, float z, float
 	LuaCreateNPCParse(raid_target, bool, false);
 	LuaCreateNPCParse(probability, uint8, 0);
 	LuaCreateNPCParse(engage_notice, bool, false);
-	LuaCreateNPCParse(loot_lockout, uint32, false);
+	LuaCreateNPCParse(loot_lockout, uint32, 0);
+	LuaCreateNPCParse(skip_global_loot, bool, false);
 	NPC* npc = new NPC(npc_type, nullptr, glm::vec4(x, y, z, heading),  GravityBehavior::Water);
+	// NPC retains this definition; its destructor must release it.
+	npc->GiveNPCTypeData();
 	entity_list.AddNPC(npc);
-	safe_delete(npc_type);
+	return Lua_NPC(npc);
 }
 
 int get_rulei(int rule) {
@@ -1615,6 +1625,8 @@ luabind::scope lua_register_general() {
 		luabind::def("reloadzonestaticdata", &lua_reloadzonestaticdata),
 		luabind::def("clock", &lua_clock),
 		luabind::def("create_npc", &lua_create_npc),
+		// New name lets quests require the ownership/default fixes on older servers.
+		luabind::def("create_npc_from_table", &lua_create_npc),
 		luabind::def("debug", (void(*)(std::string))& lua_debug),
 		luabind::def("debug", (void(*)(std::string, int))& lua_debug),
 		luabind::def("seconds_to_time", &lua_seconds_to_time),
