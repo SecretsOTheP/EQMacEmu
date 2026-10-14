@@ -186,6 +186,21 @@ void ConsoleWho(
  * @param command
  * @param args
  */
+void ConsoleQueue(
+	EQ::Net::ConsoleServerConnection* connection,
+	const std::string& command,
+	const std::vector<std::string>& args
+)
+{
+	WorldConsoleTCPConnection console_connection(connection);
+	client_list.SendQueueStatus(0, &console_connection);
+}
+
+/**
+ * @param connection
+ * @param command
+ * @param args
+ */
 void ConsoleUptime(
 	EQ::Net::ConsoleServerConnection* connection,
 	const std::string& command,
@@ -973,6 +988,7 @@ void RegisterConsoleFunctions(std::unique_ptr<EQ::Net::ConsoleServer>& console)
 	console->RegisterCall("lsreconnect", 50, "LSReconnect", std::bind(ConsoleNull, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("md5", 50, "md5", std::bind(ConsoleMd5, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("ooc", 50, "ooc [message]", std::bind(ConsoleOOC, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	console->RegisterCall("queue", 50, "queue", std::bind(ConsoleQueue, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("reloadworld", 200, "reloadworld", std::bind(ConsoleReloadWorld, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("rollingrestart", 200, "rollingrestart", std::bind(ConsoleRollingRestart, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	console->RegisterCall("setpass", 200, "setpass [accountname] [newpass]", std::bind(ConsoleSetPass, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));

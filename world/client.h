@@ -82,6 +82,15 @@ private:
 	bool	is_player_zoning;
 	Timer	autobootup_timeout;
 	Timer	client_inactive_timeout;
+	// Hold at character select while the world is full (Quarm:EnableLoginQueue).
+	bool	queue_held;
+	Timer	queue_push;
+	uint32	queue_position;
+	uint32	queue_size;
+	uint32	queue_joined_at;
+	void	QueueCharSelectDecide();     // ask the queue: send the real list on admission, else the placeholder list
+	void	SendCharSelectList();        // the account's real character list
+	void	SendQueueCharSelectList();   // the placeholder list for the current position
 	uint32	zone_waiting_for_bootup;
 	bool	enter_world_triggered;
 
