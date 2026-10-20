@@ -62,19 +62,32 @@ WorldShutdown::RestartMethod WorldShutdown::GetRestartMethod() const
 	return RestartMethod::InPlace;
 }
 
+std::string WorldShutdown::DowntimeNote() const
+{
+	if (!m_downtime) {
+		return "";
+	}
+	return fmt::format(
+		" for about {} (back around {})",
+		ShutdownDuration::Format(m_downtime),
+		ShutdownDuration::Eastern::FormatTime(m_back_at)
+	);
+}
+
 void WorldShutdown::Announce(uint32 remaining)
 {
 	std::string advice;
 	if (remaining <= 300) {
-		advice = m_restart ?
+		advice = m_restart && !m_downtime ?
 			" Please find a safe place and log out. The server will be back shortly." :
 			" Please find a safe place and log out.";
 	}
 
 	const auto message = fmt::format(
-		"[SYSTEM] The server will {} in {}.{}",
+		"[SYSTEM] The server will {} in {}{}.{}",
 		Verb(),
 		ShutdownDuration::FormatCountdown(remaining),
+		DowntimeNote(),
 		advice
 	);
 
@@ -94,10 +107,10 @@ std::string WorldShutdown::GetMOTD() const
 	std::string notice;
 	if (m_phase == Phase::Countdown) {
 		// Only the absolute time: zones keep this MOTD until the next push, so a countdown would go stale.
-		notice = fmt::format("{}: The server will {} at {}.", label, Verb(), ShutdownDuration::Eastern::Format(m_deadline));
+		notice = fmt::format("{}: The server will {} at {}{}.", label, Verb(), ShutdownDuration::Eastern::Format(m_deadline), DowntimeNote());
 	}
 	else if (IsShuttingDown()) {
-		notice = fmt::format("{}: The server is {} now.", label, m_restart ? "restarting" : "shutting down");
+		notice = fmt::format("{}: The server is {} now{}.", label, m_restart ? "restarting" : "shutting down", DowntimeNote());
 	}
 	else {
 		notice = RollingRestart::Instance().MOTDNotice();
@@ -124,7 +137,7 @@ void WorldShutdown::PushMOTD()
 	zoneserver_list.SendPacket(&pack);
 }
 
-std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested_by, bool restart)
+std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested_by, bool restart, uint32 downtime_seconds)
 {
 	if (IsShuttingDown()) {
 		return fmt::format("The world is already {}.", m_restart ? "restarting" : "shutting down");
@@ -134,7 +147,7 @@ std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested
 	}
 
 	if (seconds == 0) {
-		return ShutdownNow(requested_by, restart);
+		return ShutdownNow(requested_by, restart, downtime_seconds);
 	}
 
 	const bool rescheduled = m_phase == Phase::Countdown;
@@ -145,17 +158,20 @@ std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested
 	m_phase           = Phase::Countdown;
 	m_restart         = restart;
 	m_deadline        = std::time(nullptr) + seconds;
+	m_downtime        = downtime_seconds;
+	m_back_at         = m_deadline + downtime_seconds;
 	m_requested_by    = requested_by;
 	m_next_checkpoint = ShutdownDuration::NextCountdownMark(seconds);
 	StartTicking();
 
 	LogInfo(
-		"World {} {} by [{}] for [{}] from now ([{}])",
+		"World {} {} by [{}] for [{}] from now ([{}]){}",
 		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
 		requested_by,
 		ShutdownDuration::Format(seconds),
-		ShutdownDuration::Eastern::Format(m_deadline)
+		ShutdownDuration::Eastern::Format(m_deadline),
+		m_downtime ? fmt::format(", estimated downtime [{}]", ShutdownDuration::Format(m_downtime)) : ""
 	);
 
 	// More than an hour out, the MOTD is the only notice. Players who already heard a countdown
@@ -164,21 +180,22 @@ std::string WorldShutdown::Schedule(uint32 seconds, const std::string &requested
 		Announce(seconds);
 	}
 	else if (m_announced) {
-		const auto message = fmt::format("[SYSTEM] The server {} has been moved to {}.", Noun(), ShutdownDuration::Eastern::Format(m_deadline));
+		const auto message = fmt::format("[SYSTEM] The server {} has been moved to {}{}.", Noun(), ShutdownDuration::Eastern::Format(m_deadline), DowntimeNote());
 		zoneserver_list.SendEmoteMessageRaw(0, 0, AccountStatus::Player, Chat::Yellow, message.c_str());
 	}
 	PushMOTD();
 
 	return fmt::format(
-		"World {} {} for {} ({} from now). Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.",
+		"World {} {} for {}{} ({} from now). Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.",
 		Noun(),
 		rescheduled ? "rescheduled" : "scheduled",
 		ShutdownDuration::Eastern::Format(m_deadline),
+		DowntimeNote(),
 		ShutdownDuration::Format(seconds)
 	);
 }
 
-std::string WorldShutdown::ShutdownNow(const std::string &requested_by, bool restart)
+std::string WorldShutdown::ShutdownNow(const std::string &requested_by, bool restart, uint32 downtime_seconds)
 {
 	if (IsShuttingDown()) {
 		return fmt::format("The world is already {}.", m_restart ? "restarting" : "shutting down");
@@ -188,10 +205,12 @@ std::string WorldShutdown::ShutdownNow(const std::string &requested_by, bool res
 	}
 
 	m_restart      = restart;
+	m_downtime     = downtime_seconds;
+	m_back_at      = std::time(nullptr) + downtime_seconds;
 	m_requested_by = requested_by;
 	LogInfo("Immediate world {} requested by [{}]", Noun(), requested_by);
 	BeginDrain();
-	return fmt::format("World is {} now.", m_restart ? "restarting" : "shutting down");
+	return fmt::format("World is {} now{}.", m_restart ? "restarting" : "shutting down", DowntimeNote());
 }
 
 std::string WorldShutdown::Cancel(const std::string &requested_by)
@@ -206,6 +225,7 @@ std::string WorldShutdown::Cancel(const std::string &requested_by)
 
 	m_phase    = Phase::Idle;
 	m_deadline = 0;
+	m_downtime = 0;
 	StopTicking();
 
 	LogInfo("Scheduled world {} cancelled by [{}]", Noun(), requested_by);
@@ -224,10 +244,11 @@ std::string WorldShutdown::Status() const
 	switch (m_phase) {
 		case Phase::Countdown:
 			return fmt::format(
-				"World {} scheduled by {} for {} ({} from now).",
+				"World {} scheduled by {} for {}{} ({} from now).",
 				Noun(),
 				m_requested_by,
 				ShutdownDuration::Eastern::Format(m_deadline),
+				DowntimeNote(),
 				ShutdownDuration::Format(Remaining())
 			);
 		case Phase::Draining:
@@ -544,10 +565,11 @@ void WorldShutdown::PollRequestFile()
 }
 
 // Request lines, written by `world world:shutdown`, `world:restart` and `world:rolling-restart`:
-//   schedule|restart|rolling <deadline (Unix time)> <requested_by>
-//   now|restartnow|rollingnow <requested_by>
+//   schedule|restart|rolling <deadline (Unix time)> [downtime=<seconds>] <requested_by>
+//   now|restartnow|rollingnow [downtime=<seconds>] <requested_by>
 //   cancel|rollingcancel <requested_by>
 //   status|rollingstatus
+// downtime= is the optional estimate of how long players will be offline (shutdown/restart only).
 std::string WorldShutdown::HandleRequest(const std::string &line)
 {
 	auto args = Strings::Split(line, ' ');
@@ -557,7 +579,18 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 
 	const auto verb      = Strings::ToLower(args[0]);
 	const bool scheduled = verb == "schedule" || verb == "restart" || verb == "rolling";
-	auto       by_index  = scheduled ? 2 : 1;
+	size_t     by_index  = scheduled ? 2 : 1;
+
+	uint32 downtime = 0;
+	if (by_index < args.size() && args[by_index].rfind("downtime=", 0) == 0) {
+		const auto value = args[by_index].substr(9);
+		if (value.empty() || value.size() > 9 || !Strings::IsNumber(value)) {
+			return fmt::format("ERROR: malformed downtime in request [{}]", line);
+		}
+		downtime = static_cast<uint32>(std::stoul(value));
+		by_index++;
+	}
+
 	std::string requested_by;
 	for (size_t i = by_index; i < args.size(); i++) {
 		requested_by += (requested_by.empty() ? "" : " ") + args[i];
@@ -581,13 +614,13 @@ std::string WorldShutdown::HandleRequest(const std::string &line)
 		if (verb == "rolling") {
 			return RollingRestart::Instance().Schedule(seconds, requested_by);
 		}
-		return Schedule(seconds, requested_by, verb == "restart");
+		return Schedule(seconds, requested_by, verb == "restart", downtime);
 	}
 	if (verb == "now") {
-		return ShutdownNow(requested_by);
+		return ShutdownNow(requested_by, false, downtime);
 	}
 	if (verb == "restartnow") {
-		return ShutdownNow(requested_by, true);
+		return ShutdownNow(requested_by, true, downtime);
 	}
 	if (verb == "cancel") {
 		return Cancel(requested_by);

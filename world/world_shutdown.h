@@ -36,8 +36,10 @@ public:
 	static WorldShutdown &Instance();
 
 	// restart = true brings the server back up after the drain instead of leaving it down.
-	std::string Schedule(uint32 seconds, const std::string &requested_by, bool restart = false);
-	std::string ShutdownNow(const std::string &requested_by, bool restart = false);
+	// downtime_seconds is an optional estimate of how long players will be offline; when set, the
+	// MOTD and countdown warnings say when the server is expected back.
+	std::string Schedule(uint32 seconds, const std::string &requested_by, bool restart = false, uint32 downtime_seconds = 0);
+	std::string ShutdownNow(const std::string &requested_by, bool restart = false, uint32 downtime_seconds = 0);
 	std::string Cancel(const std::string &requested_by);
 	std::string Status() const;
 
@@ -73,12 +75,16 @@ private:
 	RestartMethod GetRestartMethod() const;
 	const char *Verb() const { return m_restart ? "restart" : "shut down"; }
 	const char *Noun() const { return m_restart ? "restart" : "shutdown"; }
+	// " for about 15 minutes (back around 7:15 AM EDT)", or empty when no downtime was given.
+	std::string DowntimeNote() const;
 	void   PollRequestFile();
 	std::string HandleRequest(const std::string &line);
 
 	Phase       m_phase            = Phase::Idle;
 	bool        m_restart          = false;
 	time_t      m_deadline         = 0;
+	uint32      m_downtime         = 0; // estimated seconds offline; 0 = not given
+	time_t      m_back_at          = 0; // when the server is expected back, if m_downtime is set
 	uint32      m_next_checkpoint  = 0;
 	bool        m_announced        = false; // a countdown was broadcast, so moves and cancels are too
 	std::string m_requested_by;

@@ -800,6 +800,8 @@ struct WorldShutDown_Struct {
 	uint32	seconds;          // delay before the shutdown/restart (the schedule actions)
 	uint8	action;           // WorldShutDownAction
 	char	admin_name[64];   // who asked; replies are sent here
+	uint32	downtime;         // optional estimated seconds offline (shutdown/restart); 0 = not given.
+	                          // Added later: world also accepts packets that end before this field.
 };
 
 struct ServerSyncWorldList_Struct {

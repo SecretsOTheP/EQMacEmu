@@ -768,34 +768,50 @@ namespace {
 		return true;
 	}
 
-	void SendConsoleScheduleUsage(EQ::Net::ConsoleServerConnection* connection, const char *name)
+	void SendConsoleScheduleUsage(EQ::Net::ConsoleServerConnection* connection, const char *name, bool takes_downtime)
 	{
-		connection->SendLine(fmt::format("Usage: {} <when> | now | cancel | status", name));
+		connection->SendLine(fmt::format("Usage: {} <when>{} | now{} | cancel | status", name, takes_downtime ? " [--downtime <duration>]" : "", takes_downtime ? " [--downtime <duration>]" : ""));
 		connection->SendLine("  when: a delay (90m, 1h30m, 2d4h; a bare number is seconds), an Eastern time (7am, 7:30pm),");
 		connection->SendLine("        a date and time in Eastern (10/5/2026 7am, Oct 5 2026 7:00am, 2026-10-05 07:00), or a Unix timestamp");
+		if (takes_downtime) {
+			connection->SendLine("  --downtime: optional estimate of how long players will be offline (15m, 1h30m); shown in the MOTD and warnings.");
+		}
 		connection->SendLine("  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.");
 	}
 
-	// Shared by worldshutdown, worldrestart and rollingrestart.
+	// Shared by worldshutdown, worldrestart and rollingrestart. schedule and now also get the optional
+	// estimated downtime in seconds (0 if none was given); rolling restarts ignore it.
 	template <typename ScheduleFn, typename NowFn, typename CancelFn, typename StatusFn>
 	void RunConsoleSchedule(
 		EQ::Net::ConsoleServerConnection* connection,
-		const std::vector<std::string>& args,
+		const std::vector<std::string>& args_in,
 		const char *name,
 		const char *description,
+		bool takes_downtime,
 		ScheduleFn schedule, NowFn now, CancelFn cancel, StatusFn status
 	)
 	{
 		const std::string by = connection->UserName().empty() ? "console" : connection->UserName();
+
+		auto   args     = args_in;
+		uint32 downtime = 0;
+		if (takes_downtime) {
+			std::string error;
+			if (!ShutdownDuration::ExtractDowntime(args, downtime, error)) {
+				connection->SendLine(error);
+				SendConsoleScheduleUsage(connection, name, takes_downtime);
+				return;
+			}
+		}
 		const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
 
 		uint32 seconds = 0;
 		if (sub.empty() || sub == "help") {
-			SendConsoleScheduleUsage(connection, name);
+			SendConsoleScheduleUsage(connection, name, takes_downtime);
 			connection->SendLine(description);
 		}
 		else if (sub == "now") {
-			connection->SendLine(now(by));
+			connection->SendLine(now(by, downtime));
 		}
 		else if (sub == "disable" || sub == "cancel") {
 			connection->SendLine(cancel(by));
@@ -804,10 +820,10 @@ namespace {
 			connection->SendLine(status());
 		}
 		else if (ParseConsoleSchedule(connection, args, seconds)) {
-			connection->SendLine(schedule(seconds, by));
+			connection->SendLine(schedule(seconds, by, downtime));
 		}
 		else {
-			SendConsoleScheduleUsage(connection, name);
+			SendConsoleScheduleUsage(connection, name, takes_downtime);
 		}
 	}
 }
@@ -825,9 +841,9 @@ void ConsoleWorldShutdown(
 {
 	auto &shutdown = WorldShutdown::Instance();
 	RunConsoleSchedule(
-		connection, args, "worldshutdown", "  Shuts down the server, all zones and the launcher.",
-		[&](uint32 seconds, const std::string &by) { return shutdown.Schedule(seconds, by); },
-		[&](const std::string &by) { return shutdown.ShutdownNow(by); },
+		connection, args, "worldshutdown", "  Shuts down the server, all zones and the launcher.", true,
+		[&](uint32 seconds, const std::string &by, uint32 downtime) { return shutdown.Schedule(seconds, by, false, downtime); },
+		[&](const std::string &by, uint32 downtime) { return shutdown.ShutdownNow(by, false, downtime); },
 		[&](const std::string &by) { return shutdown.Cancel(by); },
 		[&]() { return shutdown.Status(); }
 	);
@@ -846,9 +862,9 @@ void ConsoleWorldRestart(
 {
 	auto &shutdown = WorldShutdown::Instance();
 	RunConsoleSchedule(
-		connection, args, "worldrestart", "  Shuts the whole server down like worldshutdown, then brings it back up.",
-		[&](uint32 seconds, const std::string &by) { return shutdown.Schedule(seconds, by, true); },
-		[&](const std::string &by) { return shutdown.ShutdownNow(by, true); },
+		connection, args, "worldrestart", "  Shuts the whole server down like worldshutdown, then brings it back up.", true,
+		[&](uint32 seconds, const std::string &by, uint32 downtime) { return shutdown.Schedule(seconds, by, true, downtime); },
+		[&](const std::string &by, uint32 downtime) { return shutdown.ShutdownNow(by, true, downtime); },
 		[&](const std::string &by) { return shutdown.Cancel(by); },
 		[&]() { return shutdown.Status(); }
 	);
@@ -867,9 +883,9 @@ void ConsoleRollingRestart(
 {
 	auto &rolling = RollingRestart::Instance();
 	RunConsoleSchedule(
-		connection, args, "rollingrestart", "  Restarts zones a few at a time; world and logins stay up.",
-		[&](uint32 seconds, const std::string &by) { return rolling.Schedule(seconds, by); },
-		[&](const std::string &by) { return rolling.RestartNow(by); },
+		connection, args, "rollingrestart", "  Restarts zones a few at a time; world and logins stay up.", false,
+		[&](uint32 seconds, const std::string &by, uint32) { return rolling.Schedule(seconds, by); },
+		[&](const std::string &by, uint32) { return rolling.RestartNow(by); },
 		[&](const std::string &by) { return rolling.Cancel(by); },
 		[&]() { return rolling.Status(); }
 	);

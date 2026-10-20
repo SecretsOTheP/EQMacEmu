@@ -12,6 +12,7 @@ namespace {
 		uint8       now_action;
 		uint8       cancel_action;
 		uint8       status_action;
+		bool        takes_downtime; // accepts --downtime (shutdown and restart, not rolling restarts)
 	};
 
 	// Shared by #worldshutdown, #worldrestart and #rollingrestart. World owns the schedule and replies to us.
@@ -23,16 +24,37 @@ namespace {
 		}
 
 		auto usage = [c, &cmd]() {
+			const char *downtime = cmd.takes_downtime ? " [--downtime <duration>]" : "";
 			c->Message(Chat::White, fmt::format("{} - {}", cmd.name, cmd.what).c_str());
-			c->Message(Chat::White, fmt::format("Usage: {} [when] - Schedule a {}.", cmd.name, cmd.noun).c_str());
+			c->Message(Chat::White, fmt::format("Usage: {} [when]{} - Schedule a {}.", cmd.name, downtime, cmd.noun).c_str());
 			c->Message(Chat::White, "  [when]: a delay (90m, 1h30m, 2d4h; a bare number is seconds), an Eastern time (7am, 7:30pm), a date and time in Eastern (10/5/2026 7am, Oct 5 2026 7:00am, 2026-10-05 07:00), or a Unix timestamp.");
+			if (cmd.takes_downtime) {
+				c->Message(Chat::White, "  --downtime: optional estimate of how long players will be offline (15m, 1h30m). The MOTD and warnings then say when the server is expected back.");
+			}
 			c->Message(Chat::White, "  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.");
-			c->Message(Chat::White, fmt::format("Usage: {} now - Starts the {} immediately.", cmd.name, cmd.noun).c_str());
+			c->Message(Chat::White, fmt::format("Usage: {} now{} - Starts the {} immediately.", cmd.name, downtime, cmd.noun).c_str());
 			c->Message(Chat::White, fmt::format("Usage: {} disable - Cancels a scheduled {}.", cmd.name, cmd.noun).c_str());
 			c->Message(Chat::White, fmt::format("Usage: {} status - Shows the scheduled {}.", cmd.name, cmd.noun).c_str());
 		};
 
-		const std::string sub = Strings::ToLower(sep->arg[1]);
+		std::vector<std::string> args;
+		for (int i = 1; i <= sep->argnum; i++) {
+			if (sep->arg[i][0]) {
+				args.emplace_back(sep->arg[i]);
+			}
+		}
+
+		uint32 downtime = 0;
+		if (cmd.takes_downtime) {
+			std::string error;
+			if (!ShutdownDuration::ExtractDowntime(args, downtime, error)) {
+				c->Message(Chat::White, error.c_str());
+				usage();
+				return;
+			}
+		}
+
+		const std::string sub = args.empty() ? "" : Strings::ToLower(args[0]);
 		if (sub.empty()) {
 			usage();
 			return;
@@ -41,6 +63,7 @@ namespace {
 		ServerPacket pack(ServerOP_ShutdownAll, sizeof(WorldShutDown_Struct));
 		auto wsd = (WorldShutDown_Struct*)pack.pBuffer;
 		strn0cpy(wsd->admin_name, c->GetName(), sizeof(wsd->admin_name));
+		wsd->downtime = downtime;
 
 		if (sub == "now") {
 			wsd->action = cmd.now_action;
@@ -52,9 +75,14 @@ namespace {
 			wsd->action = cmd.status_action;
 		}
 		else {
+			std::string when;
+			for (const auto &a : args) {
+				when += (when.empty() ? "" : " ") + a;
+			}
+
 			uint32      seconds = 0;
 			std::string error;
-			if (!ShutdownDuration::ParseWhen(sep->argplus[1], std::time(nullptr), seconds, error)) {
+			if (!ShutdownDuration::ParseWhen(when, std::time(nullptr), seconds, error)) {
 				c->Message(Chat::White, error.c_str());
 				usage();
 				return;
@@ -71,7 +99,7 @@ namespace {
 void command_worldshutdown(Client *c, const Seperator *sep){
 	SendWorldScheduleCommand(c, sep, {
 		"#worldshutdown", "Shuts down the server, all zones and the launcher.", "shut down",
-		WorldShutDownSchedule, WorldShutDownNow, WorldShutDownCancel, WorldShutDownStatus
+		WorldShutDownSchedule, WorldShutDownNow, WorldShutDownCancel, WorldShutDownStatus, true
 	});
 }
 
@@ -79,13 +107,13 @@ void command_worldrestart(Client *c, const Seperator *sep){
 	// Cancel and status are shared with #worldshutdown: there is one world schedule.
 	SendWorldScheduleCommand(c, sep, {
 		"#worldrestart", "Shuts down the server and all zones like #worldshutdown, then brings everything back up.", "restart",
-		WorldRestartSchedule, WorldRestartNow, WorldShutDownCancel, WorldShutDownStatus
+		WorldRestartSchedule, WorldRestartNow, WorldShutDownCancel, WorldShutDownStatus, true
 	});
 }
 
 void command_rollingrestart(Client *c, const Seperator *sep){
 	SendWorldScheduleCommand(c, sep, {
 		"#rollingrestart", "Restarts zones a few at a time while world and logins stay up. Players in a restarting zone are briefly disconnected.", "rolling zone restart",
-		RollingRestartSchedule, RollingRestartNow, RollingRestartCancel, RollingRestartStatus
+		RollingRestartSchedule, RollingRestartNow, RollingRestartCancel, RollingRestartStatus, false
 	});
 }

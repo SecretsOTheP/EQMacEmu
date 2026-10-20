@@ -75,17 +75,26 @@ namespace {
 		const char *now  = kind == ScheduleKind::Shutdown ? "shut down immediately" :
 						   kind == ScheduleKind::Restart  ? "restart immediately" : "start restarting zones immediately";
 
+		const bool takes_downtime = kind != ScheduleKind::Rolling;
+
 		auto usage = [&]() {
+			const char *downtime = takes_downtime ? " [--downtime <duration>]" : "";
 			std::cout
-				<< fmt::format("Usage: world {} <when>    schedule a {}\n", name, noun)
-				<< fmt::format("       world {} now       {}\n", name, now)
+				<< fmt::format("Usage: world {} <when>{}    schedule a {}\n", name, downtime, noun)
+				<< fmt::format("       world {} now{}       {}\n", name, downtime, now)
 				<< fmt::format("       world {} cancel    cancel a scheduled {}\n", name, noun)
 				<< fmt::format("       world {} status    show the current schedule\n\n", name)
 				<< "  when: a delay:              90m, 1h30m, 2d4h (a bare number is seconds)\n"
 				<< "        a time in Eastern:    7am, 7:30pm, 19:00 (the next time it comes around)\n"
 				<< "        a date and time:      10/5/2026 7am, \"Oct 5 2026 7:00am\", 2026-10-05 07:00\n"
 				<< "                              (Eastern unless it ends in UTC)\n"
-				<< "        a Unix timestamp:     1759662000\n"
+				<< "        a Unix timestamp:     1759662000\n";
+			if (takes_downtime) {
+				std::cout
+					<< "  --downtime: optional estimate of how long players will be offline, like 15m or 1h30m.\n"
+					<< "              The MOTD and warnings then say \"for about 15 minutes (back around 7:15 AM EDT)\".\n";
+			}
+			std::cout
 				<< "  Warnings: MOTD only until 60 minutes remain, then every 5 minutes, then every minute from 15 minutes.\n"
 				<< "  Run from the server directory (where eqemu_config.json is).\n";
 			std::exit(1);
@@ -95,6 +104,17 @@ namespace {
 		for (int i = 2; i < argc; i++) {
 			args.emplace_back(argv[i]);
 		}
+
+		uint32 downtime = 0;
+		if (takes_downtime) {
+			std::string error;
+			if (!ShutdownDuration::ExtractDowntime(args, downtime, error)) {
+				std::cout << error << "\n\n";
+				usage();
+			}
+		}
+		// World reads an optional "downtime=<seconds>" right before who asked.
+		const std::string downtime_arg = downtime ? fmt::format("downtime={} ", downtime) : "";
 
 		if (args.empty()) {
 			usage();
@@ -116,7 +136,7 @@ namespace {
 		const auto sub = Strings::ToLower(args[0]);
 		std::string request;
 		if (sub == "now") {
-			request = fmt::format("{} {}", now_verb, by);
+			request = fmt::format("{} {}{}", now_verb, downtime_arg, by);
 		}
 		else if (sub == "cancel" || sub == "disable") {
 			request = fmt::format("{} {}", cancel_verb, by);
@@ -139,8 +159,12 @@ namespace {
 			}
 
 			// World gets the deadline, not the delay, so the wait for it to pick this up doesn't shift it.
-			std::cout << "Scheduling for " << ShutdownDuration::Eastern::Format(now_time + seconds) << "\n";
-			request = fmt::format("{} {} {}", schedule_verb, static_cast<int64>(now_time + seconds), by);
+			std::cout << "Scheduling for " << ShutdownDuration::Eastern::Format(now_time + seconds);
+			if (downtime) {
+				std::cout << ", estimated downtime " << ShutdownDuration::Format(downtime);
+			}
+			std::cout << "\n";
+			request = fmt::format("{} {} {}{}", schedule_verb, static_cast<int64>(now_time + seconds), downtime_arg, by);
 		}
 
 		SendWorldShutdownRequest(request);

@@ -894,22 +894,26 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 	}
 	case ServerOP_ShutdownAll: {
 		auto &shutdown = WorldShutdown::Instance();
-		if (pack->size != sizeof(WorldShutDown_Struct)) {
+		// Zones built before the downtime field was added send a shorter packet; accept both.
+		constexpr size_t legacy_size = offsetof(WorldShutDown_Struct, downtime);
+		if (pack->size != sizeof(WorldShutDown_Struct) && pack->size != legacy_size) {
 			LogInfo("Wrong size on ServerOP_ShutdownAll. Got: [{}], Expected: [{}]", pack->size, sizeof(WorldShutDown_Struct));
 			break;
 		}
 
-		auto wsd = (WorldShutDown_Struct*)pack->pBuffer;
+		WorldShutDown_Struct wsd_copy = {};
+		memcpy(&wsd_copy, pack->pBuffer, pack->size);
+		auto wsd = &wsd_copy;
 		wsd->admin_name[sizeof(wsd->admin_name) - 1] = '\0';
 		const std::string by = wsd->admin_name;
 
 		std::string reply;
 		switch (wsd->action) {
-			case WorldShutDownSchedule: reply = shutdown.Schedule(wsd->seconds, by); break;
-			case WorldShutDownNow:      reply = shutdown.ShutdownNow(by); break;
+			case WorldShutDownSchedule: reply = shutdown.Schedule(wsd->seconds, by, false, wsd->downtime); break;
+			case WorldShutDownNow:      reply = shutdown.ShutdownNow(by, false, wsd->downtime); break;
 			case WorldShutDownCancel:   reply = shutdown.Cancel(by); break;
-			case WorldRestartSchedule:  reply = shutdown.Schedule(wsd->seconds, by, true); break;
-			case WorldRestartNow:       reply = shutdown.ShutdownNow(by, true); break;
+			case WorldRestartSchedule:  reply = shutdown.Schedule(wsd->seconds, by, true, wsd->downtime); break;
+			case WorldRestartNow:       reply = shutdown.ShutdownNow(by, true, wsd->downtime); break;
 			case RollingRestartSchedule: reply = RollingRestart::Instance().Schedule(wsd->seconds, by); break;
 			case RollingRestartNow:      reply = RollingRestart::Instance().RestartNow(by); break;
 			case RollingRestartCancel:   reply = RollingRestart::Instance().Cancel(by); break;

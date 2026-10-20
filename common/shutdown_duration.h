@@ -223,27 +223,34 @@ namespace ShutdownDuration {
 			return static_cast<time_t>(local + (IsDSTLocal(local, y) ? 4 : 5) * 3600);
 		}
 
+		// "7:00 AM EDT"
+		inline std::string FormatTime(time_t t)
+		{
+			const int64 local = ToLocal(t);
+			const int64 secs  = local - FloorDays(local) * 86400;
+
+			const uint32 hour   = static_cast<uint32>(secs / 3600);
+			const uint32 minute = static_cast<uint32>((secs % 3600) / 60);
+			const uint32 hour12 = hour % 12 == 0 ? 12 : hour % 12;
+
+			return std::to_string(hour12) + ":" + (minute < 10 ? "0" : "") + std::to_string(minute) +
+				(hour < 12 ? " AM " : " PM ") + (IsDST(t) ? "EDT" : "EST");
+		}
+
 		// "Mon, Oct 5 2026 7:00 AM EDT"
 		inline std::string Format(time_t t)
 		{
 			static const char *weekdays[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 			static const char *months[]   = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
-			const int64 local = ToLocal(t);
-			const int64 days  = FloorDays(local);
-			const int64 secs  = local - days * 86400;
+			const int64 days = FloorDays(ToLocal(t));
 
 			int64  y;
 			uint32 m, d;
 			CivilFromDays(days, y, m, d);
 
-			const uint32 hour   = static_cast<uint32>(secs / 3600);
-			const uint32 minute = static_cast<uint32>((secs % 3600) / 60);
-			const uint32 hour12 = hour % 12 == 0 ? 12 : hour % 12;
-
 			return std::string(weekdays[Weekday(days)]) + ", " + months[m - 1] + " " + std::to_string(d) + " " +
-				std::to_string(y) + " " + std::to_string(hour12) + ":" + (minute < 10 ? "0" : "") +
-				std::to_string(minute) + (hour < 12 ? " AM " : " PM ") + (IsDST(t) ? "EDT" : "EST");
+				std::to_string(y) + " " + FormatTime(t);
 		}
 	}
 
@@ -481,6 +488,45 @@ namespace ShutdownDuration {
 		}
 
 		out_seconds = static_cast<uint32>(deadline - now);
+		return true;
+	}
+
+	// Pulls an optional estimated downtime out of a shutdown/restart command's arguments, leaving
+	// the rest (the "when") in place. Accepts "--downtime 15m", "--downtime=1h30m" or "downtime 15m".
+	// out_seconds is 0 when none was given. On failure, error says why.
+	inline bool ExtractDowntime(std::vector<std::string> &args, uint32 &out_seconds, std::string &error)
+	{
+		out_seconds = 0;
+		for (size_t i = 0; i < args.size(); i++) {
+			std::string flag = args[i];
+			for (auto &c : flag) {
+				c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+			}
+
+			std::string value;
+			size_t      consumed = 1;
+			if (flag.rfind("--downtime=", 0) == 0) {
+				value = args[i].substr(11);
+			}
+			else if (flag == "--downtime" || flag == "downtime") {
+				if (i + 1 >= args.size()) {
+					error = "Give the estimated downtime after --downtime, for example --downtime 15m.";
+					return false;
+				}
+				value    = args[i + 1];
+				consumed = 2;
+			}
+			else {
+				continue;
+			}
+
+			if (!Parse(value, out_seconds) || out_seconds == 0) {
+				error = "Couldn't read the downtime [" + value + "]. Use a duration like 15m, 1h or 1h30m.";
+				return false;
+			}
+			args.erase(args.begin() + i, args.begin() + i + consumed);
+			return true;
+		}
 		return true;
 	}
 }
