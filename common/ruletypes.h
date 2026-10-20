@@ -477,6 +477,7 @@ RULE_BOOL ( Combat, UseDiscTimerGroups, false, "After about 2004 or so, disc reu
 RULE_INT ( Combat, PvPMeleeDmgPct, 100, "Percentage of melee damage done in PvP combat. 100 = 100% i.e. unmodified")
 RULE_INT ( Combat, PvPSpellDmgPct, 62, "Percentage of spell damage done in PvP combat. 100 = 100% i.e. unmodified")
 RULE_INT ( Combat, PvPArcheryDmgPct, 100, "Percentage of archery damage done in PvP combat. 100 = 100% i.e. unmodified")
+RULE_REAL ( Combat, AERampageAvoidanceDistance, 10.0, "Added to the distance between an AE rampager and each target before the melee range check. Higher lets melee at the edge of range avoid AE rampage (0.5 = old behavior: only cornered mobs, with some luck)")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( NPC )

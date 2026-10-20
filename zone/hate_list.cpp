@@ -1853,7 +1853,7 @@ int HateList::AreaRampage(Mob *caster, Mob *target, int count, int damagePct)
 		}
 
 		dist = Distance(caster->GetPosition(), mob->GetPosition());
-		dist += 0.5f;	// allow melee to avoid AoE rampage on cornered mobs with some difficulty/luck
+		dist += RuleR(Combat, AERampageAvoidanceDistance);	// allow melee to avoid AoE rampage near max melee range
 		dist *= dist;
 
 		// Wild Ramp hits the tank if the hate list is 1 entity on Live.  Haven't verified this for AK yet
