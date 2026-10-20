@@ -2828,6 +2828,25 @@ bool Client::CheckIncreaseSkill(EQ::skills::SkillType skillid, Mob *against_who,
 
 			float chance2 = 100.0f - skillvalue;
 
+			// Apply after the first roll's cap so high-stat casters also benefit.
+			if (RuleB(Skills, EnableSpellSkillUpBonus)) {
+				switch (skillid) {
+				case EQ::skills::SkillAbjuration:
+				case EQ::skills::SkillAlteration:
+				case EQ::skills::SkillConjuration:
+				case EQ::skills::SkillDivination:
+				case EQ::skills::SkillEvocation: {
+					const float multiplier = RuleR(Skills, SpellSkillUpMultiplier);
+					if (multiplier >= 1.0f) {
+						chance2 = std::min(100.0f, chance2 * multiplier);
+					}
+					break;
+				}
+				default:
+					break;
+				}
+			}
+
 			if(zone->random.Real(0, 99) < chance2)
 			{
 				SetSkill(skillid, GetRawSkill(skillid) + 1);
