@@ -84,6 +84,8 @@ RULE_INT ( Skills, MaxTrainTradeskills, 21, "")
 RULE_INT ( Skills, MaxTrainSpecializations, 50, "Max level a GM trainer will train casting specializations")
 RULE_INT ( Skills, LangSkillUpModifier, 70, "skill ups for skills with value under 100")
 RULE_REAL ( Skills, SkillUpModifier, 1.0, "combat skill-up rate multiplier.  1.0 = accurate skill-up rate for AK/old EQ")
+RULE_BOOL ( Skills, EnableSpellSkillUpBonus, false, "Enable the separate skill-up multiplier for the five spellcasting schools")
+RULE_REAL ( Skills, SpellSkillUpMultiplier, 1.30, "Spellcasting-school skill-up chance multiplier when enabled; 1.30 is 30 percent higher, values below 1.0 are ignored")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Pets )
