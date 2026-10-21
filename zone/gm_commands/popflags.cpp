@@ -167,6 +167,15 @@ static void PopFlagsPrintPending(
         }
 }
 
+// A completed or combined flag takes precedence over a stale checklist memory.
+static void PopFlagsPrintBoss(Client* c, const PopFlagMap& flags,
+        const char* label, bool complete, const char* pending)
+{
+        c->Message(Chat::White, "%s: %s", label,
+                (complete || PopFlagsHas(flags, "time")) ? "Complete" :
+                PopFlagsHas(flags, pending) ? "Pending memory" : "Missing");
+}
+
 static void PopFlagsPrintSeerNotice(
         Client* c,
         const PopFlagMap& flags
@@ -366,9 +375,9 @@ static void PopFlagsPrintTier1(
 
         static const char* fuirstel_stages[] = {
                 "Obtain the Ward for Milyk",
-                "The Ward was recovered",
-                "Grummus was defeated",
-                "Crypt of Decay access was granted",
+                "Grummus defeated; return to Elder Fuirstel",
+                "Elder Fuirstel aided; defeat Bertoxxulous",
+                "Bertoxxulous defeated; return to Elder Fuirstel",
                 "Fuirstel progression complete"
         };
 
@@ -418,7 +427,8 @@ static void PopFlagsPrintTier1(
                         "Locked"
         );
 
-        PopFlagsPrintPending(c, flags, "cl_grummus", "Grummus");
+        PopFlagsPrintBoss(c, flags, "Grummus flag",
+                PopFlagsStage(flags, "fuirstel") >= 2, "cl_grummus");
 
         c->Message(Chat::Lime, "--- Plane of Nightmare ---");
 
@@ -431,7 +441,8 @@ static void PopFlagsPrintTier1(
         );
 
         PopFlagsPrintPending(c, flags, "cl_maze", "Thelin's hedge maze");
-        PopFlagsPrintPending(c, flags, "cl_terris", "Terris Thule");
+        PopFlagsPrintBoss(c, flags, "Terris Thule flag",
+                PopFlagsStage(flags, "thelin") >= 3, "cl_terris");
 
         c->Message(Chat::Lime, "--- Plane of Innovation ---");
 
@@ -443,20 +454,8 @@ static void PopFlagsPrintTier1(
                         "Locked"
         );
 
-        c->Message(
-                Chat::White,
-                "Giwin and Manaetic Behemoth progression: %s",
-                !PopFlagsGet(flags, "zeks").empty() ?
-                        "Progress recorded" :
-                        "Not started"
-        );
-
-        PopFlagsPrintPending(
-                c,
-                flags,
-                "cl_behemoth",
-                "Manaetic Behemoth"
-        );
+        PopFlagsPrintBoss(c, flags, "Manaetic Behemoth flag",
+                PopFlagsStage(flags, "zeks") >= 2, "cl_behemoth");
 
         PopFlagsPrintSeerNotice(c, flags);
         PopFlagsPrintTierCompletion(
@@ -500,7 +499,8 @@ static void PopFlagsPrintTier2(
                 2
         );
 
-        PopFlagsPrintPending(c, flags, "cl_aerindar", "Aerin`Dar");
+        PopFlagsPrintBoss(c, flags, "Aerin`Dar flag",
+                PopFlagsStage(flags, "aerindar") >= 1, "cl_aerindar");
 
         c->Message(Chat::Lime, "--- Plane of Storms ---");
 
@@ -540,7 +540,8 @@ static void PopFlagsPrintTier2(
                         "Locked"
         );
 
-        PopFlagsPrintPending(c, flags, "cl_bertox", "Bertoxxulous");
+        PopFlagsPrintBoss(c, flags, "Bertoxxulous flag",
+                PopFlagsStage(flags, "fuirstel") >= 4, "cl_bertox");
 
         c->Message(Chat::Lime, "--- Plane of Torment ---");
 
@@ -552,24 +553,11 @@ static void PopFlagsPrintTier2(
                 2
         );
 
-        c->Message(
-                Chat::White,
-                "Saryrn cipher half: %s",
-                PopFlagsHas(flags, "cipher") ?
-                        "Combined into Cipher" :
-                        PopFlagsHas(flags, "saryrn") ?
-                                "Complete" :
-                        "Incomplete"
-        );
+        PopFlagsPrintBoss(c, flags, "Keeper of Sorrows flag",
+                PopFlagsStage(flags, "tylis") >= 2, "cl_keeper");
 
-        PopFlagsPrintPending(
-                c,
-                flags,
-                "cl_keeper",
-                "Keeper of Sorrows"
-        );
-
-        PopFlagsPrintPending(c, flags, "cl_saryrn", "Saryrn");
+        PopFlagsPrintBoss(c, flags, "Saryrn cipher half",
+                PopFlagsHas(flags, "saryrn") || PopFlagsHas(flags, "cipher"), "cl_saryrn");
 
         PopFlagsPrintSeerNotice(c, flags);
         PopFlagsPrintTierCompletion(
@@ -640,15 +628,11 @@ static void PopFlagsPrintTier3(
                 );
         }
 
-        c->Message(
-                Chat::White,
-                "Mithaniel Marr cipher half: %s",
-                PopFlagsHas(flags, "cipher") ?
-                        "Combined into Cipher" :
-                        PopFlagsHas(flags, "mmarr") ?
-                                "Complete" :
-                        "Incomplete"
-        );
+        PopFlagsPrintBoss(c, flags, "Mithaniel Marr cipher half",
+                PopFlagsHas(flags, "mmarr") || PopFlagsHas(flags, "cipher"), "cl_mmarr");
+
+        PopFlagsPrintBoss(c, flags, "Mithaniel Marr book",
+                PopFlagsHas(flags, "mmarr_book") || PopFlagsHas(flags, "zebuxoruk"), "cl_mmarr_book");
 
         c->Message(Chat::Lime, "--- Bastion of Thunder ---");
 
@@ -668,6 +652,9 @@ static void PopFlagsPrintTier3(
                 );
         }
 
+        PopFlagsPrintBoss(c, flags, "Agnarr / Karana flag",
+                PopFlagsStage(flags, "karana") >= 4 || PopFlagsHas(flags, "zebuxoruk"), "cl_karana");
+
         c->Message(Chat::Lime, "--- Plane of Tactics ---");
 
         PopFlagsPrintStage(
@@ -678,9 +665,13 @@ static void PopFlagsPrintTier3(
                 7
         );
 
-        PopFlagsPrintPending(c, flags, "cl_vallon", "Vallon Zek");
-        PopFlagsPrintPending(c, flags, "cl_tallon", "Tallon Zek");
-        PopFlagsPrintPending(c, flags, "cl_rallos", "Rallos Zek");
+        const auto zeks = PopFlagsStage(flags, "zeks");
+        PopFlagsPrintBoss(c, flags, "Vallon Zek flag",
+                zeks == 3 || zeks >= 5, "cl_vallon");
+        PopFlagsPrintBoss(c, flags, "Tallon Zek flag",
+                zeks == 4 || zeks >= 5, "cl_tallon");
+        PopFlagsPrintBoss(c, flags, "Rallos Zek flag",
+                zeks >= 7, "cl_rallos");
 
         c->Message(Chat::Lime, "--- Grand Librarian Maelin ---");
 
@@ -722,6 +713,12 @@ static void PopFlagsPrintTier3(
         );
 
         c->Message(Chat::Lime, "--- Tower of Solusek Ro ---");
+
+        const bool miak_complete = PopFlagsStage(flags, "pofire") >= 1 || PopFlagsHas(flags, "time");
+        c->Message(Chat::White, "Miak the Searedsoul preflag: %s", miak_complete ? "Complete" : "Missing");
+        if (!miak_complete) {
+                c->Message(Chat::Yellow, "Speak to Miak the Searedsoul in Tranquility about 'portal's destination'; hailing alone does not grant the preflag.");
+        }
 
         if (sol_room.empty()) {
                 c->Message(
@@ -781,7 +778,8 @@ static void PopFlagsPrintTier3(
                                 "Not started"
         );
 
-        PopFlagsPrintPending(c, flags, "cl_solusek", "Solusek Ro");
+        PopFlagsPrintBoss(c, flags, "Solusek Ro flag",
+                PopFlagsStage(flags, "pofire") >= 2, "cl_solusek");
 
         PopFlagsPrintSeerNotice(c, flags);
         PopFlagsPrintTierCompletion(
