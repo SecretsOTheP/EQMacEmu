@@ -2025,7 +2025,7 @@ bool Zone::GuildOneRaidWindowOpen()
 
 bool Zone::OpenWorldRaidSpawnsEnabled(bool force_refresh)
 {
-	if (GetGuildID() != GUILD_NONE || GetZoneExpansion() > LuclinEQ) {
+	if (GetGuildID() != GUILD_NONE) {
 		return false;
 	}
 
@@ -2035,16 +2035,19 @@ bool Zone::OpenWorldRaidSpawnsEnabled(bool force_refresh)
 		"poeartha", "poearthb", "pofire", "poinnovation", "pojustice", "ponightmare", "postorms",
 		"potactics", "potimea", "potimeb", "potorment", "povalor", "powater", "solrotower"
 	};
-	// Some PoP zones have stale expansion values in older databases.
+	// Names also classify PoP zones with stale expansion values.
+	const bool is_pop = GetZoneExpansion() == PlanesEQ || pop_zone_names.count(short_name) != 0;
 	if (short_name == "veksar" ||
 		short_name.find("_instanced") != std::string::npos ||
-		pop_zone_names.count(short_name)) {
+		(!is_pop && GetZoneExpansion() > LuclinEQ)) {
 		return false;
 	}
 
 	const uint32 now = Timer::GetTimeSeconds();
 	if (force_refresh || open_world_raid_spawns_refresh == 0 || now >= open_world_raid_spawns_refresh) {
-		const auto value = DataBucket::GetData("open_world_raid_respawns");
+		// Missing PoP bucket is OFF. Each tier keeps its own enable timestamp.
+		const auto value = DataBucket::GetData(is_pop
+			? "open_world_raid_respawns_pop" : "open_world_raid_respawns");
 		open_world_raid_spawns_started_at = static_cast<uint32>(strtoul(value.c_str(), nullptr, 10));
 		open_world_raid_spawns_enabled = open_world_raid_spawns_started_at > 1;
 		open_world_raid_spawns_refresh = now + 5;
