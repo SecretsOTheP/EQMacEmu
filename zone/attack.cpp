@@ -1653,6 +1653,34 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		}
 	}
 
+	// The webhook URL lives only in the server's discord_webhooks table (a state table, never
+	// dumped). Servers without a "PvP Kills" row just log that the webhook wasn't found.
+	if (killedby == Killed_PVP) {
+		std::string message;
+		if (killerMob && killerMob->IsClient() && killerMob != this) {
+			message = fmt::format(
+				"**{}** (level {} {}) killed **{}** (level {} {}) in {}.",
+				killerMob->GetCleanName(),
+				killerMob->GetLevel(),
+				GetClassIDName(killerMob->GetClass()),
+				GetCleanName(),
+				GetLevel(),
+				GetClassIDName(GetClass()),
+				zone->GetLongName()
+			);
+		}
+		else {
+			message = fmt::format(
+				"**{}** (level {} {}) died in PvP in {}.",
+				GetCleanName(),
+				GetLevel(),
+				GetClassIDName(GetClass()),
+				zone->GetLongName()
+			);
+		}
+		Zone::SendDiscordMessage(std::string("PvP Kills"), message);
+	}
+
 	entity_list.RemoveFromTargets(this);
 	hate_list.RemoveEnt(this);
 	EndShield();
