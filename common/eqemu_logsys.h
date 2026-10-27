@@ -264,6 +264,17 @@ public:
 		...
 	);
 
+	// Logs a message that is already formatted. Unlike Out(), it is never run through printf,
+	// so a '%' in player text, names or queries is printed as-is.
+	void OutFormatted(
+		Logs::DebugLevel debug_level,
+		uint16 log_category,
+		const char* file,
+		const char* func,
+		int line,
+		const std::string& message
+	);
+
 	/**
 	 * Used in file logs to prepend a timestamp entry for logs
 	 * @param time_stamp
@@ -412,7 +423,7 @@ void OutF(
 
 #define OutF(ls, debug_level, log_category, file, func, line, formatStr, ...) \
 do { \
-    ls.Out(debug_level, log_category, file, func, line, fmt::format(formatStr, ##__VA_ARGS__).c_str()); \
+    ls.OutFormatted(debug_level, log_category, file, func, line, fmt::format(formatStr, ##__VA_ARGS__)); \
 } while(0)
 
 #endif

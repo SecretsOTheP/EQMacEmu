@@ -428,16 +428,9 @@ void EQEmuLogSys::Out(
 	...
 )
 {
-	auto l = GetLogsEnabled(debug_level, log_category);
-
 	// bail out if nothing to log
-	if (!l.log_enabled) {
+	if (!GetLogsEnabled(debug_level, log_category).log_enabled) {
 		return;
-	}
-
-	std::string prefix;
-	if (RuleB(Logging, PrintFileFunctionAndLine)) {
-		prefix = fmt::format("[{0}::{1}:{2}] ", std::filesystem::path(file).filename().string(), func, line);
 	}
 
 	// remove this when we remove all legacy logs
@@ -457,6 +450,33 @@ void EQEmuLogSys::Out(
 		va_start(args, message);
 		output_message = vStringFormat(message, args);
 		va_end(args);
+	}
+
+	OutFormatted(debug_level, log_category, file, func, line, output_message);
+}
+
+/**
+ * Logs an already formatted message (fmt-style Log* macros). Never run through printf.
+ */
+void EQEmuLogSys::OutFormatted(
+	Logs::DebugLevel debug_level,
+	uint16 log_category,
+	const char* file,
+	const char* func,
+	int line,
+	const std::string& output_message
+)
+{
+	auto l = GetLogsEnabled(debug_level, log_category);
+
+	// bail out if nothing to log
+	if (!l.log_enabled) {
+		return;
+	}
+
+	std::string prefix;
+	if (RuleB(Logging, PrintFileFunctionAndLine)) {
+		prefix = fmt::format("[{0}::{1}:{2}] ", std::filesystem::path(file).filename().string(), func, line);
 	}
 
 	if (l.log_to_console_enabled) {
