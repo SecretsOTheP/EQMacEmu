@@ -1105,7 +1105,7 @@ bool NPC::MoveItemToGeneralInventory(LootItem* weapon)
 	uint8_t weapon_max_level = weapon->max_level;
 	uint8_t weapon_min_looter_level = weapon->min_looter_level;
 	uint32_t loot_lockout_timer = weapon->item_loot_lockout_timer;
-	QuarmItemData& quarm_item_data = weapon->quarm_item_data;
+	QuarmItemData quarm_item_data = weapon->quarm_item_data;
 
 	l.item_id = weaponid;
 	l.item_charges = weaponcharges;
