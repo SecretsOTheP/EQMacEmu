@@ -116,6 +116,18 @@ uint32 Spawn2::resetTimer(bool quake_repop)
 		return UINT_MAX;
 	}
 
+	// Public raid timers use one persisted 7-11 day roll. Quake resets and
+	// guild instances retain their existing timer rules. DeathReset and the
+	// initial open-world countdown save this result in respawn_times.
+	// Expansion eligibility stays in OpenWorldRaidSpawnsEnabled, so future
+	// PoP opt-in uses this same window without enabling PoP here.
+	if (!quake_repop && zone && raid_target_spawnpoint &&
+		zone->GetGuildID() == GUILD_NONE && zone->OpenWorldRaidSpawnsEnabled())
+	{
+		constexpr uint32 day_seconds = 24 * 60 * 60;
+		return zone->random.Int(7 * day_seconds, 11 * day_seconds) * 1000;
+	}
+
 	uint32 rspawn = respawn_ * 1000;
 
 	if (variance_ != 0) {
