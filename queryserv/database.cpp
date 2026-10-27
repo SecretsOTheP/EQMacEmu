@@ -46,6 +46,42 @@
 #include "../common/strings.h"
 #include "../common/servertalk.h"
 
+// The client sends chat as Windows-1252. Smart quotes and dashes (0x80-0x9F) are not valid
+// UTF-8 and were rejected by the database, so convert to UTF-8, keeping at most max_chars
+// characters (one byte per character before conversion).
+static std::string Windows1252ToUTF8(const char *text, size_t max_chars)
+{
+	// Unicode code points for 0x80-0x9F; 0 marks bytes Windows-1252 leaves undefined.
+	static const uint16 high_controls[32] = {
+		0x20AC, 0, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017D, 0,
+		0, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0, 0x017E, 0x0178
+	};
+
+	std::string out;
+	const size_t length = std::min(strlen(text), max_chars);
+	out.reserve(length);
+	for (size_t i = 0; i < length; i++) {
+		uint32 c = static_cast<unsigned char>(text[i]);
+		if (c >= 0x80 && c <= 0x9F) {
+			c = high_controls[c - 0x80] ? high_controls[c - 0x80] : '?';
+		}
+
+		if (c < 0x80) {
+			out += static_cast<char>(c);
+		}
+		else if (c < 0x800) {
+			out += static_cast<char>(0xC0 | (c >> 6));
+			out += static_cast<char>(0x80 | (c & 0x3F));
+		}
+		else {
+			out += static_cast<char>(0xE0 | (c >> 12));
+			out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+			out += static_cast<char>(0x80 | (c & 0x3F));
+		}
+	}
+	return out;
+}
+
 void QSDatabase::LogPlayerSpeech(
 	const char *from,
 	const char *to,
@@ -57,13 +93,15 @@ void QSDatabase::LogPlayerSpeech(
 	uint32 groupid
 )
 {
+	// qs_player_speech.message is varchar(256); longer messages are cut rather than lost.
+	const std::string utf8_message = Windows1252ToUTF8(message, 256);
 
 	auto escapedFrom = new char[strlen(from) * 2 + 1];
 	auto escapedTo = new char[strlen(to) * 2 + 1];
-	auto escapedMessage = new char[strlen(message) * 2 + 1];
+	auto escapedMessage = new char[utf8_message.length() * 2 + 1];
 	DoEscapeString(escapedFrom, from, strlen(from));
 	DoEscapeString(escapedTo, to, strlen(to));
-	DoEscapeString(escapedMessage, message, strlen(message));
+	DoEscapeString(escapedMessage, utf8_message.c_str(), utf8_message.length());
 
 	std::string query = StringFormat(
 		"INSERT INTO `qs_player_speech` "

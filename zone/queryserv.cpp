@@ -246,7 +246,7 @@ void QueryServ::QSItemDesyncs(uint32 char_id, const char error[512], uint32 zone
 {
 	std::string query = StringFormat(
 		"INSERT INTO `qs_player_item_desyncs_log` SET `char_id` = '%i', `error` = '%s', `time` = now(), `zone_id` = %i",
-		char_id, error, zoneid);
+		char_id, Strings::Escape(error).c_str(), zoneid);
 
 	SendQuery(query);
 }
@@ -256,7 +256,8 @@ void QueryServ::QSBazaarAudit(const char *seller, const char *buyer, const char 
 	std::string query = StringFormat("INSERT INTO `qs_trader_audit` "
                                     "(`time`, `seller`, `buyer`, `itemname`, `quantity`, `totalcost`, `itemid`) "
                                     "VALUES (NOW(), '%s', '%s', '%s', %i, %i, %i)",
-                                    seller, buyer, itemName, quantity, totalCost, itemid);
+                                    Strings::Escape(seller).c_str(), Strings::Escape(buyer).c_str(),
+                                    Strings::Escape(itemName).c_str(), quantity, totalCost, itemid);
 	SendQuery(query);
 }
 
