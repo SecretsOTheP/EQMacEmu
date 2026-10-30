@@ -365,10 +365,14 @@ bool Client::Process() {
 							if (zone->random.Int(0, 99) < aabonuses.FlurryChance)
 							{
 								Message_StringID(Chat::Yellow, StringID::YOU_FLURRY);
+								TryProcs(auto_attack_target, EQ::invslot::slotPrimary);
 								Attack(auto_attack_target, EQ::invslot::slotPrimary);
 
 								if (zone->random.Roll(10))							// flurry is usually only +1 swings
+								{
+									TryProcs(auto_attack_target, EQ::invslot::slotPrimary);
 									Attack(auto_attack_target, EQ::invslot::slotPrimary);
+								}
 							}
 						}
 					}
@@ -385,6 +389,7 @@ bool Client::Process() {
 							{
 								if (zone->random.Int(0, 99) < aabonuses.ExtraAttackChance)
 								{
+									TryProcs(auto_attack_target, EQ::invslot::slotPrimary);
 									Attack(auto_attack_target, EQ::invslot::slotPrimary);
 								}
 							}
