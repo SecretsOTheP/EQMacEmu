@@ -137,11 +137,20 @@ void LoginServer::ProcessUsertoWorldReq(uint16_t opcode, EQ::Net::Packet& p)
 		}
 	}
 
-	if (client_list.GetClientCount() /* + client_queue.Count()*/ >= RuleI(Quarm, PlayerPopulationCap) && status == 0)
+	if (client_list.QueueActive())
 	{
-		utwrs->response = -3; // Queue player, don't allow entry
-		//We should really tell the WorldServer how much players are remaining in queue to determine this, but we can make that a world <-> login communication
-		//TODO: Implement queue logic
+		// Earlier refusals (banned, already online, ip limit) stand. A full world admits the account to character
+		// select and holds it there (Client::QueueCharSelectDecide); only the hard connection cap refuses outright.
+		// Status > 0 bypasses the queue and never counts toward the cap.
+		if (utwrs->response == 1 && status == 0 && client_list.GetClientCount() >= RuleI(Quarm, QueueHardConnectionCap))
+		{
+			LogInfo("[Queue] LS account [{}] refused: hard connection cap {} reached", utwr->lsaccountid, RuleI(Quarm, QueueHardConnectionCap));
+			utwrs->response = -3;
+		}
+	}
+	else if (client_list.GetClientCount() >= RuleI(Quarm, PlayerPopulationCap) && status == 0)
+	{
+		utwrs->response = -3; // world full, no queue
 	}
 
 	ipMutex.lock();
@@ -344,15 +353,19 @@ void LoginServer::SendStatus() {
 	memset(pack->pBuffer, 0, pack->size);
 	ServerLSStatus_Struct* lss = (ServerLSStatus_Struct*)pack->pBuffer;
 
+	// With the queue on, report the population the cap sees (in zone, reservations, grace) rather than the
+	// raw entry count, so the server list does not show a full world as nearly empty.
+	int players = client_list.QueueActive() ? (int)client_list.EffectivePopulation() : client_list.GetClientCount();
+
 	if (WorldConfig::get()->Locked)
 		lss->status = -2;
 	else if (numzones <= 0)
 		lss->status = -1;
 	else
-		lss->status = client_list.GetClientCount() > 0 ? client_list.GetClientCount() : 0;
+		lss->status = players > 0 ? players : 0;
 
 	lss->num_zones = numzones;
-	lss->num_players = client_list.GetClientCount();
+	lss->num_players = players;
 	SendPacket(pack);
 	delete pack;
 }
