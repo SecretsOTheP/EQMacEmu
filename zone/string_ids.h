@@ -430,6 +430,10 @@ namespace StringID {
 	const uint16 DOORS_NO_PICK                  = 7564; //You must have a lock pick in your inventory to do this.
 	const uint16 CURRENT_SPELL_EFFECTS          = 8757; //%1's current spell effects:
 	const uint16 BUFF_MINUTES_REMAINING         = 8799; //%1 (%2 minutes remaining)
+	const uint16 SLOW_MOSTLY_SUCCESSFUL         = 9029; //Your spell was mostly successful.
+	const uint16 SLOW_PARTIALLY_SUCCESSFUL      = 9030; //Your spell was partially successful.
+	const uint16 SLOW_SLIGHTLY_SUCCESSFUL       = 9031; //Your spell was slightly successful.
+	const uint16 SPELL_OPPOSITE_EFFECT          = 9032; //Your spell may have had the opposite effect of what you desired.
 	const uint16 YOUR_HIT_DOT                   = 9072; //%1 has taken %2 damage from your %3.
 	const uint16 AE_RAMPAGE                     = 11015; //%1 goes on a WILD RAMPAGE!
 	const uint16 GROUP_IS_FULL                  = 12000; //You cannot join that group, it is full.
