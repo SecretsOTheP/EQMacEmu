@@ -1388,7 +1388,7 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 	// if this was cast from an inventory slot, check out the item that's there
 	int16 DeleteChargeFromSlot = -1;
 
-	if(IsClient() && ((slot == CastingSlot::Item))
+	if(IsClient() && ((slot == CastingSlot::Item && !IsBardSong(spell_id)))
 		&& inventory_slot != 0xFFFFFFFF)	// 10 is an item
 	{
 		const EQ::ItemInstance* inst = CastToClient()->GetInv()[inventory_slot];
