@@ -940,6 +940,11 @@ bool Lua_Client::HasZoneFlag(int zone_id) {
 	return self->HasZoneFlag(zone_id);
 }
 
+bool Lua_Client::CanRaidWillIntoPopZone(int zone_id) {
+	Lua_Safe_Call_Bool();
+	return self->CanRaidWillIntoPopZone(zone_id);
+}
+
 void Lua_Client::SendZoneFlagInfo(Lua_Client to) {
 	Lua_Safe_Call_Void();
 	self->SendZoneFlagInfo(to);
@@ -1646,6 +1651,7 @@ luabind::scope lua_register_client() {
 		.def("SetZoneFlag", (void(Lua_Client::*)(int))&Lua_Client::SetZoneFlag)
 		.def("ClearZoneFlag", (void(Lua_Client::*)(int))&Lua_Client::ClearZoneFlag)
 		.def("HasZoneFlag", (bool(Lua_Client::*)(int))&Lua_Client::HasZoneFlag)
+		.def("CanRaidWillIntoPopZone", (bool(Lua_Client::*)(int))&Lua_Client::CanRaidWillIntoPopZone)
 		.def("SendZoneFlagInfo", (void(Lua_Client::*)(Lua_Client))&Lua_Client::SendZoneFlagInfo)
 		.def("SetAATitle", (void(Lua_Client::*)(const char *))&Lua_Client::SetAATitle)
 		.def("GetClientVersion", (int(Lua_Client::*)(void))&Lua_Client::GetClientVersion)

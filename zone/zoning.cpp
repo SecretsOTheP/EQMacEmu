@@ -45,11 +45,29 @@ constexpr const char* PopRaidFlagPercentBucket = "pop_raid_flagged_percent";
 bool IsPopRaidWillingZone(uint32 zone_id)
 {
 	switch (zone_id) {
+	case 200: // Crypt of Decay
+	case 201: // Plane of Justice
+	case 202: // Plane of Knowledge
+	case 203: // Plane of Tranquility
+	case 204: // Plane of Nightmare
+	case 205: // Plane of Disease
+	case 206: // Plane of Innovation
+	case 207: // Plane of Torment
+	case 208: // Plane of Valor
+	case 209: // Bastion of Thunder
+	case 210: // Plane of Storms
+	case 211: // Halls of Honor
+	case 212: // Tower of Solusek Ro
+	case 214: // Plane of Tactics
 	case 215: // Plane of Air
 	case 216: // Plane of Water
 	case 217: // Plane of Fire
 	case 218: // Plane of Earth
-	case 219: // Plane of Time
+	case 219: // Plane of Time A
+	case 220: // Halls of Honor B
+	case 221: // Plane of Nightmare B
+	case 222: // Plane of Earth B
+	case 223: // Plane of Time B
 		return true;
 	default:
 		return false;
@@ -62,15 +80,17 @@ uint8 PopRaidFlagRequirement()
 	return configured >= 1 && configured <= 100 ? configured : 85;
 }
 
-bool CanRaidWillIntoPopZone(Client* client, uint32 zone_id)
+}
+
+// Shared by native zone admission and scripted planar entrances.
+bool Client::CanRaidWillIntoPopZone(uint32 zone_id)
 {
 	if (DataBucket::GetData(PopAlternateAccessBucket) != "1" || !IsPopRaidWillingZone(zone_id)) {
 		return false;
 	}
 
-	auto* raid = client->GetRaid();
+	auto* raid = GetRaid();
 	return raid && raid->MeetsFlagRequirement(zone_id, PopRaidFlagRequirement());
-}
 }
 
 void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
@@ -361,7 +381,7 @@ void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 
 	if(!ignorerestrictions && flag_needed[0] != '\0') {
 		//the flag needed string is not empty, meaning a flag is required.
-		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(this, target_zone_id)) {
+		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(target_zone_id)) {
 			Message(Chat::Red, "You do not have the flag to enter %s.", target_zone_name);
 			zoning_message = ZoningMessage::ZoneNoExperience;
 		}
@@ -1362,7 +1382,7 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 
 	if(flag_needed[0] != '\0') {
 		//the flag needed string is not empty, meaning a flag is required.
-		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(this, target_zone_id)) {
+		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(target_zone_id)) {
 			Log(Logs::Detail, Logs::Character, "[CLIENT] Character does not have the flag to be in this zone (%s)!", flag_needed);
 			return(false);
 		}

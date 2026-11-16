@@ -205,6 +205,7 @@ public:
 	void SetZoneFlag(int zone_id);
 	void ClearZoneFlag(int zone_id);
 	bool HasZoneFlag(int zone_id);
+	bool CanRaidWillIntoPopZone(int zone_id);
 	void SendZoneFlagInfo(Lua_Client to);
 	void SetAATitle(const char *title);
 	int GetClientVersion();
