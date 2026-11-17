@@ -1063,6 +1063,7 @@ public:
 	void SetZoneFlag(uint32 zone_id);
 	void ClearZoneFlag(uint32 zone_id);
 	bool HasZoneFlag(uint32 zone_id);
+	bool CanRaidWillIntoPopZone(uint32 zone_id);
 	void SendZoneFlagInfo(Client *to);
 	void LoadZoneFlags(LinkedList<ZoneFlags_Struct*>* ZoneFlags);
 
