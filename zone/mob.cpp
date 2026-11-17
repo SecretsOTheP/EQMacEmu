@@ -3684,20 +3684,20 @@ void Mob::SetBodyType(uint8 new_body, bool overwrite_orig) {
 
 void Mob::SlowMitigation(Mob* caster)
 {
-	/*if (GetSlowMitigation() && caster && caster->IsClient())
+	if (GetSlowMitigation() && caster && caster->IsClient())
 	{
 		if ((GetSlowMitigation() > 0) && (GetSlowMitigation() < 26))
-			caster->Message_StringID(Chat::SpellFailure, SLOW_MOSTLY_SUCCESSFUL);
+			caster->Message_StringID(Chat::SpellFailure, StringID::SLOW_MOSTLY_SUCCESSFUL);
 
 		else if ((GetSlowMitigation() >= 26) && (GetSlowMitigation() < 74))
-			caster->Message_StringID(Chat::SpellFailure, SLOW_PARTIALLY_SUCCESSFUL);
+			caster->Message_StringID(Chat::SpellFailure, StringID::SLOW_PARTIALLY_SUCCESSFUL);
 
 		else if ((GetSlowMitigation() >= 74) && (GetSlowMitigation() < 101))
-			caster->Message_StringID(Chat::SpellFailure, SLOW_SLIGHTLY_SUCCESSFUL);
+			caster->Message_StringID(Chat::SpellFailure, StringID::SLOW_SLIGHTLY_SUCCESSFUL);
 
 		else if (GetSlowMitigation() > 100)
-			caster->Message_StringID(Chat::SpellFailure, SPELL_OPPOSITE_EFFECT);
-	}*/
+			caster->Message_StringID(Chat::SpellFailure, StringID::SPELL_OPPOSITE_EFFECT);
+	}
 }
 
 uint16 Mob::GetSkillByItemType(int ItemType)
