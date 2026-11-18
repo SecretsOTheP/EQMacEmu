@@ -261,7 +261,7 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_BLOCK;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillBlock) + 100;
+		int chance = GetSkill(EQ::skills::SkillBlock) + 100 + itembonuses.skillmod[EQ::skills::SkillBlock];
 		chance += (chance * (aabonuses.IncreaseBlockChance + spellbonuses.IncreaseBlockChance + itembonuses.IncreaseBlockChance)) / 100;
 		chance /= 25;
 
@@ -282,7 +282,7 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_PARRY;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillParry) + 100;
+		int chance = GetSkill(EQ::skills::SkillParry) + 100 + itembonuses.skillmod[EQ::skills::SkillParry];
 		chance += (chance * (aabonuses.ParryChance + spellbonuses.ParryChance + itembonuses.ParryChance)) / 100;
 		chance /= 50;		// this is 45 in modern EQ.  Old EQ logs parsed to a lower parry rate, so raising this
 
@@ -326,7 +326,7 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 				return true;
 			}
 
-			int chance = GetSkill(EQ::skills::SkillRiposte) + 100;
+			int chance = GetSkill(EQ::skills::SkillRiposte) + 100 + itembonuses.skillmod[EQ::skills::SkillRiposte];
 			chance += (chance * (aabonuses.RiposteChance + spellbonuses.RiposteChance + itembonuses.RiposteChance)) / 100;
 			chance /= 55;		// this is 50 in modern EQ.  Old EQ logs parsed to a lower rate, so raising this
 
@@ -356,7 +356,7 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_DODGE;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillDodge) + 100;
+		int chance = GetSkill(EQ::skills::SkillDodge) + 100 + itembonuses.skillmod[EQ::skills::SkillDodge];
 		chance += (chance * (aabonuses.DodgeChance + spellbonuses.DodgeChance + itembonuses.DodgeChance)) / 100;
 		chance /= 45;
 
