@@ -964,6 +964,14 @@ namespace Mac {
 			mac_pop_item->BaneDmgAmt = item->BaneDmgAmt;
 			mac_pop_item->RecLevel = item->RecLevel;       
 			mac_pop_item->RecSkill = item->RecSkill;   
+			mac_pop_item->StrikeThrough = item->StrikeThrough;
+			mac_pop_item->StunResist = item->StunResist;
+			mac_pop_item->CombatEffects = item->CombatEffects;
+			mac_pop_item->Accuracy = item->Accuracy;
+			mac_pop_item->Avoidance = item->Avoidance;
+			mac_pop_item->SpellShield = item->SpellShield;
+			mac_pop_item->Shielding = item->Shielding;
+			mac_pop_item->DamageShield = item->DamageShield;
 			mac_pop_item->ProcRate = item->ProcRate; 
 			mac_pop_item->ElemDmgType = item->ElemDmgType; 
 			mac_pop_item->ElemDmgAmt = item->ElemDmgAmt;
