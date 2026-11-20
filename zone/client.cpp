@@ -5065,7 +5065,8 @@ void Client::SendStats(Client* client)
 	client->Message(Chat::White, "  InWater: %d UnderWater: %d Air: %d WaterBreathing: %d Lung Capacity: %d", IsInWater(), IsUnderWater(), m_pp.air_remaining, spellbonuses.WaterBreathing || aabonuses.WaterBreathing || itembonuses.WaterBreathing, aabonuses.BreathLevel > 0 ? aabonuses.BreathLevel : 100);
 	client->Message(Chat::White, " STR: %i  STA: %i  AGI: %i DEX: %i  WIS: %i INT: %i  CHA: %i", GetSTR(), GetSTA(), GetAGI(), GetDEX(), GetWIS(), GetINT(), GetCHA());
 	client->Message(Chat::White, " PR: %i MR: %i  DR: %i FR: %i  CR: %i  ", GetPR(), GetMR(), GetDR(), GetFR(), GetCR());
-	client->Message(Chat::White, " Shielding: %i  Spell Shield: %i  DoT Shielding: %i Stun Resist: %i  Strikethrough: %i  Accuracy: %i", GetShielding(), GetSpellShield(), GetDoTShield(), GetStunResist(), GetStrikeThrough(), GetAccuracy());
+	client->Message(Chat::White, " Shielding: %i%%  Spell Shield: %i%%  Stun Resist: %i%%  Strikethrough: %i%%  Accuracy: %i  Avoidance: %i  Combat Effects: %i  Damage Shield: %i",
+		GetShielding(), GetSpellShield(), GetStunResist(), GetStrikeThrough(), GetAccuracy(), itembonuses.AvoidMeleeChance, itembonuses.ProcChance, -itembonuses.DamageShield);
 	client->Message(Chat::White, " Hunger: %i Thirst: %i IsFamished: %i Rested: %i Drunk: %i", GetHunger(), GetThirst(), Famished(), IsRested(), m_pp.intoxication);
 	client->Message(Chat::White, " Runspeed: %0.1f  Walkspeed: %0.1f Encumbered: %i", GetRunspeed(), GetWalkspeed(), IsEncumbered());
 	client->Message(Chat::White, " Boat: %s (EntityID %i : NPCID %i)", GetBoatName(), GetBoatID(), GetBoatNPCID());

@@ -167,6 +167,13 @@ public:
 	int DoSpecialAttackDamage(Mob *defender, EQ::skills::SkillType skill, int base, int minDamage = 0, int hate = 0, DoAnimation animation_type = DoAnimation::None);
 	virtual bool AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack = false);
 	virtual bool AvoidanceCheck(Mob* attacker, EQ::skills::SkillType skillinuse);
+	int ApplyShieldingToDamageBonus(Mob* defender, int damageBonus);
+	int ApplyDamageShieldBonuses(int DS, bool spell_ds);
+	float GetWeaponProcChance(const EQ::ItemData* weapon, uint16 hand);
+	double CalcHitChance(Mob* attacker, EQ::skills::SkillType skillinuse);
+	// Tactical Mastery / Stalwart Endurance AA + item mod2. Players only.
+	int GetStrikeThroughChance() { return IsClient() ? aabonuses.StrikeThrough + itembonuses.StrikeThrough : 0; }
+	int GetStunResistChance() { return IsClient() ? aabonuses.StunResist + itembonuses.StunResist : 0; }
 	virtual void TryCriticalHit(Mob *defender, uint16 skill, int32 &damage, int32 minBase = 0, int32 damageBonus = 0);
 	virtual bool TryFinishingBlow(Mob *defender, EQ::skills::SkillType skillinuse, uint32 dmgBonus = 0);
 	virtual void DoRiposte(Mob* defender);

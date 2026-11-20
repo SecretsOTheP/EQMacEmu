@@ -67,7 +67,7 @@ int Mob::DoSpecialAttackDamage(Mob *defender, EQ::skills::SkillType skill, int b
 	}
 	else if (damage > 0)
 	{
-		damage = damageBonus + CalcMeleeDamage(defender, base, skill);
+		damage = ApplyShieldingToDamageBonus(defender, damageBonus) + CalcMeleeDamage(defender, base, skill);
 
 		if (damage < minDamage)
 			damage = minDamage;
@@ -142,10 +142,7 @@ void Mob::TryBashKickStun(Mob* defender, uint8 skill)
 
 		int stun_resist = 0;
 
-		if (defender->IsClient())
-		{
-			stun_resist = defender->aabonuses.StunResist;						// Stalwart Endurance AA
-		}
+		stun_resist = defender->GetStunResistChance();
 
 		if (defender->GetBaseRace() == OGRE && !BehindMob(defender, GetX(), GetY()))		// should this work if the ogre is illusioned?
 		{
@@ -1108,7 +1105,7 @@ void NPC::RangedAttack(Mob* other)
 			Log(Logs::Detail, Logs::Combat, "Ranged attack hit %s.", other->GetName());
 
 
-			damage = damageBonus + CalcMeleeDamage(other, baseDamage, skillInUse);
+			damage = ApplyShieldingToDamageBonus(other, damageBonus) + CalcMeleeDamage(other, baseDamage, skillInUse);
 			damage = static_cast<int>(static_cast<double>(damage) * RuleR(Combat, ArcheryNPCMultiplier));
 			damage += damage * damage_mod / 100; //Damage modifier
 		}

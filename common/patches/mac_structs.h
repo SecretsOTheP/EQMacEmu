@@ -295,7 +295,17 @@ struct Item_Struct
 	/*0286*/ uint8		unknown0286[2];
 	/*0288*/ float		SellRate;
 	/*0292*/ int32		CastTime;					// Cast time of clicky item in miliseconds
-	/*0296*/ uint8		unknown0296[12];			// ***Placeholder
+	// PoP-style mod2 stats. These bytes are unused by eqgame.exe (verified in the decompile),
+	// so stock clients ignore them; the patch DLL reads them for the item display window.
+	/*0296*/ int8		StrikeThrough;
+	/*0297*/ int8		StunResist;
+	/*0298*/ int8		CombatEffects;
+	/*0299*/ int8		Accuracy;
+	/*0300*/ int8		Avoidance;
+	/*0301*/ int8		SpellShield;
+	/*0302*/ int8		Shielding;
+	/*0303*/ int8		DamageShield;
+	/*0304*/ uint8		unknown0304[4];				// ***Placeholder
 	/*0308*/ int32		RecastTime;					// Recast time of clicky item in milliseconds
 	/*0312*/ uint16		SkillModType;
 	/*0314*/ int16		SkillModValue;
