@@ -295,6 +295,7 @@ int command_init(void)
 
 		command_add("path", "view and edit pathing.", AccountStatus::GMImpossible, command_path) ||
 		command_add("petition", "Handles everything petition related. Use with no args or with 'help' for how to use.", AccountStatus::ApprenticeGuide, command_petition) ||
+		command_add("petpush", "[0..1] - View or save player-pet melee push; 0 off, 0.25 reduced, 1 normal.", AccountStatus::GMImpossible, command_petpush) ||
 		command_add("petstats", "Shows your pet's HP, AC, ATK, attack damage/delay, melee DPS, resists, and equipped inventory.", AccountStatus::Player, command_petstats) ||
 		command_add("pf", "Display additional mob coordinate and wandering data.", AccountStatus::GMStaff, command_pf) ||
 		command_add("playsound", "[number] - Plays a sound in the client.  Valid range 0-3999", AccountStatus::ApprenticeGuide, command_playsound) ||
@@ -1098,6 +1099,7 @@ void command_clearsaylink(Client *c, const Seperator *sep) {
 #include "gm_commands/showhelm.cpp"
 #include "gm_commands/showpetspell.cpp"
 #include "gm_commands/petstats.cpp"
+#include "gm_commands/petpush.cpp"
 #include "gm_commands/showquake.cpp"
 #include "gm_commands/showregen.cpp"
 #include "gm_commands/showtraderitems.cpp"

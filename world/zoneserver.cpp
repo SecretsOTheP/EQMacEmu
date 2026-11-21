@@ -1122,6 +1122,12 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p) {
 		RuleManager::Instance()->LoadRules(&database, "default");
 		break;
 	}
+	case ServerOP_PlayerPetPushUpdate: {
+		if (pack->size == sizeof(ServerPlayerPetPushUpdate_Struct)) {
+			zoneserver_list.SendPacket(pack);
+		}
+		break;
+	}
 	case ServerOP_InstanceRespawnToggle: {
 		zoneserver_list.SendPacket(pack);
 		break;

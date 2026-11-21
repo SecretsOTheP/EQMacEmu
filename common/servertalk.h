@@ -250,6 +250,9 @@ struct ServerInstanceRespawnToggle_Struct { uint32 guild_id; uint8 enabled; };
 #define ServerOP_QuakeEnded 0x4202
 #define ServerOP_ReloadSpellModifiers	0x4203
 #define ServerOP_ReloadRulesWorld 0x4204
+#define ServerOP_PlayerPetPushUpdate 0x4206
+
+struct ServerPlayerPetPushUpdate_Struct { uint32 ruleset_id; };
 
 #define ServerOP_WIRemoteCall 0x5001
 #define ServerOP_WIRemoteCallResponse 0x5002

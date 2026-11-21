@@ -35,6 +35,7 @@
 #include "../common/eq_packet_structs.h"
 #include "../common/misc_functions.h"
 #include "../common/rulesys.h"
+#include "../common/player_pet_push.h"
 #include "../common/say_link.h"
 #include "../common/servertalk.h"
 #include "../common/profanity_manager.h"
@@ -2758,6 +2759,23 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet& p)
 			database.LoadZoneNames();
 			database.LoadZoneFileNames();
 			RuleManager::Instance()->LoadRules(&database, RuleManager::Instance()->GetActiveRuleset());
+			break;
+		}
+		case ServerOP_PlayerPetPushUpdate: {
+			if (pack->size != sizeof(ServerPlayerPetPushUpdate_Struct)) break;
+			const auto *update = reinterpret_cast<const ServerPlayerPetPushUpdate_Struct *>(pack->pBuffer);
+			if (update->ruleset_id != static_cast<uint32>(RuleManager::Instance()->GetActiveRulesetID())) break;
+			// Read the saved value so delayed notifications cannot restore an older setting.
+			auto result = database.QueryDatabase(fmt::format(
+				"SELECT rule_value FROM rule_values WHERE ruleset_id = {} AND rule_name = '{}' LIMIT 1",
+				update->ruleset_id, PlayerPetPush::RuleName));
+			if (result.Success() && result.RowCount() == 1) {
+				auto row = result.begin();
+				float multiplier;
+				if (PlayerPetPush::ParseMultiplier(row[0], multiplier)) {
+					RuleManager::Instance()->SetRule(PlayerPetPush::RuleName, row[0], nullptr, false, true);
+				}
+			}
 			break;
 		}
 		case ServerOP_InstanceRespawnToggle: {

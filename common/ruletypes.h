@@ -89,6 +89,7 @@ RULE_REAL ( Skills, SpellSkillUpMultiplier, 1.30, "Spellcasting-school skill-up 
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Pets )
+RULE_REAL( Pets, PlayerMeleePushMultiplier, 0.25, "Player-owned pet melee push against NPCs: 0 disables, 0.25 is quarter strength, 1 is normal. Does not affect spell knockback.")
 RULE_REAL( Pets, AttackCommandRange, 200, "")
 RULE_BOOL( Pets, UnTargetableSwarmPet, false, "")
 RULE_CATEGORY_END()
