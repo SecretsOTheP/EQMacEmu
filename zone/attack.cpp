@@ -21,6 +21,7 @@
 #include "../common/eq_constants.h"
 #include "../common/eq_packet_structs.h"
 #include "../common/rulesys.h"
+#include "../common/player_pet_push.h"
 #include "../common/skills.h"
 #include "../common/spdat.h"
 #include "../common/strings.h"
@@ -3731,6 +3732,11 @@ void Mob::GenerateDamagePackets(Mob* attacker, bool FromDamageShield, int32 dama
 		default:
 			a->force = 0.0f;
 		}
+		// Scale the packet and authoritative NPC movement together.
+		a->force = PlayerPetPush::Scale(a->force, attacker, IsNPC(),
+			spell_id == SPELL_UNKNOWN && !FromDamageShield,
+			RuleR(Pets, PlayerMeleePushMultiplier),
+			[](uint32 id) { return entity_list.GetMob(id); });
 		if (a->force > 0.0f)
 			a->sequence = attacker->GetHeading() * 2.0f;
 
