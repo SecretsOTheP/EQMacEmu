@@ -179,6 +179,11 @@ struct StatBonuses {
 	int32	CrippBlowChance;					//
 	int32	CombatAgility;						// Melee Avoidance AAs (Combat Agility, Lightning Reflexes, Physical Enhancement)
 	int32	AvoidMeleeChanceEffect;				// AvoidMeleeChance Spell Effect (disciplines)
+	int32	AvoidMeleeChance;					// Item mod2 Avoidance, flat bonus to avoidance
+	int32	ProcChance;							// Item mod2 Combat Effects, /10 = % weapon proc chance bonus
+	struct {									// Raw item mod2 sums; capped and added to the fields above in Client::CalcItemBonuses
+		int32 StrikeThrough, StunResist, CombatEffects, Accuracy, Avoidance, SpellShield, Shielding, DamageShield;
+	} ItemMod2;
 	int32	RiposteChance;						//i
 	int32	DodgeChance;						//i
 	int32	ParryChance;						//i

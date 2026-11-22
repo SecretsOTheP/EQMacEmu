@@ -183,6 +183,18 @@ void Client::CalcItemBonuses(StatBonuses* newbon) {
 	newbon->ManaRegenUncapped = newbon->ManaRegen;
 	if(newbon->ManaRegen > CalcManaRegenCap())
 		newbon->ManaRegen = CalcManaRegenCap();
+
+	// Item mod2 stats: cap each total by its rule, then add it on top of any worn-effect value in the same field.
+	auto mod2_capped = [](int32 total, int cap) { return (cap > 0 && total > cap) ? cap : total; };
+	newbon->StrikeThrough += mod2_capped(newbon->ItemMod2.StrikeThrough, RuleI(Character, ItemStrikethroughCap));
+	newbon->StunResist += mod2_capped(newbon->ItemMod2.StunResist, RuleI(Character, ItemStunResistCap));
+	newbon->ProcChance += mod2_capped(newbon->ItemMod2.CombatEffects, RuleI(Character, ItemCombatEffectsCap));
+	newbon->HitChance += mod2_capped(newbon->ItemMod2.Accuracy, RuleI(Character, ItemAccuracyCap));
+	newbon->AvoidMeleeChance += mod2_capped(newbon->ItemMod2.Avoidance, RuleI(Character, ItemAvoidanceCap));
+	newbon->SpellShield += mod2_capped(newbon->ItemMod2.SpellShield, RuleI(Character, ItemSpellShieldingCap));
+	newbon->MeleeMitigation += mod2_capped(newbon->ItemMod2.Shielding, RuleI(Character, ItemShieldingCap));
+	// damage shields are stored negative (damage dealt to the attacker); this only augments an existing spell DS
+	newbon->DamageShield -= mod2_capped(newbon->ItemMod2.DamageShield, RuleI(Character, ItemDamageShieldCap));
 }
 
 void Client::AddItemBonuses(const EQ::ItemInstance *inst, StatBonuses* newbon) {
@@ -242,6 +254,17 @@ void Client::AddItemBonuses(const EQ::ItemInstance *inst, StatBonuses* newbon) {
 		newbon->PR += CalcRecommendedLevelBonus( lvl, reclvl, (item->PR) );
 		newbon->DR += CalcRecommendedLevelBonus( lvl, reclvl, (item->DR) );
 	}
+
+	// PoP-style mod2 stats (not scaled by recommended level, matching EQEmu). Summed raw here and capped once
+	// in CalcItemBonuses, so the result doesn't depend on slot order and worn effects stay uncapped.
+	newbon->ItemMod2.StrikeThrough += item->StrikeThrough;
+	newbon->ItemMod2.StunResist += item->StunResist;
+	newbon->ItemMod2.CombatEffects += item->CombatEffects;
+	newbon->ItemMod2.Accuracy += item->Accuracy;
+	newbon->ItemMod2.Avoidance += item->Avoidance;
+	newbon->ItemMod2.SpellShield += item->SpellShield;
+	newbon->ItemMod2.Shielding += item->Shielding;
+	newbon->ItemMod2.DamageShield += item->DamageShield;
 
 	//FatherNitwit: New style haste, shields, and regens
 	//solar: some OLDPEQ items in the TAKP db have worn effect in the proc effect field, this is also fixed up in mac.cpp so the client sees them correctly

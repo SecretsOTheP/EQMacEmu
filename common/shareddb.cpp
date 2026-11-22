@@ -902,6 +902,16 @@ void SharedDatabase::LoadItems(void* data, uint32 size, int32 items, uint32 max_
 		//Is Legacy Item?
 		item.legacy_item = static_cast<uint8>(std::stoul(row[ItemField::legacy_item]));
 
+		// PoP-style mod2 stats
+		item.StrikeThrough = static_cast<int8>(std::stoi(row[ItemField::strikethrough]));
+		item.StunResist = static_cast<int8>(std::stoi(row[ItemField::stunresist]));
+		item.CombatEffects = static_cast<int8>(std::stoi(row[ItemField::combateffects]));
+		item.Accuracy = static_cast<int8>(std::stoi(row[ItemField::accuracy]));
+		item.Avoidance = static_cast<int8>(std::stoi(row[ItemField::avoidance]));
+		item.SpellShield = static_cast<int8>(std::stoi(row[ItemField::spellshield]));
+		item.Shielding = static_cast<int8>(std::stoi(row[ItemField::shielding]));
+		item.DamageShield = static_cast<int8>(std::stoi(row[ItemField::damageshield]));
+
 		// solar - fixup StackSize data
 		// TODO: this StackSize field in the database is not needed, and code referencing StackSize should be rewritten to determine stackability based on the following conditions.  stack size is always 20.
 		if

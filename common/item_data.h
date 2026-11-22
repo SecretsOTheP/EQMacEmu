@@ -317,6 +317,16 @@ namespace EQ
 		float	max_expansion;	//What expansion this item becomes unavailable in.
 		uint8	legacy_item;
 
+		// PoP-style "mod2" stats. Sent to the client in spare Item_Struct bytes (see mac_structs.h).
+		int8	StrikeThrough;	// % chance to strike through dodge/parry/riposte/block
+		int8	StunResist;		// % chance to resist melee stuns
+		int8	CombatEffects;	// weapon proc chance bonus, /10 = %
+		int8	Accuracy;		// flat to-hit bonus
+		int8	Avoidance;		// flat avoidance bonus
+		int8	SpellShield;	// % reduction of direct damage spells
+		int8	Shielding;		// % reduction of incoming melee damage
+		int8	DamageShield;	// adds to an existing spell damage shield
+
 		bool IsEquipable(uint16 Race, uint16 Class) const;
 		bool IsClassCommon() const;
 		bool IsClassBag() const;

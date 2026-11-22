@@ -174,14 +174,33 @@ bool Mob::AttackAnimation(EQ::skills::SkillType &skillinuse, int Hand, const EQ:
 // returns true on hit
 bool Mob::AvoidanceCheck(Mob* attacker, EQ::skills::SkillType skillinuse)
 {
-	Mob *defender = this;
-
 	if (IsClient() && CastToClient()->IsSitting())
 	{
 		if (IsClient() && attacker->IsNPC())
 			CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty[GetClass()]);
 		return true;
 	}
+
+	double hitChance = CalcHitChance(attacker, skillinuse);
+
+	if (IsClient() && attacker->IsNPC())
+		CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty[GetClass()]);
+
+	if (zone->random.Real(0.0, 1.0) < hitChance)
+	{
+		Log(Logs::Detail, Logs::Attack, "Hit;  Hit chance was %0.1f%%", hitChance*100);
+		return true;
+	}
+
+	Log(Logs::Detail, Logs::Attack, "Miss;  Hit chance was %0.1f%%", hitChance * 100);
+	return false;
+}
+
+// Chance (0.0-1.0) that attacker's melee swing lands on this mob, before block/parry/riposte/dodge.
+// No side effects; AvoidanceCheck rolls against it.
+double Mob::CalcHitChance(Mob* attacker, EQ::skills::SkillType skillinuse)
+{
+	Mob *defender = this;
 
 	int toHit = attacker->GetToHit(skillinuse);
 	int avoidance = defender->GetAvoidance();
@@ -221,17 +240,7 @@ bool Mob::AvoidanceCheck(Mob* attacker, EQ::skills::SkillType skillinuse)
 		hitChance = toHit * 1.21 / (avoidance * 2.0);
 	}
 
-	if (IsClient() && attacker->IsNPC())
-		CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDefense, attacker, zone->skill_difficulty[EQ::skills::SkillDefense].difficulty[GetClass()]);
-
-	if (zone->random.Real(0.0, 1.0) < hitChance)
-	{
-		Log(Logs::Detail, Logs::Attack, "Hit;  Hit chance was %0.1f%%", hitChance*100);
-		return true;
-	}
-
-	Log(Logs::Detail, Logs::Attack, "Miss;  Hit chance was %0.1f%%", hitChance * 100);
-	return false;
+	return hitChance;
 }
 
 bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
@@ -565,6 +574,16 @@ int Mob::CalcMeleeDamage(Mob* defender, int baseDamage, EQ::skills::SkillType sk
 		CastToClient()->RollDamageMultiplier(offense, damage, skill);
 
 	return damage;
+}
+
+// Item mod2 Shielding reduces only the attacker's flat damage bonus (DB), not the rolled portion.
+// Call wherever melee damage is formed as damageBonus + CalcMeleeDamage().
+int Mob::ApplyShieldingToDamageBonus(Mob* defender, int damageBonus)
+{
+	if (!defender || !defender->IsClient() || damageBonus <= 0 || defender->itembonuses.MeleeMitigation <= 0)
+		return damageBonus;
+
+	return damageBonus - damageBonus * defender->itembonuses.MeleeMitigation / 100;
 }
 
 // the output of this function is precise and is based on the code from:
@@ -969,10 +988,11 @@ bool Client::Attack(Mob* other, int hand, int damagePct)
 		// check avoidance skills
 		other->AvoidDamage(this, damage);
 
+		int strike_through = GetStrikeThroughChance();
 		if (damage < 0 && (damage == DMG_DODGE || damage == DMG_PARRY || damage == DMG_RIPOSTE || damage == DMG_BLOCK)
-			&& aabonuses.StrikeThrough && zone->random.Roll(aabonuses.StrikeThrough))
+			&& strike_through && zone->random.Roll(strike_through))
 		{
-			damage = 1;		// Warrior Tactical Mastery AA
+			damage = 1;
 		}
 
 		//riposte
@@ -1001,14 +1021,15 @@ bool Client::Attack(Mob* other, int hand, int damagePct)
 			if(TryFinishingBlow(other, skillinuse, damageBonus))
 				return (true);
 
-			damage = damageBonus + CalcMeleeDamage(other, baseDamage, skillinuse);
+			int shieldedBonus = ApplyShieldingToDamageBonus(other, damageBonus);
+			damage = shieldedBonus + CalcMeleeDamage(other, baseDamage, skillinuse);
 
 			if (damagePct <= 0)
 				damagePct = 100;
 			damage = damage * damagePct / 100;
 
 			other->TryShielderDamage(this, damage, skillinuse);		// warrior /shield
-			TryCriticalHit(other, skillinuse, damage, baseDamage, damageBonus);
+			TryCriticalHit(other, skillinuse, damage, baseDamage, shieldedBonus);
 
 			Log(Logs::Detail, Logs::Combat, "Damage calculated to %d (str %d, skill %d, DMG %d, lv %d)",
 				damage, GetSTR(), GetSkill(skillinuse), baseDamage, mylevel);
@@ -1176,7 +1197,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	{
 		if (animation > 0 && zone->random.Roll(10) && other->BehindMob(this, other->GetX(), other->GetY()))
 		{
-			int stun_resist = aabonuses.StunResist;
+			int stun_resist = GetStunResistChance();
 
 			if (!stun_resist || zone->random.Roll(100 - stun_resist))
 			{
@@ -2041,7 +2062,7 @@ bool NPC::Attack(Mob* other, int hand, int damagePct)
 
 	if (damage > 0)
 	{
-		damage = damageBonus + CalcMeleeDamage(other, baseDamage, skillinuse);
+		damage = ApplyShieldingToDamageBonus(other, damageBonus) + CalcMeleeDamage(other, baseDamage, skillinuse);
 
 		if (damagePct <= 0)
 			damagePct = 100;
@@ -2976,12 +2997,24 @@ void Mob::AddToHateList(Mob* other, int32 hate, int32 damage, bool bFrenzy, bool
 		entity_list.AddTempPetsToHateList(other, this, bFrenzy);
 }
 
+// Adds AA and item mod2 damage shield to an existing (negative) spell DS. Never creates a DS on its own,
+// so callers only use it when DS < 0.
+int Mob::ApplyDamageShieldBonuses(int DS, bool spell_ds)
+{
+	if (!spell_ds)
+		DS += aabonuses.DamageShield; //Live AA - coat of thistles. (negative value)
+	if (itembonuses.DamageShield < 0)
+		DS += itembonuses.DamageShield;	// item mod2 Damage Shield
+
+	return DS;
+}
+
 // This is called from Damage() when 'this' is attacked by 'other.
 // 'this' is the one being attacked
 // 'other' is the attacker
 // a damage shield causes damage (or healing) to whoever attacks the wearer.
 // a damage shield on a spell is a negative value but on an item it's a positive value so add the spell value and subtract the item value to get the end ds value.
-// a reverse ds causes damage to the wearer whenever it attack someone. 
+// a reverse ds causes damage to the wearer whenever it attack someone.
 void Mob::DamageShield(Mob* attacker, bool spell_ds) {
 	
 	if(!attacker || this == attacker || (attacker && attacker->GetID() == 0))
@@ -3022,12 +3055,7 @@ void Mob::DamageShield(Mob* attacker, bool spell_ds) {
 	{
 		Log(Logs::Detail, Logs::Spells, "Applying Damage Shield of value %d to %s", DS, attacker->GetName());
 
-		if (!spell_ds)
-		{
-			DS += aabonuses.DamageShield; //Live AA - coat of thistles. (negative value)
-		}
-		if (itembonuses.DamageShield < 0)
-			DS += itembonuses.DamageShield;
+		DS = ApplyDamageShieldBonuses(DS, spell_ds);
 
 		uint32 targetid = attacker->GetID();
 		attacker->Damage(this, -DS, spellid, EQ::skills::SkillAbjuration, false);
@@ -3994,6 +4022,16 @@ void Mob::HealDamage(uint32 amount, Mob *caster, uint16 spell_id, bool hot)
 	}
 }
 
+// Per-swing chance for a weapon's combat proc: base proc chance, weapon ProcRate, item mod2 Combat Effects.
+float Mob::GetWeaponProcChance(const EQ::ItemData* weapon, uint16 hand)
+{
+	float WPC = GetProcChance(hand);
+	if (weapon)
+		WPC = WPC * (100.0f + static_cast<float>(weapon->ProcRate)) / 100.0f;
+	WPC *= (100.0f + static_cast<float>(itembonuses.ProcChance) / 10.0f) / 100.0f;	// item mod2 Combat Effects
+	return WPC;
+}
+
 float Mob::GetProcChance(uint16 hand)
 {
 	double chance = 0.0;
@@ -4084,8 +4122,7 @@ bool Mob::TryWeaponProc(const EQ::ItemInstance *inst, const EQ::ItemData *weapon
 
 	if (weapon->Proc.Type == EQ::item::ItemEffectCombatProc && weapon->Proc.Effect)
 	{
-		float ProcChance = GetProcChance(hand);
-		float WPC = ProcChance * (100.0f + static_cast<float>(weapon->ProcRate)) / 100.0f;
+		float WPC = GetWeaponProcChance(weapon, hand);
 
 		if (zone->random.Roll(WPC))
 		{
@@ -5620,6 +5657,8 @@ int Client::GetAvoidance(bool ignoreCombatAgility)
 {
 	int combat_agility_percent = ignoreCombatAgility ? 0 : aabonuses.CombatAgility;
 	int computedDefense = GetAvoidance(GetSkill(EQ::skills::SkillDefense), GetAGI(), GetLevel(), m_pp.intoxication, combat_agility_percent);
+	if (!ignoreCombatAgility)
+		computedDefense += itembonuses.AvoidMeleeChance;	// item mod2 Avoidance, flat; combat only, not displayed AC
 
 	return computedDefense;
 }
