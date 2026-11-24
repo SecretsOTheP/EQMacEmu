@@ -95,6 +95,10 @@ bool Client::CanRaidWillIntoPopZone(uint32 zone_id)
 
 void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 	zoning = true;
+	const uint32 rez_zone = pop_raid_willing_rez_zone;
+	const uint32 rez_guild = pop_raid_willing_rez_guild;
+	pop_raid_willing_rez_zone = 0;
+	pop_raid_willing_rez_guild = 0;
 	if (app->size != sizeof(ZoneChange_Struct)) {
 		Log(Logs::General, Logs::Error, "Wrong size: OP_ZoneChange, size=%d, expected %d", app->size, sizeof(ZoneChange_Struct));
 		DumpPacket(app);
@@ -206,6 +210,14 @@ void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 				return;
 			}
 		}
+	}
+
+	// The Mac client may return an alias zone ID or omit the guild instance.
+	// For an accepted rez, validate the server-selected corpse destination.
+	if (zone_mode == ZoneSolicited && rez_zone != 0 &&
+		zonesummon_id == rez_zone && zonesummon_guildid == rez_guild) {
+		target_zone_id = rez_zone;
+		target_zone_guild_id = rez_guild;
 	}
 
 	/* Check for Valid Zone */
@@ -381,7 +393,11 @@ void Client::Handle_OP_ZoneChange(const EQApplicationPacket *app) {
 
 	if(!ignorerestrictions && flag_needed[0] != '\0') {
 		//the flag needed string is not empty, meaning a flag is required.
-		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(target_zone_id)) {
+		const bool accepted_planar_rez = zone_mode == ZoneSolicited && rez_zone != 0 &&
+			rez_zone == target_zone_id && rez_guild == target_zone_guild_id &&
+			IsPopRaidWillingZone(target_zone_id) && DataBucket::GetData(PopAlternateAccessBucket) == "1";
+		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) &&
+			!CanRaidWillIntoPopZone(target_zone_id) && !accepted_planar_rez) {
 			Message(Chat::Red, "You do not have the flag to enter %s.", target_zone_name);
 			zoning_message = ZoningMessage::ZoneNoExperience;
 		}
@@ -655,6 +671,9 @@ void Client::MovePCGuildID(uint32 zoneID, uint32 zoneGuildID, float x, float y, 
 
 void Client::ProcessMovePC(uint32 zoneID, uint32 zoneGuildID, float x, float y, float z, float heading, uint8 ignorerestrictions, ZoneMode zm)
 {
+	// A different move must not inherit a previous resurrection exception.
+	pop_raid_willing_rez_zone = 0;
+	pop_raid_willing_rez_guild = 0;
 	// Players must opt in before entering Guild 1. Staff can still use
 	// #zoneguild to inspect it without changing their PvP flag.
 	if (zoneGuildID == 1 && Admin() < AccountStatus::QuestTroupe &&
@@ -1161,10 +1180,21 @@ void Client::GoToBind(uint8 bindnum) {
 		MovePCGuildID(m_pp.binds[bindnum].zoneId, GUILD_NONE, m_pp.binds[bindnum].x, m_pp.binds[bindnum].y, m_pp.binds[bindnum].z, m_pp.binds[bindnum].heading, 1);
 }
 
-void Client::BootFromGuildInstance(bool bForce) {
+void Client::BootFromGuildInstance(bool bForce, bool raid_access_failure) {
 
 	if (!RuleB(Quarm, AllowGuildInstanceBoot) && !bForce) {
 		return;
+	}
+
+	// Combat eligibility is still denied by the caller; only the eviction is delayed.
+	if (!bForce && raid_access_failure && zone && IsPopRaidWillingZone(zone->GetZoneID()) &&
+		DataBucket::GetData(PopAlternateAccessBucket) == "1") {
+		pop_raid_willing_combat_recheck = true;
+		const bool may_remain = CheckZoneAccessWithGrace();
+		if (pop_raid_willing_grace_timer.Enabled()) {
+			if (!may_remain) ReturnToTranquility();
+			return;
+		}
 	}
 
 	ZoneBanishPoint zbp = zone->GetZoneBanishPoint();
@@ -1306,8 +1336,13 @@ void Client::SendZoneFlagInfo(Client *to) {
 	}
 }
 
-bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
+bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id, bool* raid_access_denied)
 {
+	if (raid_access_denied) *raid_access_denied = false;
+	// Only residency checks may identify a recoverable denial. Ordinary entry stays strict.
+	const bool can_recover_raid_access = raid_access_denied && zoneid == 0 && zone &&
+		IsPopRaidWillingZone(zone->GetZoneID()) && DataBucket::GetData(PopAlternateAccessBucket) == "1";
+	bool missing_raid_access = false;
 	//check some critial rules to see if this char needs to be booted from the zone
 	//only enforce rules here which are serious enough to warrant being kicked from
 	//the zone
@@ -1349,6 +1384,10 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 		return(false);
 	}
 
+	if (raid_access_denied && zoneid == 0) {
+		pop_raid_willing_flag_required = flag_needed[0] != '\0';
+	}
+
 	if (RuleB(Quarm, EnableGuildZoneRequirementOnEntry))
 	{
 		if (target_zone_guild_id != GUILD_NONE)
@@ -1359,13 +1398,15 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 				if (!raid)
 				{
 					Log(Logs::Detail, Logs::Character, "[CLIENT] Character does not meet guild id requirement and is not in a raid (%d / %d) ", GuildID(), target_zone_guild_id);
-					return false;
+					if (!can_recover_raid_access) return false;
+					missing_raid_access = true;
 				}
 
-				if (!raid->CanRaidEngageRaidTarget(target_zone_guild_id))
+				if (raid && !raid->CanRaidEngageRaidTarget(target_zone_guild_id))
 				{
 					Log(Logs::Detail, Logs::Character, "[CLIENT] Character does not meet guild id requirement and is in an ineligible raid force (%d / %d) ", GuildID(), target_zone_guild_id);
-					return false;
+					if (!can_recover_raid_access) return false;
+					missing_raid_access = true;
 				}
 			}
 		}
@@ -1384,7 +1425,8 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 		//the flag needed string is not empty, meaning a flag is required.
 		if(Admin() < minStatusToIgnoreZoneFlags && !HasZoneFlag(target_zone_id) && !CanRaidWillIntoPopZone(target_zone_id)) {
 			Log(Logs::Detail, Logs::Character, "[CLIENT] Character does not have the flag to be in this zone (%s)!", flag_needed);
-			return(false);
+			if (!can_recover_raid_access) return false;
+			missing_raid_access = true;
 		}
 	}
 	bool has_expansion = expansion && m_pp.expansions;
@@ -1425,7 +1467,79 @@ bool Client::CanBeInZone(uint32 zoneid, uint32 guild_id)
 		return(false);
 	}
 
+	// Do not grant grace if any non-raid restriction above also failed.
+	if (missing_raid_access) {
+		*raid_access_denied = true;
+		return false;
+	}
 	return(true);
+}
+
+// One deadline per uninterrupted loss of access. Polling and combat cannot extend it.
+bool Client::CheckZoneAccessWithGrace()
+{
+	bool raid_access_denied = false;
+	bool allowed = CanBeInZone(0, 0, &raid_access_denied);
+	const bool planar = zone && IsPopRaidWillingZone(zone->GetZoneID()) &&
+		zone->GetZoneID() != Zones::POKNOWLEDGE && zone->GetZoneID() != Zones::POTRANQUILITY &&
+		DataBucket::GetData(PopAlternateAccessBucket) == "1";
+	const bool staff = Admin() >= RuleI(GM, MinStatusToZoneAnywhere) ||
+		(zone && zone->GetGuildID() != GUILD_NONE && Admin() >= RuleI(Quarm, MinStatusToZoneIntoAnyGuildZone));
+
+	if (allowed && planar && !staff && pop_raid_willing_combat_recheck &&
+		RuleB(Quarm, AllowGuildInstanceBoot) && zone->GetGuildID() != GUILD_NONE && zone->GetGuildID() != 1) {
+		auto* raid = GetRaid();
+		if (!raid || !raid->CanRaidEngageRaidTarget(zone->GetGuildID())) {
+			allowed = false;
+			raid_access_denied = true;
+		} else {
+			pop_raid_willing_combat_recheck = false;
+		}
+	}
+
+	const bool monitor = planar && !staff &&
+		((pop_raid_willing_flag_required && !HasZoneFlag(zone->GetZoneID())) ||
+		 raid_access_denied || pop_raid_willing_combat_recheck);
+	if (monitor) {
+		if (!pop_raid_willing_check_timer.Enabled()) pop_raid_willing_check_timer.Start(5000);
+	} else {
+		pop_raid_willing_check_timer.Disable();
+	}
+
+	if (allowed) {
+		if (pop_raid_willing_grace_timer.Enabled()) {
+			Message(Chat::Yellow, "Your planar access has been restored. You may remain in this zone.");
+		}
+		pop_raid_willing_grace_timer.Disable();
+		pop_raid_willing_combat_recheck = false;
+		return true;
+	}
+	if (!planar || !raid_access_denied || staff) {
+		// Level, expansion, mule and PvP restrictions are not covered by this grace.
+		return false;
+	}
+	if (!pop_raid_willing_grace_timer.Enabled()) {
+		pop_raid_willing_grace_timer.Start(180000);
+		Message(Chat::Yellow, "You no longer meet this zone's raid access requirements. You have 3 minutes to regain access or you will be returned to the Plane of Tranquility.");
+	}
+	return !pop_raid_willing_grace_timer.Check(false);
+}
+
+void Client::ProcessPopRaidWillingAccess()
+{
+	if (!CheckZoneAccessWithGrace() && pop_raid_willing_grace_timer.Enabled()) {
+		ReturnToTranquility();
+	}
+}
+
+void Client::ReturnToTranquility()
+{
+	pop_raid_willing_check_timer.Disable();
+	pop_raid_willing_grace_timer.Disable();
+	pop_raid_willing_combat_recheck = false;
+	Message(Chat::Yellow, "Your planar raid access has not been restored. Returning you to the Plane of Tranquility.");
+	// Same safe arrival point used by the planar Timekeeper evacuation.
+	MovePCGuildID(Zones::POTRANQUILITY, GUILD_NONE, -4.0f, -191.0f, -628.0f, 149.0f, 1);
 }
 
 void Client::UpdateZoneChangeCount(uint32 zoneID)

@@ -161,6 +161,8 @@ mend_reset_timer(60000),
 underwater_timer(1000),
 zoning_timer(5000),
 instance_boot_grace_timer(RuleI(Quarm, ClientInstanceBootGraceMS)),
+pop_raid_willing_check_timer(5000),
+pop_raid_willing_grace_timer(180000),
 m_Proximity(FLT_MAX, FLT_MAX, FLT_MAX), //arbitrary large number
 m_ZoneSummonLocation(-2.0f, -2.0f, -2.0f, -2.0f),
 m_AutoAttackPosition(0.0f, 0.0f, 0.0f, 0.0f),
@@ -249,6 +251,8 @@ m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f)
 	mend_reset_timer.Disable();
 	zoning_timer.Disable();
 	instance_boot_grace_timer.Disable();
+	pop_raid_willing_check_timer.Disable();
+	pop_raid_willing_grace_timer.Disable();
 	instalog = false;
 	m_pp.autosplit = false;
 	// initialise haste variable

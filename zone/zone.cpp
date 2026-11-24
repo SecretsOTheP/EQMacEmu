@@ -3398,7 +3398,7 @@ bool Zone::CanDoCombat(Mob* current, Mob* other, bool process)
 			bool bCanEngage = CanClientEngage(current->CastToClient(), other);
 			if (!bCanEngage)
 			{
-				current->CastToClient()->BootFromGuildInstance();
+				current->CastToClient()->BootFromGuildInstance(false, true);
 				if(RuleB(Quarm, AllowGuildInstanceBoot))
 					return false;
 			}
@@ -3408,7 +3408,7 @@ bool Zone::CanDoCombat(Mob* current, Mob* other, bool process)
 			bool bCanEngage = CanClientEngage(other->CastToClient(), current);
 			if (!bCanEngage)
 			{
-				other->CastToClient()->BootFromGuildInstance();
+				other->CastToClient()->BootFromGuildInstance(false, true);
 				if (RuleB(Quarm, AllowGuildInstanceBoot))
 					return false;
 			}
