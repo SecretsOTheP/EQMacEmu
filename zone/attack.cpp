@@ -202,8 +202,9 @@ double Mob::CalcHitChance(Mob* attacker, EQ::skills::SkillType skillinuse)
 {
 	Mob *defender = this;
 
-	int toHit = attacker->GetToHit(skillinuse);
-	int avoidance = defender->GetAvoidance();
+	// kept as doubles so the percent modifiers below are not truncated to whole points
+	double toHit = attacker->GetToHit(skillinuse);
+	double avoidance = defender->GetAvoidance();
 	int toHitPct = 0;
 	int avoidancePct = 0;
 	
@@ -221,10 +222,10 @@ double Mob::CalcHitChance(Mob* attacker, EQ::skills::SkillType skillinuse)
 	// Disciplines: Evasive, Precision, Voiddance, Fortitude
 	avoidancePct = defender->spellbonuses.AvoidMeleeChanceEffect + defender->itembonuses.AvoidMeleeChanceEffect;
 
-	toHit = toHit * (100 + toHitPct) / 100;
-	avoidance = avoidance * (100 + avoidancePct) / 100;
+	toHit = toHit * (100 + toHitPct) / 100.0;
+	avoidance = avoidance * (100 + avoidancePct) / 100.0;
 
-	Log(Logs::Detail, Logs::Attack, "AvoidanceCheck: %s attacked by %s;  Avoidance: %i (pct: %i)  To-Hit: %i (pct: %i)", 
+	Log(Logs::Detail, Logs::Attack, "AvoidanceCheck: %s attacked by %s;  Avoidance: %.2f (pct: %i)  To-Hit: %.2f (pct: %i)",
 		defender->GetName(), attacker->GetName(), avoidance, avoidancePct, toHit, toHitPct);
 
 	double hitChance;
@@ -271,11 +272,12 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_BLOCK;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillBlock) + 100 + itembonuses.skillmod[EQ::skills::SkillBlock];
-		chance += (chance * (aabonuses.IncreaseBlockChance + spellbonuses.IncreaseBlockChance + itembonuses.IncreaseBlockChance)) / 100;
-		chance /= 25;
+		// chance is a double so the percent modifiers and the divisor are not truncated to whole percentages
+		double chance = GetSkill(EQ::skills::SkillBlock) + 100 + itembonuses.skillmod[EQ::skills::SkillBlock];
+		chance += (chance * (aabonuses.IncreaseBlockChance + spellbonuses.IncreaseBlockChance + itembonuses.IncreaseBlockChance)) / 100.0;
+		chance /= 25.0;
 
-		if (zone->random.Roll(chance)) {
+		if (zone->random.Roll(chance / 100.0)) {
 			damage = DMG_BLOCK;
 			return true;
 		}
@@ -292,11 +294,11 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_PARRY;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillParry) + 100 + itembonuses.skillmod[EQ::skills::SkillParry];
-		chance += (chance * (aabonuses.ParryChance + spellbonuses.ParryChance + itembonuses.ParryChance)) / 100;
-		chance /= 50;		// this is 45 in modern EQ.  Old EQ logs parsed to a lower parry rate, so raising this
+		double chance = GetSkill(EQ::skills::SkillParry) + 100 + itembonuses.skillmod[EQ::skills::SkillParry];
+		chance += (chance * (aabonuses.ParryChance + spellbonuses.ParryChance + itembonuses.ParryChance)) / 100.0;
+		chance /= 50.0;		// this is 45 in modern EQ.  Old EQ logs parsed to a lower parry rate, so raising this
 
-		if (zone->random.Roll(chance)) {
+		if (zone->random.Roll(chance / 100.0)) {
 			damage = DMG_PARRY;
 			return true;
 		}
@@ -336,11 +338,11 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 				return true;
 			}
 
-			int chance = GetSkill(EQ::skills::SkillRiposte) + 100 + itembonuses.skillmod[EQ::skills::SkillRiposte];
-			chance += (chance * (aabonuses.RiposteChance + spellbonuses.RiposteChance + itembonuses.RiposteChance)) / 100;
-			chance /= 55;		// this is 50 in modern EQ.  Old EQ logs parsed to a lower rate, so raising this
+			double chance = GetSkill(EQ::skills::SkillRiposte) + 100 + itembonuses.skillmod[EQ::skills::SkillRiposte];
+			chance += (chance * (aabonuses.RiposteChance + spellbonuses.RiposteChance + itembonuses.RiposteChance)) / 100.0;
+			chance /= 55.0;		// this is 50 in modern EQ.  Old EQ logs parsed to a lower rate, so raising this
 
-			if (chance > 0 && zone->random.Roll(chance)) // could be <0 from offhand stuff
+			if (chance > 0 && zone->random.Roll(chance / 100.0)) // could be <0 from offhand stuff
 			{
 				// March 19 2002 patch made pets not take non-enrage ripostes from NPCs.  it said 'more likely to avoid' but player comments say zero and logs confirm
 				if (IsNPC() && attacker->IsPet())
@@ -366,11 +368,11 @@ bool Mob::AvoidDamage(Mob* attacker, int32 &damage, bool isRangedAttack)
 			damage = DMG_DODGE;
 			return true;
 		}
-		int chance = GetSkill(EQ::skills::SkillDodge) + 100 + itembonuses.skillmod[EQ::skills::SkillDodge];
-		chance += (chance * (aabonuses.DodgeChance + spellbonuses.DodgeChance + itembonuses.DodgeChance)) / 100;
-		chance /= 45;
+		double chance = GetSkill(EQ::skills::SkillDodge) + 100 + itembonuses.skillmod[EQ::skills::SkillDodge];
+		chance += (chance * (aabonuses.DodgeChance + spellbonuses.DodgeChance + itembonuses.DodgeChance)) / 100.0;
+		chance /= 45.0;
 
-		if (zone->random.Roll(chance)) {
+		if (zone->random.Roll(chance / 100.0)) {
 			damage = DMG_DODGE;
 			return true;
 		}
