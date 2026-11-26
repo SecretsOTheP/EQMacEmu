@@ -1493,6 +1493,27 @@ void EntityList::RemoveFromNPCTargets(Mob *mob)
 	}
 }
 
+// notify clients targeting 'target' that its target changed
+void EntityList::UpdateHoTT(Mob *target)
+{
+	uint16 tot_id = target->GetTarget() ? target->GetTarget()->GetID() : 0;
+	for (auto &e : client_list) {
+		if (e.second->GetTarget() == target)
+			e.second->SetHoTT(target->GetID(), tot_id);
+	}
+}
+
+// true if any client's target is targeting 'mob'
+bool EntityList::IsHoTTTargeted(Mob *mob)
+{
+	for (auto &e : client_list) {
+		Mob *t = e.second->GetTarget();
+		if (t && t->GetTarget() == mob)
+			return true;
+	}
+	return false;
+}
+
 void EntityList::QueueClientsByTarget(Mob *sender, const EQApplicationPacket *app,
 		bool iSendToSender, Mob *SkipThisMob, bool ackreq, bool HoTT, uint32 ClientVersionBits)
 {

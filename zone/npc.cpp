@@ -566,7 +566,7 @@ bool NPC::Process()
 		if(GetHP() < GetMaxHP())
 			SetHP(GetHP() + GetHPRegen());
 
-		if(RuleB(Alkabor, NPCsSendHPUpdatesPerTic) && (IsTargeted() || (IsPet() && GetOwner() && GetOwner()->IsClient()))) 
+		if(RuleB(Alkabor, NPCsSendHPUpdatesPerTic) && (IsTargeted() || (IsEngaged() && entity_list.IsHoTTTargeted(this)) || (IsPet() && GetOwner() && GetOwner()->IsClient()))) 
 		{
 			if (old_hp != cur_hp || cur_hp<max_hp) 
 			{
@@ -578,7 +578,7 @@ bool NPC::Process()
 			SetMana(GetMana() + GetManaRegen());
 	}
 
-	if (!RuleB(Alkabor, NPCsSendHPUpdatesPerTic) && sendhpupdate_timer.Check() && (IsTargeted() || (IsPet() && GetOwner() && GetOwner()->IsClient())))
+	if (!RuleB(Alkabor, NPCsSendHPUpdatesPerTic) && sendhpupdate_timer.Check() && (IsTargeted() || (IsEngaged() && entity_list.IsHoTTTargeted(this)) || (IsPet() && GetOwner() && GetOwner()->IsClient())))
 	{
 		if(!IsFullHP || cur_hp<max_hp)
 		{

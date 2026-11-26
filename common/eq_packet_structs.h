@@ -812,6 +812,14 @@ struct ClientTarget_Struct
 	/*002*/
 };
 
+// OP_TargetHoTT: source_id's target is now target_id (0 = no target)
+struct TargetHoTT_Struct
+{
+	/*000*/	uint16	source_id;			// Mob whose target changed (the client's target)
+	/*002*/	uint16	target_id;			// That mob's new target
+	/*004*/
+};
+
 struct PetCommand_Struct {
 /*000*/ uint32	command;
 /*004*/ uint32	target;
