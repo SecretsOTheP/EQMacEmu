@@ -713,7 +713,11 @@ void Client::CompleteConnect()
 	}
 
 	//enforce some rules..
-	if (!CanBeInZone()) {
+	if (!CheckZoneAccessWithGrace()) {
+		if (pop_raid_willing_grace_timer.Enabled()) {
+			ReturnToTranquility();
+			return;
+		}
 		Log(Logs::Detail, Logs::Status, "[CLIENT] Kicking char from zone, not allowed here");
 		if (RuleB(Quarm, RestrictIksarsToKunark) && zone)
 		{

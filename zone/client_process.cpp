@@ -86,6 +86,12 @@ bool Client::Process() {
 			SendAllPackets();
 		}
 
+		// Recheck borrowed planar access after raid removal, rez or reconnect.
+		if (Connected() && !IsLD() && !dead && !zoning &&
+			pop_raid_willing_check_timer.Enabled() && pop_raid_willing_check_timer.Check()) {
+			ProcessPopRaidWillingAccess();
+		}
+
 		//Accidental falling timer.
 		if (accidentalfall_timer.Enabled())
 		{
@@ -1338,6 +1344,10 @@ void Client::OPRezzAnswer(uint32 Action, uint32 SpellID, uint16 ZoneID, uint32 G
 		if (PendingRezzZoneID != 0 && PendingRezzZoneGuildID != 0)
 		{
 			MovePCGuildID(PendingRezzZoneID, PendingRezzZoneGuildID, x, y, z, GetHeading() * 2.0f, 0, ZoneSolicited);
+			// Only this accepted, server-validated rez may defer the destination flag check.
+			// The receiving zone still enforces level, expansion, PvP and other restrictions.
+			pop_raid_willing_rez_zone = PendingRezzZoneID;
+			pop_raid_willing_rez_guild = PendingRezzZoneGuildID;
 		}
 	}
 	PendingRezzZoneID = 0;

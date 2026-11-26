@@ -734,7 +734,7 @@ public:
 	bool	IsInLevelRange(uint8 maxlevel);
 
 	void GoToBind(uint8 bindnum = 0);
-	void BootFromGuildInstance(bool bForce = false);
+	void BootFromGuildInstance(bool bForce = false, bool raid_access_failure = false);
 	void GoToSafeCoords(uint16 zone_id, uint32 zone_guild_id);
 	void Gate();
 	void SetBindPoint(int to_zone = -1, const glm::vec3& location = glm::vec3());
@@ -1326,7 +1326,10 @@ public:
 	void OPRezzAnswer(uint32 Action, uint32 SpellID, uint16 ZoneID, uint32 GuildZoneID, float x, float y, float z);
 	bool IsUnderWater();
 	bool IsInWater();
-	bool CanBeInZone(uint32 zoneid = 0, uint32 guild_id = 0);
+	bool CanBeInZone(uint32 zoneid = 0, uint32 guild_id = 0, bool* raid_access_denied = nullptr);
+	bool CheckZoneAccessWithGrace();
+	void ProcessPopRaidWillingAccess();
+	void ReturnToTranquility();
 
 	// this is a TAKP enhancement that tries to give some leeway for /corpse drag range when the player is moving while dragging
 	// https://www.takproject.net/forums/index.php?threads/11-9-2022.23725/
@@ -1555,6 +1558,12 @@ private:
 
 	Timer zoning_timer;
 	Timer instance_boot_grace_timer;
+	Timer pop_raid_willing_check_timer;
+	Timer pop_raid_willing_grace_timer;
+	bool pop_raid_willing_flag_required = false;
+	bool pop_raid_willing_combat_recheck = false;
+	uint32 pop_raid_willing_rez_zone = 0;
+	uint32 pop_raid_willing_rez_guild = 0;
 
     glm::vec3 m_Proximity;
 
