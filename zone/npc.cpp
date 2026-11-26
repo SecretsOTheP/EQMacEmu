@@ -133,10 +133,13 @@ NPC::NPC(const NPCType *npc_type_data, Spawn2* in_respawn, const glm::vec4& posi
 	m_GuardPoint(-1.0f, -1.0f, -1.0f, 0.0f),
 	m_GuardPointSaved(0.0f, 0.0f, 0.0f, 0.0f)
 {
-	//What is the point of this, since the names get mangled..
-	Mob* mob = entity_list.GetMob(name);
-	if (mob != nullptr) {
-		entity_list.RemoveEntity(mob->GetID());
+	// Never remove an existing entity because it shares this raw name; MakeNameUnique() below
+	// already makes ours unique. Deleting a matching Client freed it mid-Process (poair 8, 11/10/2026).
+	if (Mob* existing = entity_list.GetMob(name)) {
+		LogError("NPC name collision: new NPC [{}] npc_type [{}] matches existing {} [{}] id [{}]; leaving it alone",
+			name, npc_type_data->npc_id,
+			existing->IsClient() ? "client" : (existing->IsCorpse() ? "corpse" : "mob"),
+			existing->GetName(), existing->GetID());
 	}
 	loot_lockout_timer = 0;
 	instance_spawn_timer_override = 0;
